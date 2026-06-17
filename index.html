@@ -7,9 +7,11 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="start-menu">
+    <section id="start-menu">
         <div class="menu-content">
-            <h1 class="game-title">VOID ESCAPE</h1>
+            <header>
+                <h1 class="game-title">VOID ESCAPE</h1>
+            </header>
 
             <div class="control-group">
                 <label for="maze-degree">Maze Degree: <span id="degree-val">8</span></label>
@@ -35,25 +37,26 @@
 
             <button id="start-btn">GENERATE MAZE</button>
         </div>
-    </div>
+    </section>
 
-    <div id="victory-screen" style="display: none;">
+    <section id="victory-screen" class="hidden">
         <div class="menu-content victory">
             <h1>Mission Accomplished</h1>
             <p>You have successfully navigated the 3D void.</p>
             <button id="restart-btn">PLAY AGAIN</button>
         </div>
-    </div>
+    </section>
 
-    <div id="game-over-screen" style="display: none;">
+    <section id="game-over-screen" class="hidden">
         <div class="menu-content death">
             <h1>Terminated</h1>
             <p>You were caught by the void hunters.</p>
             <button id="retry-btn">TRY AGAIN</button>
         </div>
-    </div>
+    </section>
 
-    <div id="hazard-warning" style="display: none;">ENEMY IS HUNTING YOU</div>
+    <div id="hazard-warning" class="hidden">ENEMY IS HUNTING YOU</div>
+    <div id="nearby-warning" class="hidden">HUNTER IS NEARBY</div>
 
     <main id="game-container">
         <!-- Primary 2D Navigation Map -->
@@ -79,8 +82,15 @@
             <div class="legend-item"><span class="symbol-box">▲/▼</span> Elevator</div>
         </aside>
         
+        <!-- Mobile Controls Panel -->
+        <nav id="mobile-controls" class="hidden">
+            <button id="mobile-up" class="mobile-btn" disabled aria-label="Subir de andar">▲</button>
+            <button id="mobile-map" class="mobile-btn" aria-label="Abrir mapa">MAP</button>
+            <button id="mobile-down" class="mobile-btn" disabled aria-label="Descer de andar">▼</button>
+        </nav>
+        
         <!-- 3D Holographic Map Container -->
-        <div id="map3d-container" style="display: none;">
+        <div id="map3d-container" class="hidden">
             <div id="map3d-instructions">Arraste para girar | Scroll para zoom | M para voltar</div>
         </div>
     </main>

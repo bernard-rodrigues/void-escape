@@ -37,6 +37,11 @@ const CONFIG = {
  * Enemy Hunter Logic
  */
 class Hunter {
+    /**
+     * @param {Maze3D} maze - The maze instance
+     * @param {Object} startPos - Initial {x, y, z} position
+     * @param {number} id - Unique identifier
+     */
     constructor(maze, startPos, id) {
         this.maze = maze;
         this.x = startPos.x;
@@ -47,6 +52,12 @@ class Hunter {
         this.lastPos = { x: this.x, y: this.y, z: this.z };
     }
 
+    /**
+     * Moves the hunter based on player trail or random wandering
+     * @param {Object} playerPos - Player's current {x, y, z}
+     * @param {Array} matrix - The 3D maze matrix
+     * @param {Object} types - Cell type enum
+     */
     move(playerPos, matrix, types) {
         const neighbors = this.getValidNeighbors(matrix, types);
         if (neighbors.length === 0) return;
@@ -81,6 +92,9 @@ class Hunter {
         this.z = next.z;
     }
 
+    /**
+     * Gets non-wall adjacent neighbors
+     */
     getValidNeighbors(matrix, types) {
         const neighbors = [];
         const dirs = [
@@ -104,6 +118,10 @@ class Hunter {
  * 3D Maze Logic Handler
  */
 class Maze3D {
+    /**
+     * @param {number} degree - Grid size (n x n x n)
+     * @param {number} branchingFactor - Probability of branching during generation
+     */
     constructor(degree, branchingFactor) {
         this.n = Math.max(3, Math.min(50, degree));
         this.branchingFactor = Math.max(0, Math.min(1, branchingFactor));
@@ -120,6 +138,9 @@ class Maze3D {
         );
     }
 
+    /**
+     * Generates a 3D maze using Randomized Prim's/Kruskal-like DFS
+     */
     generate() {
         const cells = [];
         const startX = 1 + 2 * Math.floor(Math.random() * this.n);
@@ -185,14 +206,21 @@ class Maze3D {
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
 class Engine {
+    /**
+     * @param {number} degree - Maze size
+     * @param {number} branchingFactor - Complexity
+     * @param {string} movementMode - 'tank' or 'direct'
+     */
     constructor(degree, branchingFactor, movementMode) {
         this.canvas = document.getElementById('main-2d-canvas');
         this.ctx = this.canvas.getContext('2d');
-        this.floorSpan = document.getElementById('current-floor');
-        this.map3dContainer = document.getElementById('map3d-container');
-        this.hazardWarning = document.getElementById('hazard-warning');
+        this.uiFloorSpan = document.getElementById('current-floor');
+        this.uiMap3dContainer = document.getElementById('map3d-container');
+        this.uiHazardWarning = document.getElementById('hazard-warning');
+        this.uiNearbyWarning = document.getElementById('nearby-warning');
+        this.uiMobileControls = document.getElementById('mobile-controls');
         
-        this.movementMode = movementMode; // 'tank' or 'direct'
+        this.movementMode = movementMode;
         this.mazeGen = new Maze3D(degree, branchingFactor);
         this.maze = this.mazeGen.generate();
         
@@ -212,6 +240,11 @@ class Engine {
         
         this.initThree();
         this.init();
+
+        // Show mobile controls if portrait
+        if (window.innerHeight > window.innerWidth) {
+            this.uiMobileControls.classList.remove('hidden');
+        }
     }
 
     initHunters(degree) {
@@ -270,26 +303,35 @@ class Engine {
 
     triggerVictory() {
         this.isGameOver = true;
+        this.hideGameUI();
         const victoryScreen = document.getElementById('victory-screen');
-        victoryScreen.style.display = 'flex';
+        victoryScreen.classList.remove('hidden');
         
         const restartBtn = document.getElementById('restart-btn');
         restartBtn.onclick = () => {
-            victoryScreen.style.display = 'none';
-            document.getElementById('start-menu').style.display = 'flex';
+            victoryScreen.classList.add('hidden');
+            document.getElementById('start-menu').classList.remove('hidden');
         };
     }
 
     triggerDeath() {
         this.isGameOver = true;
+        this.hideGameUI();
         const deathScreen = document.getElementById('game-over-screen');
-        deathScreen.style.display = 'flex';
+        deathScreen.classList.remove('hidden');
         
         const retryBtn = document.getElementById('retry-btn');
         retryBtn.onclick = () => {
-            deathScreen.style.display = 'none';
-            document.getElementById('start-menu').style.display = 'flex';
+            deathScreen.classList.add('hidden');
+            document.getElementById('start-menu').classList.remove('hidden');
         };
+    }
+
+    hideGameUI() {
+        this.uiMobileControls.classList.add('hidden');
+        this.uiHazardWarning.classList.add('hidden');
+        this.uiNearbyWarning.classList.add('hidden');
+        this.canvas.classList.remove('hunted-map-effect');
     }
 
     initThree() {
@@ -297,7 +339,7 @@ class Engine {
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.map3dContainer.appendChild(this.renderer.domElement);
+        this.uiMap3dContainer.appendChild(this.renderer.domElement);
         
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
@@ -313,6 +355,36 @@ class Engine {
         });
         window.addEventListener('keyup', e => this.keys[e.key.toLowerCase()] = false);
         window.addEventListener('resize', () => this.resize());
+
+        // Mobile Button Handlers
+        document.getElementById('mobile-up').onclick = () => this.changeFloor(1);
+        document.getElementById('mobile-down').onclick = () => this.changeFloor(-1);
+        document.getElementById('mobile-map').onclick = () => this.toggleMap3D();
+
+        // Touch Controls for Canvas
+        this.touchStart = null;
+        this.canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            this.touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (!this.touchStart) return;
+            
+            const dx = e.touches[0].clientX - this.touchStart.x;
+            const dy = e.touches[0].clientY - this.touchStart.y;
+            const mag = Math.sqrt(dx * dx + dy * dy);
+            
+            if (mag > 10) { // Threshold
+                this.touchMoveVector = { x: dx / mag, y: dy / mag };
+            }
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchend', e => {
+            this.touchStart = null;
+            this.touchMoveVector = null;
+        });
         
         this.resize();
         this.updateFloorUI();
@@ -320,7 +392,8 @@ class Engine {
     }
 
     resize() {
-        const size = Math.min(window.innerWidth, window.innerHeight) * 0.9;
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const size = isPortrait ? window.innerWidth * 0.9 : window.innerHeight * 0.85;
         this.canvas.width = size;
         this.canvas.height = size;
         
@@ -332,7 +405,7 @@ class Engine {
     }
 
     updateFloorUI() {
-        if (this.floorSpan) this.floorSpan.innerText = this.player.z;
+        if (this.uiFloorSpan) this.uiFloorSpan.innerText = this.player.z;
     }
 
     update() {
@@ -343,8 +416,9 @@ class Engine {
         }
 
         let moveX = 0, moveY = 0;
+        const isPortrait = window.innerHeight > window.innerWidth;
 
-        if (this.movementMode === 'tank') {
+        if (!isPortrait && this.movementMode === 'tank') {
             // Tank Movement
             if (this.keys['a'] || this.keys['arrowleft']) this.player.dir -= CONFIG.ROT_SPEED;
             if (this.keys['d'] || this.keys['arrowright']) this.player.dir += CONFIG.ROT_SPEED;
@@ -358,19 +432,23 @@ class Engine {
                 moveY = -Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
             }
         } else {
-            // Direct Movement (Top-down style)
+            // Direct Movement (Top-down style) or Touch
             let dx = 0, dy = 0;
-            if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
-            if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
-            if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
-            if (this.keys['d'] || this.keys['arrowright']) dx += 1;
+            
+            if (this.touchMoveVector) {
+                dx = this.touchMoveVector.x;
+                dy = this.touchMoveVector.y;
+            } else {
+                if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
+                if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
+                if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
+                if (this.keys['d'] || this.keys['arrowright']) dx += 1;
+            }
 
             if (dx !== 0 || dy !== 0) {
-                // Normalize and apply speed
                 const mag = Math.sqrt(dx * dx + dy * dy);
                 moveX = (dx / mag) * CONFIG.MOVE_SPEED;
                 moveY = (dy / mag) * CONFIG.MOVE_SPEED;
-                // Update player direction immediately to move vector
                 this.player.dir = Math.atan2(moveY, moveX);
             }
         }
@@ -380,60 +458,78 @@ class Engine {
             const nextX = this.player.x + moveX;
             const nextY = this.player.y + moveY;
 
-            // Try X axis independently
-            const ix = Math.floor(nextX);
-            const cy = Math.floor(this.player.y);
-            if (ix >= 0 && ix < this.mazeGen.size && this.maze[ix][cy][this.player.z] !== this.mazeGen.TYPES.WALL) {
+            const gridIdxX = Math.floor(nextX);
+            const gridIdxY = Math.floor(this.player.y);
+            if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && this.maze[gridIdxX][gridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
                 this.player.x = nextX;
             }
 
-            // Try Y axis independently
-            const cx = Math.floor(this.player.x);
-            const iy = Math.floor(nextY);
-            if (iy >= 0 && iy < this.mazeGen.size && this.maze[cx][iy][this.player.z] !== this.mazeGen.TYPES.WALL) {
+            const currentGridIdxX = Math.floor(this.player.x);
+            const nextGridIdxY = Math.floor(nextY);
+            if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && this.maze[currentGridIdxX][nextGridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
                 this.player.y = nextY;
             }
 
-            // Victory check
-            const fx = Math.floor(this.player.x), fy = Math.floor(this.player.y);
-            if (this.maze[fx][fy][this.player.z] === this.mazeGen.TYPES.EXIT) {
+            const finalGridIdxX = Math.floor(this.player.x), finalGridIdxY = Math.floor(this.player.y);
+            if (this.maze[finalGridIdxX][finalGridIdxY][this.player.z] === this.mazeGen.TYPES.EXIT) {
                 this.triggerVictory();
             }
         }
 
-        const curX = Math.floor(this.player.x), curY = Math.floor(this.player.y);
-        if (curX >= 0 && curX < this.mazeGen.size && curY >= 0 && curY < this.mazeGen.size) {
-            if (this.maze[curX][curY][this.player.z] === this.mazeGen.TYPES.PATH) {
-                this.maze[curX][curY][this.player.z] = this.mazeGen.TYPES.VISITED;
+        const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
+        if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
+            if (this.maze[playerIdxX][playerIdxY][this.player.z] === this.mazeGen.TYPES.PATH) {
+                this.maze[playerIdxX][playerIdxY][this.player.z] = this.mazeGen.TYPES.VISITED;
             }
         }
 
         if (this.keys['e'] || this.keys['pageup']) this.changeFloor(1);
         if (this.keys['q'] || this.keys['pagedown']) this.changeFloor(-1);
 
+        // Update Mobile UI Buttons State
+        if (isPortrait) {
+            const upBtn = document.getElementById('mobile-up');
+            const downBtn = document.getElementById('mobile-down');
+            const floorX = Math.floor(this.player.x), floorY = Math.floor(this.player.y);
+            
+            const canGoUp = this.player.z < this.mazeGen.size - 1 && this.maze[floorX][floorY][this.player.z + 1] !== this.mazeGen.TYPES.WALL;
+            const canGoDown = this.player.z > 0 && this.maze[floorX][floorY][this.player.z - 1] !== this.mazeGen.TYPES.WALL;
+            
+            upBtn.disabled = !canGoUp;
+            downBtn.disabled = !canGoDown;
+        }
+
         // Hunters Logic
         const now = performance.now();
         if (now - this.lastHunterMove > CONFIG.HUNTER_SPEED) {
             this.lastHunterMove = now;
             let trackingCount = 0;
+            let nearbyCount = 0;
 
-            for (const h of this.hunters) {
-                h.move(this.player, this.maze, this.mazeGen.TYPES);
-                if (h.state === 'TRACKING') trackingCount++;
+            for (const hunter of this.hunters) {
+                hunter.move(this.player, this.maze, this.mazeGen.TYPES);
+                if (hunter.state === 'TRACKING') trackingCount++;
                 
-                // Collision check
-                if (h.x === Math.floor(this.player.x) && h.y === Math.floor(this.player.y) && h.z === this.player.z) {
+                // Proximity check (delta Z <= 1)
+                if (Math.abs(hunter.z - this.player.z) <= 1) nearbyCount++;
+
+                if (hunter.x === Math.floor(this.player.x) && hunter.y === Math.floor(this.player.y) && hunter.z === this.player.z) {
                     this.triggerDeath();
                 }
             }
 
-            // Update UI
             if (trackingCount > 0) {
-                this.hazardWarning.style.display = 'block';
+                this.uiHazardWarning.classList.remove('hidden');
                 this.canvas.classList.add('hunted-map-effect');
             } else {
-                this.hazardWarning.style.display = 'none';
+                this.uiHazardWarning.classList.add('hidden');
                 this.canvas.classList.remove('hunted-map-effect');
+            }
+
+            if (nearbyCount > 0) {
+                this.uiNearbyWarning.classList.remove('hidden');
+            } else {
+                this.uiNearbyWarning.classList.add('hidden');
             }
         }
     }
