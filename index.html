@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Maze Navigator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="start-menu">
+        <div class="menu-content">
+            <h1 class="game-title">VOID ESCAPE</h1>
+
+            <div class="control-group">
+                <label for="maze-degree">Maze Degree: <span id="degree-val">8</span></label>
+                <div class="hunter-info">Active Hunters: <span id="hunter-count">1</span></div>
+                <input type="range" id="maze-degree" min="3" max="50" value="8">
+                <p class="hint">Controls the grid size. Higher values create larger, more complex mazes.</p>
+            </div>
+
+            <div class="control-group">
+                <label for="branching-factor">Branching Factor: <span id="branch-val">0.30</span></label>
+                <input type="range" id="branching-factor" min="0" max="1" step="0.05" value="0.3">
+                <p class="hint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
+            </div>
+
+            <div class="control-group">
+                <label for="movement-mode">Movement Mode:</label>
+                <select id="movement-mode">
+                    <option value="tank">Tank Controls (Classic)</option>
+                    <option value="direct" selected>Direct Movement (Modern)</option>
+                </select>
+                <p class="hint">Tank: Rotate with A/D, move with W/S. Direct: Move immediately in the key's direction.</p>
+            </div>
+
+            <button id="start-btn">GENERATE MAZE</button>
+        </div>
+    </div>
+
+    <div id="victory-screen" style="display: none;">
+        <div class="menu-content victory">
+            <h1>Mission Accomplished</h1>
+            <p>You have successfully navigated the 3D void.</p>
+            <button id="restart-btn">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <div id="game-over-screen" style="display: none;">
+        <div class="menu-content death">
+            <h1>Terminated</h1>
+            <p>You were caught by the void hunters.</p>
+            <button id="retry-btn">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <div id="hazard-warning" style="display: none;">ENEMY IS HUNTING YOU</div>
+
+    <main id="game-container">
+        <!-- Primary 2D Navigation Map -->
+        <canvas id="main-2d-canvas" aria-label="Mapa de navegação 2D do labirinto"></canvas>
+        
+        <section id="ui-overlay">
+            <div id="floor-display" aria-live="polite">Andar: <span id="current-floor">0</span></div>
+        </section>
+
+        <aside id="controls-hint">
+            Setas ou WASD: Mover/Girar<br>
+            PgUp/PgDn ou Q/E: Subir/Descer<br>
+            <strong>M: Mapa Holográfico 3D</strong>
+        </aside>
+
+        <aside id="map-legend">
+            <h3>MAP LEGEND</h3>
+            <div class="legend-item"><span class="color-box" style="background: #555;"></span> Visited Path</div>
+            <div class="legend-item"><span class="color-box" style="background: #5588aa;"></span> Known Path</div>
+            <div class="legend-item"><span class="color-box" style="background: #ff0;"></span> Starting Point</div>
+            <div class="legend-item"><span class="color-box" style="background: #0f0;"></span> Maze Exit</div>
+            <div class="legend-item"><span class="color-box" style="background: #a0f;"></span> Void Hunter</div>
+            <div class="legend-item"><span class="symbol-box">▲/▼</span> Elevator</div>
+        </aside>
+        
+        <!-- 3D Holographic Map Container -->
+        <div id="map3d-container" style="display: none;">
+            <div id="map3d-instructions">Arraste para girar | Scroll para zoom | M para voltar</div>
+        </div>
+    </main>
+
+    <!-- Three.js Library -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
