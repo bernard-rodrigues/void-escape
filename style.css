@@ -189,6 +189,31 @@ body {
     box-shadow: 0 0 calc(var(--d-h-unit) * 3) var(--clr-neon);
 }
 
+.end-game-btns {
+    display: flex;
+    justify-content: center;
+    gap: calc(var(--h-unit) * 2);
+    margin-top: calc(var(--h-unit) * 2);
+}
+
+.end-btn {
+    background: transparent;
+    border: calc(var(--h-unit) * 0.2) solid currentColor;
+    color: inherit;
+    padding: calc(var(--h-unit) * 1.2) calc(var(--h-unit) * 2.5);
+    font-size: calc(var(--h-unit) * 2);
+    font-family: inherit;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.end-btn:hover {
+    background: currentColor;
+    color: #000 !important;
+}
+
 #victory-screen {
     position: fixed;
     top: 0;
@@ -205,6 +230,7 @@ body {
 
 .menu-content.victory {
     border-color: var(--clr-victory);
+    color: var(--clr-victory);
     box-shadow: 0 0 calc(var(--h-unit) * 3) rgba(0, 255, 0, 0.2);
     box-shadow: 0 0 calc(var(--d-h-unit) * 3) rgba(0, 255, 0, 0.2);
 }
@@ -212,42 +238,12 @@ body {
 .menu-content.victory h1 {
     color: var(--clr-victory);
     text-shadow: 0 0 var(--h-unit) var(--clr-victory);
-    text-shadow: 0 0 var(--d-h-unit) var(--clr-victory);
 }
 
 .menu-content.victory p {
     color: var(--clr-text);
     margin-bottom: calc(var(--h-unit) * 3);
-    margin-bottom: calc(var(--d-h-unit) * 3);
     font-size: calc(var(--h-unit) * 2.2);
-    font-size: calc(var(--d-h-unit) * 2.2);
-}
-
-#restart-btn {
-    background: transparent;
-    border: calc(var(--h-unit) * 0.2) solid var(--clr-victory);
-    border: calc(var(--d-h-unit) * 0.2) solid var(--clr-victory);
-    color: var(--clr-victory);
-    padding: calc(var(--h-unit) * 1.5) calc(var(--h-unit) * 4);
-    padding: calc(var(--d-h-unit) * 1.5) calc(var(--d-h-unit) * 4);
-    font-size: calc(var(--h-unit) * 2.5);
-    font-size: calc(var(--d-h-unit) * 2.5);
-    font-family: inherit;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: calc(var(--h-unit) * 0.2);
-    letter-spacing: calc(var(--d-h-unit) * 0.2);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 0 var(--h-unit) rgba(0, 255, 0, 0.3);
-    box-shadow: 0 0 var(--d-h-unit) rgba(0, 255, 0, 0.3);
-}
-
-#restart-btn:hover {
-    background: var(--clr-victory);
-    color: #000;
-    box-shadow: 0 0 calc(var(--h-unit) * 3) var(--clr-victory);
-    box-shadow: 0 0 calc(var(--d-h-unit) * 3) var(--clr-victory);
 }
 
 #game-over-screen {
@@ -266,6 +262,7 @@ body {
 
 .menu-content.death {
     border-color: var(--clr-hazard);
+    color: var(--clr-hazard);
     box-shadow: 0 0 calc(var(--h-unit) * 3) rgba(255, 0, 0, 0.2);
     box-shadow: 0 0 calc(var(--d-h-unit) * 3) rgba(255, 0, 0, 0.2);
 }
@@ -273,34 +270,6 @@ body {
 .menu-content.death h1 {
     color: var(--clr-hazard);
     text-shadow: 0 0 var(--h-unit) var(--clr-hazard);
-    text-shadow: 0 0 var(--d-h-unit) var(--clr-hazard);
-}
-
-#retry-btn {
-    background: transparent;
-    border: calc(var(--h-unit) * 0.2) solid var(--clr-hazard);
-    border: calc(var(--d-h-unit) * 0.2) solid var(--clr-hazard);
-    color: var(--clr-hazard);
-    padding: calc(var(--h-unit) * 1.5) calc(var(--h-unit) * 4);
-    padding: calc(var(--d-h-unit) * 1.5) calc(var(--d-h-unit) * 4);
-    font-size: calc(var(--h-unit) * 2.5);
-    font-size: calc(var(--d-h-unit) * 2.5);
-    font-family: inherit;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: calc(var(--h-unit) * 0.2);
-    letter-spacing: calc(var(--d-h-unit) * 0.2);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 0 var(--h-unit) rgba(255, 0, 0, 0.3);
-    box-shadow: 0 0 var(--d-h-unit) rgba(255, 0, 0, 0.3);
-}
-
-#retry-btn:hover {
-    background: var(--clr-hazard);
-    color: #000;
-    box-shadow: 0 0 calc(var(--h-unit) * 3) var(--clr-hazard);
-    box-shadow: 0 0 calc(var(--d-h-unit) * 3) var(--clr-hazard);
 }
 
 #hazard-warning {
@@ -504,6 +473,10 @@ body {
     line-height: 1.6;
 }
 
+#mobile-controls {
+    display: none; /* Hidden by default for PC */
+}
+
 /* --- Mobile / Portrait Adjustments --- */
 @media (orientation: portrait) {
     #game-container {
@@ -535,7 +508,7 @@ body {
     }
 
     #mobile-controls {
-        display: flex;
+        display: flex; /* Active only in portrait when .hidden is removed */
         position: fixed;
         bottom: 0;
         left: 0;

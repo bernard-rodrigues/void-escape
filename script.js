@@ -33,15 +33,12 @@ const CONFIG = {
     }
 };
 
+let currentGame = null;
+
 /**
  * Enemy Hunter Logic
  */
 class Hunter {
-    /**
-     * @param {Maze3D} maze - The maze instance
-     * @param {Object} startPos - Initial {x, y, z} position
-     * @param {number} id - Unique identifier
-     */
     constructor(maze, startPos, id) {
         this.maze = maze;
         this.x = startPos.x;
@@ -52,36 +49,25 @@ class Hunter {
         this.lastPos = { x: this.x, y: this.y, z: this.z };
     }
 
-    /**
-     * Moves the hunter based on player trail or random wandering
-     * @param {Object} playerPos - Player's current {x, y, z}
-     * @param {Array} matrix - The 3D maze matrix
-     * @param {Object} types - Cell type enum
-     */
     move(playerPos, matrix, types) {
         const neighbors = this.getValidNeighbors(matrix, types);
         if (neighbors.length === 0) return;
 
-        // Check if current cell is visited by player
         if (matrix[this.x][this.y][this.z] === types.VISITED) {
             this.state = 'TRACKING';
         }
 
         let next;
         if (this.state === 'TRACKING') {
-            // Filter neighbors to only VISITED cells
             const trail = neighbors.filter(n => matrix[n.x][n.y][n.z] === types.VISITED || matrix[n.x][n.y][n.z] === types.START || matrix[n.x][n.y][n.z] === types.EXIT);
             
             if (trail.length > 0) {
-                // Randomly explore the trail (or could be DFS)
                 next = trail[Math.floor(Math.random() * trail.length)];
             } else {
-                // Lost the trail
                 this.state = 'WANDERING';
                 next = neighbors[Math.floor(Math.random() * neighbors.length)];
             }
         } else {
-            // Wandering: Prefer not going back
             const forward = neighbors.filter(n => n.x !== this.lastPos.x || n.y !== this.lastPos.y || n.z !== this.lastPos.z);
             next = forward.length > 0 ? forward[Math.floor(Math.random() * forward.length)] : neighbors[0];
         }
@@ -92,9 +78,6 @@ class Hunter {
         this.z = next.z;
     }
 
-    /**
-     * Gets non-wall adjacent neighbors
-     */
     getValidNeighbors(matrix, types) {
         const neighbors = [];
         const dirs = [
@@ -118,10 +101,6 @@ class Hunter {
  * 3D Maze Logic Handler
  */
 class Maze3D {
-    /**
-     * @param {number} degree - Grid size (n x n x n)
-     * @param {number} branchingFactor - Probability of branching during generation
-     */
     constructor(degree, branchingFactor) {
         this.n = Math.max(3, Math.min(50, degree));
         this.branchingFactor = Math.max(0, Math.min(1, branchingFactor));
@@ -138,9 +117,6 @@ class Maze3D {
         );
     }
 
-    /**
-     * Generates a 3D maze using Randomized Prim's/Kruskal-like DFS
-     */
     generate() {
         const cells = [];
         const startX = 1 + 2 * Math.floor(Math.random() * this.n);
@@ -206,12 +182,11 @@ class Maze3D {
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
 class Engine {
-    /**
-     * @param {number} degree - Maze size
-     * @param {number} branchingFactor - Complexity
-     * @param {string} movementMode - 'tank' or 'direct'
-     */
     constructor(degree, branchingFactor, movementMode) {
+        this.degree = degree;
+        this.branchingFactor = branchingFactor;
+        this.movementMode = movementMode;
+
         this.canvas = document.getElementById('main-2d-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.uiFloorSpan = document.getElementById('current-floor');
@@ -220,7 +195,6 @@ class Engine {
         this.uiNearbyWarning = document.getElementById('nearby-warning');
         this.uiMobileControls = document.getElementById('mobile-controls');
         
-        this.movementMode = movementMode;
         this.mazeGen = new Maze3D(degree, branchingFactor);
         this.maze = this.mazeGen.generate();
         
@@ -237,35 +211,40 @@ class Engine {
         this.keys = {};
         this.isMap3DActive = false;
         this.isGameOver = false;
+        this.isDestroyed = false;
         
         this.initThree();
         this.init();
 
-        // Show mobile controls if portrait
-        if (window.innerHeight > window.innerWidth) {
-            this.uiMobileControls.classList.remove('hidden');
+        // Always show mobile controls container, CSS manages portrait visibility
+        this.uiMobileControls.classList.remove('hidden');
+    }
+
+    destroy() {
+        this.isDestroyed = true;
+        this.hideGameUI();
+        window.removeEventListener('keydown', this.handleKeyDown);
+        window.removeEventListener('keyup', this.handleKeyUp);
+        window.removeEventListener('resize', this.handleResize);
+        
+        if (this.renderer) {
+            this.renderer.dispose();
+            this.renderer.domElement.remove();
         }
+        
+        // Clean up listeners on mobile buttons
+        document.getElementById('mobile-up').onclick = null;
+        document.getElementById('mobile-down').onclick = null;
+        document.getElementById('mobile-map').onclick = null;
     }
 
     initHunters(degree) {
         if (degree < 8) return;
-
         const size = this.mazeGen.size;
         const mid = Math.floor(size / 2);
-
-        // Hunter 1: Always at EXIT
         this.hunters.push(new Hunter(this.mazeGen, this.getExitPos(), 1));
-
-        // Hunter 2: x=max, y=1, z=mid
-        if (degree >= 20) {
-            this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(size - 2, 1, mid), 2));
-        }
-
-        // Hunter 3: x=1, y=max, z=mid
-        if (degree >= 35) {
-            this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(1, size - 2, mid), 3));
-        }
-
+        if (degree >= 20) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(size - 2, 1, mid), 2));
+        if (degree >= 35) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(1, size - 2, mid), 3));
         this.lastHunterMove = performance.now();
     }
 
@@ -284,16 +263,12 @@ class Engine {
         let best = { x: tx, y: ty, z: tz };
         let minDist = Infinity;
         const s = this.mazeGen.size;
-
         for (let x = 0; x < s; x++) {
             for (let y = 0; y < s; y++) {
                 for (let z = 0; z < s; z++) {
                     if (this.maze[x][y][z] !== 0) {
                         const dist = Math.abs(x - tx) + Math.abs(y - ty) + Math.abs(z - tz);
-                        if (dist < minDist) {
-                            minDist = dist;
-                            best = { x, y, z };
-                        }
+                        if (dist < minDist) { minDist = dist; best = { x, y, z }; }
                     }
                 }
             }
@@ -304,34 +279,22 @@ class Engine {
     triggerVictory() {
         this.isGameOver = true;
         this.hideGameUI();
-        const victoryScreen = document.getElementById('victory-screen');
-        victoryScreen.classList.remove('hidden');
-        
-        const restartBtn = document.getElementById('restart-btn');
-        restartBtn.onclick = () => {
-            victoryScreen.classList.add('hidden');
-            document.getElementById('start-menu').classList.remove('hidden');
-        };
+        document.getElementById('victory-screen').classList.remove('hidden');
     }
 
     triggerDeath() {
         this.isGameOver = true;
         this.hideGameUI();
-        const deathScreen = document.getElementById('game-over-screen');
-        deathScreen.classList.remove('hidden');
-        
-        const retryBtn = document.getElementById('retry-btn');
-        retryBtn.onclick = () => {
-            deathScreen.classList.add('hidden');
-            document.getElementById('start-menu').classList.remove('hidden');
-        };
+        document.getElementById('game-over-screen').classList.remove('hidden');
     }
 
     hideGameUI() {
         this.uiMobileControls.classList.add('hidden');
         this.uiHazardWarning.classList.add('hidden');
         this.uiNearbyWarning.classList.add('hidden');
+        this.uiMap3dContainer.classList.add('hidden');
         this.canvas.classList.remove('hunted-map-effect');
+        this.isMap3DActive = false;
     }
 
     initThree() {
@@ -340,28 +303,29 @@ class Engine {
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.uiMap3dContainer.appendChild(this.renderer.domElement);
-        
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
     }
 
     init() {
         const preventScroll = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'pageup', 'pagedown'];
-        window.addEventListener('keydown', e => {
+        this.handleKeyDown = e => {
             const key = e.key.toLowerCase();
             this.keys[key] = true;
             if (preventScroll.includes(key)) e.preventDefault();
             if (key === 'm') this.toggleMap3D();
-        });
-        window.addEventListener('keyup', e => this.keys[e.key.toLowerCase()] = false);
-        window.addEventListener('resize', () => this.resize());
+        };
+        this.handleKeyUp = e => this.keys[e.key.toLowerCase()] = false;
+        this.handleResize = () => this.resize();
 
-        // Mobile Button Handlers
+        window.addEventListener('keydown', this.handleKeyDown);
+        window.addEventListener('keyup', this.handleKeyUp);
+        window.addEventListener('resize', this.handleResize);
+
         document.getElementById('mobile-up').onclick = () => this.changeFloor(1);
         document.getElementById('mobile-down').onclick = () => this.changeFloor(-1);
         document.getElementById('mobile-map').onclick = () => this.toggleMap3D();
 
-        // Touch Controls for Canvas
         this.touchStart = null;
         this.canvas.addEventListener('touchstart', e => {
             e.preventDefault();
@@ -371,20 +335,13 @@ class Engine {
         this.canvas.addEventListener('touchmove', e => {
             e.preventDefault();
             if (!this.touchStart) return;
-            
             const dx = e.touches[0].clientX - this.touchStart.x;
             const dy = e.touches[0].clientY - this.touchStart.y;
             const mag = Math.sqrt(dx * dx + dy * dy);
-            
-            if (mag > 10) { // Threshold
-                this.touchMoveVector = { x: dx / mag, y: dy / mag };
-            }
+            if (mag > 10) this.touchMoveVector = { x: dx / mag, y: dy / mag };
         }, { passive: false });
 
-        this.canvas.addEventListener('touchend', e => {
-            this.touchStart = null;
-            this.touchMoveVector = null;
-        });
+        this.canvas.addEventListener('touchend', () => { this.touchStart = null; this.touchMoveVector = null; });
         
         this.resize();
         this.updateFloorUI();
@@ -396,7 +353,6 @@ class Engine {
         const size = isPortrait ? window.innerWidth * 0.9 : window.innerHeight * 0.85;
         this.canvas.width = size;
         this.canvas.height = size;
-        
         if (this.renderer) {
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -404,25 +360,18 @@ class Engine {
         }
     }
 
-    updateFloorUI() {
-        if (this.uiFloorSpan) this.uiFloorSpan.innerText = this.player.z;
-    }
+    updateFloorUI() { if (this.uiFloorSpan) this.uiFloorSpan.innerText = this.player.z; }
 
     update() {
-        if (this.isGameOver) return;
-        if (this.isMap3DActive) {
-            this.controls.update();
-            return;
-        }
+        if (this.isGameOver || this.isDestroyed) return;
+        if (this.isMap3DActive) { this.controls.update(); return; }
 
         let moveX = 0, moveY = 0;
         const isPortrait = window.innerHeight > window.innerWidth;
 
         if (!isPortrait && this.movementMode === 'tank') {
-            // Tank Movement
             if (this.keys['a'] || this.keys['arrowleft']) this.player.dir -= CONFIG.ROT_SPEED;
             if (this.keys['d'] || this.keys['arrowright']) this.player.dir += CONFIG.ROT_SPEED;
-
             if (this.keys['w'] || this.keys['arrowup']) {
                 moveX = Math.cos(this.player.dir) * CONFIG.MOVE_SPEED;
                 moveY = Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
@@ -432,19 +381,14 @@ class Engine {
                 moveY = -Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
             }
         } else {
-            // Direct Movement (Top-down style) or Touch
             let dx = 0, dy = 0;
-            
-            if (this.touchMoveVector) {
-                dx = this.touchMoveVector.x;
-                dy = this.touchMoveVector.y;
-            } else {
+            if (this.touchMoveVector) { dx = this.touchMoveVector.x; dy = this.touchMoveVector.y; }
+            else {
                 if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
                 if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
                 if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
                 if (this.keys['d'] || this.keys['arrowright']) dx += 1;
             }
-
             if (dx !== 0 || dy !== 0) {
                 const mag = Math.sqrt(dx * dx + dy * dy);
                 moveX = (dx / mag) * CONFIG.MOVE_SPEED;
@@ -454,26 +398,20 @@ class Engine {
         }
 
         if (moveX !== 0 || moveY !== 0) {
-            // Wall Sliding Logic
             const nextX = this.player.x + moveX;
             const nextY = this.player.y + moveY;
-
             const gridIdxX = Math.floor(nextX);
             const gridIdxY = Math.floor(this.player.y);
             if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && this.maze[gridIdxX][gridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
                 this.player.x = nextX;
             }
-
             const currentGridIdxX = Math.floor(this.player.x);
             const nextGridIdxY = Math.floor(nextY);
             if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && this.maze[currentGridIdxX][nextGridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
                 this.player.y = nextY;
             }
-
             const finalGridIdxX = Math.floor(this.player.x), finalGridIdxY = Math.floor(this.player.y);
-            if (this.maze[finalGridIdxX][finalGridIdxY][this.player.z] === this.mazeGen.TYPES.EXIT) {
-                this.triggerVictory();
-            }
+            if (this.maze[finalGridIdxX][finalGridIdxY][this.player.z] === this.mazeGen.TYPES.EXIT) this.triggerVictory();
         }
 
         const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
@@ -486,51 +424,29 @@ class Engine {
         if (this.keys['e'] || this.keys['pageup']) this.changeFloor(1);
         if (this.keys['q'] || this.keys['pagedown']) this.changeFloor(-1);
 
-        // Update Mobile UI Buttons State
         if (isPortrait) {
             const upBtn = document.getElementById('mobile-up');
             const downBtn = document.getElementById('mobile-down');
             const floorX = Math.floor(this.player.x), floorY = Math.floor(this.player.y);
-            
-            const canGoUp = this.player.z < this.mazeGen.size - 1 && this.maze[floorX][floorY][this.player.z + 1] !== this.mazeGen.TYPES.WALL;
-            const canGoDown = this.player.z > 0 && this.maze[floorX][floorY][this.player.z - 1] !== this.mazeGen.TYPES.WALL;
-            
-            upBtn.disabled = !canGoUp;
-            downBtn.disabled = !canGoDown;
+            upBtn.disabled = !(this.player.z < this.mazeGen.size - 1 && this.maze[floorX][floorY][this.player.z + 1] !== this.mazeGen.TYPES.WALL);
+            downBtn.disabled = !(this.player.z > 0 && this.maze[floorX][floorY][this.player.z - 1] !== this.mazeGen.TYPES.WALL);
         }
 
-        // Hunters Logic
         const now = performance.now();
         if (now - this.lastHunterMove > CONFIG.HUNTER_SPEED) {
             this.lastHunterMove = now;
             let trackingCount = 0;
             let nearbyCount = 0;
-
             for (const hunter of this.hunters) {
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
                 if (hunter.state === 'TRACKING') trackingCount++;
-                
-                // Proximity check (delta Z <= 1)
                 if (Math.abs(hunter.z - this.player.z) <= 1) nearbyCount++;
-
-                if (hunter.x === Math.floor(this.player.x) && hunter.y === Math.floor(this.player.y) && hunter.z === this.player.z) {
-                    this.triggerDeath();
-                }
+                if (hunter.x === Math.floor(this.player.x) && hunter.y === Math.floor(this.player.y) && hunter.z === this.player.z) this.triggerDeath();
             }
-
-            if (trackingCount > 0) {
-                this.uiHazardWarning.classList.remove('hidden');
-                this.canvas.classList.add('hunted-map-effect');
-            } else {
-                this.uiHazardWarning.classList.add('hidden');
-                this.canvas.classList.remove('hunted-map-effect');
-            }
-
-            if (nearbyCount > 0) {
-                this.uiNearbyWarning.classList.remove('hidden');
-            } else {
-                this.uiNearbyWarning.classList.add('hidden');
-            }
+            if (trackingCount > 0) { this.uiHazardWarning.classList.remove('hidden'); this.canvas.classList.add('hunted-map-effect'); }
+            else { this.uiHazardWarning.classList.add('hidden'); this.canvas.classList.remove('hunted-map-effect'); }
+            if (nearbyCount > 0) this.uiNearbyWarning.classList.remove('hidden');
+            else this.uiNearbyWarning.classList.add('hidden');
         }
     }
 
@@ -550,8 +466,15 @@ class Engine {
 
     toggleMap3D() {
         this.isMap3DActive = !this.isMap3DActive;
-        this.map3dContainer.style.display = this.isMap3DActive ? 'block' : 'none';
-        if (this.isMap3DActive) this.build3DMap();
+        if (this.isMap3DActive) {
+            this.uiMap3dContainer.classList.remove('hidden');
+            this.build3DMap();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+        } else {
+            this.uiMap3dContainer.classList.add('hidden');
+        }
     }
 
     build3DMap() {
@@ -570,36 +493,20 @@ class Engine {
                     const val = this.maze[x][y][z];
                     const isVisited = val >= 2;
                     const isKnown = val === 1 && this.isNearVisited(x, y, z);
-
                     if (isVisited || isKnown) {
                         let color = CONFIG.COLORS.THREE_KNOWN;
-                        let opacity = 0.7;
-
                         if (isVisited) {
                             color = CONFIG.COLORS.THREE_VISITED;
                             if (val === 3) color = CONFIG.COLORS.THREE_START;
                             else if (val === 4) color = CONFIG.COLORS.THREE_EXIT;
                         }
-
                         const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
                         const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
-
                         let material;
                         if (hUp || hDown) {
                             const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
-                            material = new THREE.MeshPhongMaterial({ 
-                                color: elevatorColor, 
-                                transparent: true, opacity: 0.9,
-                                emissive: elevatorColor, emissiveIntensity: 0.4
-                            });
-                        } else {
-                            material = new THREE.MeshPhongMaterial({ 
-                                color: color, 
-                                transparent: true, 
-                                opacity: isVisited ? 0.8 : 0.6 
-                            });
-                        }
-
+                            material = new THREE.MeshPhongMaterial({ color: elevatorColor, transparent: true, opacity: 0.9, emissive: elevatorColor, emissiveIntensity: 0.4 });
+                        } else { material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: isVisited ? 0.8 : 0.6 }); }
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.position.set(x - size/2, z - size/2, y - size/2);
                         this.scene.add(mesh);
@@ -607,25 +514,16 @@ class Engine {
                 }
             }
         }
-
-        // Player
         const pMarker = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.THREE_PLAYER }));
         pMarker.position.set(this.player.x - size/2, this.player.z - size/2, this.player.y - size/2);
         this.scene.add(pMarker);
-
-        // Hunters in 3D
         const hGeom = new THREE.SphereGeometry(0.4);
-        const hMat = new THREE.MeshPhongMaterial({ 
-            color: CONFIG.COLORS.THREE_HUNTER, 
-            emissive: CONFIG.COLORS.THREE_HUNTER, 
-            emissiveIntensity: 0.8 
-        });
+        const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8 });
         for (const h of this.hunters) {
             const hMesh = new THREE.Mesh(hGeom, hMat);
             hMesh.position.set(h.x - size/2, h.z - size/2, h.y - size/2);
             this.scene.add(hMesh);
         }
-
         this.camera.position.set(size, size, size);
         this.controls.target.set(0, 0, 0);
         this.controls.update();
@@ -635,19 +533,15 @@ class Engine {
         const size = this.mazeGen.size;
         const cellSize = this.canvas.width / size;
         const { z, x: px, y: py, dir: pDir } = this.player;
-
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 const val = this.maze[x][y][z];
                 const isVisited = val >= 2;
                 const isKnown = val === 1 && this.isNearVisited(x, y, z);
-
                 if (isVisited) {
                     this.ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
                     this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    
                     const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
                     const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
                     if (hUp || hDown) {
@@ -656,17 +550,10 @@ class Engine {
                         this.ctx.textAlign = 'center';
                         this.ctx.fillText(hUp && hDown ? '↕' : (hUp ? '▲' : '▼'), x * cellSize + cellSize/2, y * cellSize + cellSize * 0.8);
                     }
-                } else if (isKnown) {
-                    this.ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN;
-                    this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                } else if (val === 0 && this.isNearVisited(x, y, z)) {
-                    this.ctx.fillStyle = CONFIG.COLORS.WALL;
-                    this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                }
+                } else if (isKnown) { this.ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); }
+                else if (val === 0 && this.isNearVisited(x, y, z)) { this.ctx.fillStyle = CONFIG.COLORS.WALL; this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); }
             }
         }
-
-        // Hunters in 2D
         const pulse = Math.sin(Date.now() / 200) * 5 + 10;
         for (const h of this.hunters) {
             if (h.z === z) {
@@ -680,16 +567,11 @@ class Engine {
                 this.ctx.restore();
             }
         }
-
-        const pxIdx = Math.floor(px);
-        const pyIdx = Math.floor(py);
         this.ctx.save();
         this.ctx.strokeStyle = '#fff';
         this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(pxIdx * cellSize + 2, pyIdx * cellSize + 2, cellSize - 4, cellSize - 4);
+        this.ctx.strokeRect(Math.floor(px) * cellSize + 2, Math.floor(py) * cellSize + 2, cellSize - 4, cellSize - 4);
         this.ctx.restore();
-
-        // Player
         this.ctx.fillStyle = CONFIG.COLORS.PLAYER;
         this.ctx.beginPath();
         this.ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
@@ -715,19 +597,30 @@ class Engine {
     }
 
     loop() {
+        if (this.isDestroyed) return;
         this.update();
-        if (this.isMap3DActive) {
-            this.renderer.render(this.scene, this.camera);
-        } else {
-            this.draw2DMap();
-        }
+        if (this.isMap3DActive) { this.renderer.render(this.scene, this.camera); }
+        else { this.draw2DMap(); }
         requestAnimationFrame(() => this.loop());
     }
 }
 
+const startNewGame = (degree, branching, movementMode) => {
+    if (currentGame) currentGame.destroy();
+    document.getElementById('start-menu').classList.add('hidden');
+    document.getElementById('victory-screen').classList.add('hidden');
+    document.getElementById('game-over-screen').classList.add('hidden');
+    currentGame = new Engine(degree, branching, movementMode);
+};
+
+const returnToMenu = () => {
+    if (currentGame) currentGame.destroy();
+    document.getElementById('victory-screen').classList.add('hidden');
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('start-menu').classList.remove('hidden');
+};
+
 window.onload = () => {
-    const menu = document.getElementById('start-menu');
-    const startBtn = document.getElementById('start-btn');
     const degreeSlider = document.getElementById('maze-degree');
     const branchSlider = document.getElementById('branching-factor');
     const degreeVal = document.getElementById('degree-val');
@@ -743,22 +636,22 @@ window.onload = () => {
         hunterCount.style.color = count > 0 ? '#f00' : '#a0f';
     };
 
-    // Update UI when sliders move
-    degreeSlider.oninput = () => {
-        degreeVal.innerText = degreeSlider.value;
-        updateHunterDisplay(parseInt(degreeSlider.value));
-    };
+    degreeSlider.oninput = () => { degreeVal.innerText = degreeSlider.value; updateHunterDisplay(parseInt(degreeSlider.value)); };
     branchSlider.oninput = () => branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
-
-    // Initial check
     updateHunterDisplay(parseInt(degreeSlider.value));
 
-    startBtn.onclick = () => {
-        const degree = parseInt(degreeSlider.value);
-        const branching = parseFloat(branchSlider.value);
-        const movementMode = document.getElementById('movement-mode').value;
-
-        menu.style.display = 'none';
-        new Engine(degree, branching, movementMode);
+    document.getElementById('start-btn').onclick = () => {
+        startNewGame(parseInt(degreeSlider.value), parseFloat(branchSlider.value), document.getElementById('movement-mode').value);
     };
+
+    // End game button logic
+    ['restart-btn-victory', 'retry-btn-death'].forEach(id => {
+        document.getElementById(id).onclick = () => {
+            startNewGame(currentGame.degree, currentGame.branchingFactor, currentGame.movementMode);
+        };
+    });
+
+    ['menu-btn-victory', 'menu-btn-death'].forEach(id => {
+        document.getElementById(id).onclick = returnToMenu;
+    });
 };
