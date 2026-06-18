@@ -12,9 +12,9 @@ const CONFIG = {
     HUNTER_SPEED: 800, // ms per move
     COLORS: {
         // 2D & Global
-        WALL: '#222',
+        WALL: '#444',
         PATH_KNOWN: '#5588aa',
-        PATH_VISITED: '#555',
+        PATH_VISITED: '#888',
         NEON_UP: '#00ffff',
         NEON_DOWN: '#ff00ff',
         START: '#ff0',
@@ -26,8 +26,8 @@ const CONFIG = {
         THREE_HUNTER: 0xaa00ff,
         THREE_START: 0xffff00,
         THREE_EXIT: 0x00ff00,
-        THREE_VISITED: 0x555555,
-        THREE_KNOWN: 0x5588aa,
+        THREE_VISITED: 0x888888,
+        THREE_KNOWN: 0x88ccff,
         THREE_ELEVATOR_UP: 0x00ffff,
         THREE_ELEVATOR_DOWN: 0xff00ff
     }
@@ -212,6 +212,8 @@ class Engine {
         this.isMap3DActive = false;
         this.isGameOver = false;
         this.isDestroyed = false;
+        this.pulsatingMaterials = [];
+        this.hunterMeshes = [];
         
         this.initThree();
         this.init();
@@ -375,7 +377,16 @@ class Engine {
 
     update() {
         if (this.isGameOver || this.isDestroyed) return;
-        if (this.isMap3DActive) { this.controls.update(); return; }
+        if (this.isMap3DActive) {
+            this.controls.update();
+            const size = this.mazeGen.size; // Get size for positioning
+            // Update hunter mesh positions
+            for (const hm of this.hunterMeshes) {
+                const h = hm.hunter; // The actual hunter object
+                const mesh = hm.mesh; // The THREE.Mesh object
+                mesh.position.set(h.x - size/2, h.z - size/2, h.y - size/2);
+            }
+        }
 
         let moveX = 0, moveY = 0;
         const isPortrait = window.innerHeight > window.innerWidth;
@@ -439,8 +450,8 @@ class Engine {
             const upBtn = document.getElementById('mobile-up');
             const downBtn = document.getElementById('mobile-down');
             const floorX = Math.floor(this.player.x), floorY = Math.floor(this.player.y);
-            upBtn.disabled = !(this.player.z + 2 < this.mazeGen.size && this.maze[floorX][floorY][this.player.z + 2] !== this.mazeGen.TYPES.WALL);
-            downBtn.disabled = !(this.player.z - 2 >= 0 && this.maze[floorX][floorY][this.player.z - 2] !== this.mazeGen.TYPES.WALL);
+            upBtn.disabled = !(this.player.z + 1 < this.mazeGen.size && this.maze[floorX][floorY][this.player.z + 1] !== this.mazeGen.TYPES.WALL);
+            downBtn.disabled = !(this.player.z - 1 >= 0 && this.maze[floorX][floorY][this.player.z - 1] !== this.mazeGen.TYPES.WALL);
         }
 
         const now = performance.now();
@@ -463,14 +474,23 @@ class Engine {
 
     changeFloor(delta) {
         if (this.isGameOver) return;
-        const nextZ = this.player.z + delta;
-        if (nextZ >= 0 && nextZ < this.mazeGen.size) {
-            const nextCellType = this.maze[Math.floor(this.player.x)][Math.floor(this.player.y)][nextZ];
-            if (nextCellType !== this.mazeGen.TYPES.WALL) {
+        const currentX = Math.floor(this.player.x);
+        const currentY = Math.floor(this.player.y);
+        const currentZ = this.player.z;
+        const hUp = currentZ + 1 < this.mazeGen.size && this.maze[currentX][currentY][currentZ + 1] !== this.mazeGen.TYPES.WALL;
+        const hDown = currentZ - 1 >= 0 && this.maze[currentX][currentY][currentZ - 1] !== this.mazeGen.TYPES.WALL;
+        
+        // Allow floor change only if moving up and hUp is true, or moving down and hDown is true
+        if ((delta > 0 && hUp) || (delta < 0 && hDown)) {
+            const nextZ = currentZ + delta;
+            // The nextCellType check is still valid for the actual path.
+            // But since the generation logic already guarantees paths are separated by walls (so delta = 2 leads to a path)
+            // this check might be redundant after checking hUp/hDown, but keeping it for robustness.
+            if (nextZ >= 0 && nextZ < this.mazeGen.size && this.maze[currentX][currentY][nextZ] !== this.mazeGen.TYPES.WALL) {
                 this.player.z = nextZ;
                 ['e', 'q', 'pageup', 'pagedown'].forEach(k => this.keys[k] = false);
                 this.updateFloorUI();
-                if (nextCellType === this.mazeGen.TYPES.EXIT) this.triggerVictory();
+                if (this.maze[currentX][currentY][nextZ] === this.mazeGen.TYPES.EXIT) this.triggerVictory();
             }
         }
     }
@@ -495,6 +515,9 @@ class Engine {
         dirLight.position.set(10, 20, 10);
         this.scene.add(dirLight);
 
+        this.pulsatingMaterials = []; // Reset the array
+        this.hunterMeshes = []; // Reset the array
+
         const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
         const size = this.mazeGen.size;
 
@@ -506,18 +529,33 @@ class Engine {
                     const isKnown = val === 1 && this.isNearVisited(x, y, z);
                     if (isVisited || isKnown) {
                         let color = CONFIG.COLORS.THREE_KNOWN;
+                        let material; // Declare material here
+
                         if (isVisited) {
                             color = CONFIG.COLORS.THREE_VISITED;
                             if (val === 3) color = CONFIG.COLORS.THREE_START;
                             else if (val === 4) color = CONFIG.COLORS.THREE_EXIT;
+                            material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.8 });
+                        } else if (isKnown) { // Corrected: else if (isKnown)
+                            material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.6, emissive: color, emissiveIntensity: 0.5 });
+                            this.pulsatingMaterials.push(material);
+                        } else {
+                            // If not visited and not known, we don't create a mesh, so continue.
+                            continue;
                         }
+
                         const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
                         const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
-                        let material;
                         if (hUp || hDown) {
                             const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
+                            // Reassign to the existing material variable, don't redeclare
                             material = new THREE.MeshPhongMaterial({ color: elevatorColor, transparent: true, opacity: 0.9, emissive: elevatorColor, emissiveIntensity: 0.4 });
-                        } else { material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: isVisited ? 0.8 : 0.6 }); }
+                            // If this material was added to pulsatingMaterials, remove it.
+                            const index = this.pulsatingMaterials.indexOf(material);
+                            if (index > -1) {
+                                this.pulsatingMaterials.splice(index, 1);
+                            }
+                        }
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.position.set(x - size/2, z - size/2, y - size/2);
                         this.scene.add(mesh);
@@ -526,14 +564,17 @@ class Engine {
             }
         }
         const pMarker = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.THREE_PLAYER }));
-        pMarker.position.set(this.player.x - size/2, this.player.z - size/2, this.player.y - size/2);
+        pMarker.position.set(Math.floor(this.player.x) - size/2, this.player.z - size/2, Math.floor(this.player.y) - size/2);
         this.scene.add(pMarker);
         const hGeom = new THREE.SphereGeometry(0.4);
         const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8 });
-        for (const h of this.hunters) {
+        for (let i = 0; i < this.hunters.length; i++) {
+            const h = this.hunters[i];
             const hMesh = new THREE.Mesh(hGeom, hMat);
             hMesh.position.set(h.x - size/2, h.z - size/2, h.y - size/2);
             this.scene.add(hMesh);
+            this.hunterMeshes.push({ hunter: h, mesh: hMesh });
+            console.log('Hunter mesh added:', h, hMesh);
         }
         this.camera.position.set(size, size, size);
         this.controls.target.set(0, 0, 0);
@@ -607,10 +648,22 @@ class Engine {
         return false;
     }
 
+    updatePulse() {
+        if (!this.isMap3DActive || this.pulsatingMaterials.length === 0) return;
+
+        const pulseIntensity = 0.2 + 0.5 * Math.abs(Math.sin(Date.now() * 0.003));
+        this.pulsatingMaterials.forEach(material => {
+            material.emissiveIntensity = pulseIntensity;
+        });
+    }
+
     loop() {
         if (this.isDestroyed) return;
         this.update();
-        if (this.isMap3DActive) { this.renderer.render(this.scene, this.camera); }
+        if (this.isMap3DActive) {
+            this.renderer.render(this.scene, this.camera);
+            this.updatePulse();
+        }
         else { this.draw2DMap(); }
         requestAnimationFrame(() => this.loop());
     }
