@@ -226,6 +226,9 @@ class Engine {
         window.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('keyup', this.handleKeyUp);
         window.removeEventListener('resize', this.handleResize);
+        window.removeEventListener('touchstart', this.handleTouchStart);
+        window.removeEventListener('touchmove', this.handleTouchMove);
+        window.removeEventListener('touchend', this.handleTouchEnd);
         
         if (this.renderer) {
             this.renderer.dispose();
@@ -327,21 +330,29 @@ class Engine {
         document.getElementById('mobile-map').onclick = () => this.toggleMap3D();
 
         this.touchStart = null;
-        this.canvas.addEventListener('touchstart', e => {
-            e.preventDefault();
+        this.handleTouchStart = e => {
+            if (this.isMap3DActive || this.isGameOver || e.target.closest('button')) return;
+            if (e.cancelable) e.preventDefault();
             this.touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        }, { passive: false });
+        };
 
-        this.canvas.addEventListener('touchmove', e => {
-            e.preventDefault();
-            if (!this.touchStart) return;
+        this.handleTouchMove = e => {
+            if (!this.touchStart || this.isMap3DActive || this.isGameOver) return;
+            if (e.cancelable) e.preventDefault();
             const dx = e.touches[0].clientX - this.touchStart.x;
             const dy = e.touches[0].clientY - this.touchStart.y;
             const mag = Math.sqrt(dx * dx + dy * dy);
             if (mag > 10) this.touchMoveVector = { x: dx / mag, y: dy / mag };
-        }, { passive: false });
+        };
 
-        this.canvas.addEventListener('touchend', () => { this.touchStart = null; this.touchMoveVector = null; });
+        this.handleTouchEnd = () => { 
+            this.touchStart = null; 
+            this.touchMoveVector = null; 
+        };
+
+        window.addEventListener('touchstart', this.handleTouchStart, { passive: false });
+        window.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+        window.addEventListener('touchend', this.handleTouchEnd);
         
         this.resize();
         this.updateFloorUI();
