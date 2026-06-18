@@ -48,42 +48,109 @@ class Hunter {
         this.state = 'WANDERING'; // WANDERING or TRACKING
         this.lastPos = { x: this.x, y: this.y, z: this.z };
         this.history = []; // Keep track of the last 2 positions for the trail
+        this.visitedNodes = new Set();
+        this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
+        this.pathToTarget = [];
     }
 
     move(playerPos, matrix, types) {
         const neighbors = this.getValidNeighbors(matrix, types);
         if (neighbors.length === 0) return;
 
-        if (matrix[this.x][this.y][this.z] === types.VISITED || matrix[this.x][this.y][this.z] === types.START || matrix[this.x][this.y][this.z] === types.EXIT) {
-            this.state = 'TRACKING';
+        // Transition to TRACKING if stepping on player's trail (VISITED, START, EXIT)
+        const currentCellVal = matrix[this.x][this.y][this.z];
+        if (currentCellVal === types.VISITED || currentCellVal === types.START || currentCellVal === types.EXIT) {
+            if (this.state !== 'TRACKING') {
+                this.state = 'TRACKING';
+                this.pathToTarget = []; // Reset exploration path
+                this.visitedNodes.clear();
+                this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
+            }
         }
 
         let next;
-        if (this.state === 'TRACKING') {
-            const trail = neighbors.filter(n => matrix[n.x][n.y][n.z] === types.VISITED || matrix[n.x][n.y][n.z] === types.START || matrix[n.x][n.y][n.z] === types.EXIT);
+        
+        // If we have a planned path, check if it's still valid
+        if (this.pathToTarget.length > 0) {
+            const checkNext = this.pathToTarget[0];
+            const checkVal = matrix[checkNext.x][checkNext.y][checkNext.z];
+            const stillValid = this.state === 'TRACKING' ? 
+                (checkVal === types.VISITED || checkVal === types.START || checkVal === types.EXIT) :
+                (checkVal !== types.WALL);
             
-            if (trail.length > 0) {
-                next = trail[Math.floor(Math.random() * trail.length)];
+            if (stillValid) {
+                next = this.pathToTarget.shift();
             } else {
-                this.state = 'WANDERING';
-                next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                this.pathToTarget = [];
             }
-        } else {
-            const forward = neighbors.filter(n => n.x !== this.lastPos.x || n.y !== this.lastPos.y || n.z !== this.lastPos.z);
-            next = forward.length > 0 ? forward[Math.floor(Math.random() * forward.length)] : neighbors[0];
         }
 
-        this.history.push({ x: this.x, y: this.y, z: this.z });
-        if (this.history.length > 2) {
-            this.history.shift();
+        // If no next step is planned, find path to nearest unvisited cell
+        if (!next) {
+            let path = this.findPathToNearestUnvisited(matrix, types);
+            if (!path || path.length === 0) {
+                // Reset visited log since all accessible target nodes are visited
+                this.visitedNodes.clear();
+                this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
+                path = this.findPathToNearestUnvisited(matrix, types);
+            }
+
+            if (path && path.length > 0) {
+                this.pathToTarget = path;
+                next = this.pathToTarget.shift();
+            } else {
+                // Fallback to local valid neighbors
+                const forward = neighbors.filter(n => n.x !== this.lastPos.x || n.y !== this.lastPos.y || n.z !== this.lastPos.z);
+                next = forward.length > 0 ? forward[Math.floor(Math.random() * forward.length)] : neighbors[0];
+            }
         }
-        this.lastPos = { x: this.x, y: this.y, z: this.z };
-        this.x = next.x;
-        this.y = next.y;
-        this.z = next.z;
+
+        if (next) {
+            this.history.push({ x: this.x, y: this.y, z: this.z });
+            if (this.history.length > 2) {
+                this.history.shift();
+            }
+            this.lastPos = { x: this.x, y: this.y, z: this.z };
+            this.x = next.x;
+            this.y = next.y;
+            this.z = next.z;
+            this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
+        }
     }
 
-    getValidNeighbors(matrix, types) {
+    findPathToNearestUnvisited(matrix, types) {
+        const size = matrix.length;
+        const queue = [{ x: this.x, y: this.y, z: this.z, path: [] }];
+        const visited = Array.from({ length: size }, () => 
+            Array.from({ length: size }, () => new Uint8Array(size))
+        );
+        visited[this.x][this.y][this.z] = 1;
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            const key = `${current.x},${current.y},${current.z}`;
+            
+            if (!this.visitedNodes.has(key)) {
+                return current.path;
+            }
+
+            const neighbors = this.getValidNeighbors(matrix, types, current.x, current.y, current.z);
+            for (const n of neighbors) {
+                if (!visited[n.x][n.y][n.z]) {
+                    visited[n.x][n.y][n.z] = 1;
+                    queue.push({
+                        x: n.x,
+                        y: n.y,
+                        z: n.z,
+                        path: [...current.path, n]
+                    });
+                }
+            }
+        }
+        return null;
+    }
+
+    getValidNeighbors(matrix, types, cx = this.x, cy = this.y, cz = this.z, restrictToPlayerTrail = (this.state === 'TRACKING')) {
         const neighbors = [];
         const dirs = [
             { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
@@ -91,10 +158,24 @@ class Hunter {
             { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 }
         ];
         for (const d of dirs) {
-            const nx = this.x + d.dx, ny = this.y + d.dy, nz = this.z + d.dz;
+            const nx = cx + d.dx, ny = cy + d.dy, nz = cz + d.dz;
             if (nx >= 0 && nx < matrix.length && ny >= 0 && ny < matrix.length && nz >= 0 && nz < matrix.length) {
-                if (matrix[nx][ny][nz] !== types.WALL) {
-                    neighbors.push({ x: nx, y: ny, z: nz });
+                const cellVal = matrix[nx][ny][nz];
+                if (cellVal !== types.WALL) {
+                    if (d.dz !== 0) {
+                        const midZ = cz + d.dz / 2;
+                        if (matrix[cx][cy][midZ] === types.WALL) {
+                            continue; // Sem elevador conectando esses andares nesta célula
+                        }
+                    }
+                    
+                    if (restrictToPlayerTrail) {
+                        if (cellVal === types.VISITED || cellVal === types.START || cellVal === types.EXIT) {
+                            neighbors.push({ x: nx, y: ny, z: nz });
+                        }
+                    } else {
+                        neighbors.push({ x: nx, y: ny, z: nz });
+                    }
                 }
             }
         }
@@ -598,7 +679,9 @@ class Engine {
                             }
                         }
 
-                        if (x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z) {
+                        const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
+                        const isHunterHere = this.hunters.some(h => h.x === x && h.y === y && h.z === z);
+                        if (isPlayerHere || isHunterHere) {
                             const floorGeom = new THREE.BoxGeometry(0.9, 0.05, 0.9);
                             const mesh = new THREE.Mesh(floorGeom, material);
                             mesh.position.set(x - size/2, z - size/2 - 0.425, y - size/2);
