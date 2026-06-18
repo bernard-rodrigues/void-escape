@@ -290,6 +290,7 @@ body {
     text-shadow: 0 0 calc(var(--d-h-unit) * 1.5) var(--clr-hazard);
     animation: pulse-red 1s infinite;
     pointer-events: none;
+    text-align: center;
 }
 
 @keyframes pulse-red {
@@ -593,6 +594,7 @@ body {
     text-shadow: 0 0 var(--h-unit) var(--clr-hunter);
     animation: pulse-purple 1.5s infinite;
     pointer-events: none;
+    text-align: center;
 }
 
 @keyframes pulse-purple {
