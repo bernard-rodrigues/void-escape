@@ -83,7 +83,7 @@ class Hunter {
         const dirs = [
             { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
             { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
-            { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
+            { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 }
         ];
         for (const d of dirs) {
             const nx = this.x + d.dx, ny = this.y + d.dy, nz = this.z + d.dz;
@@ -325,8 +325,8 @@ class Engine {
         window.addEventListener('keyup', this.handleKeyUp);
         window.addEventListener('resize', this.handleResize);
 
-        document.getElementById('mobile-up').onclick = () => this.changeFloor(1);
-        document.getElementById('mobile-down').onclick = () => this.changeFloor(-1);
+        document.getElementById('mobile-up').onclick = () => this.changeFloor(2);
+        document.getElementById('mobile-down').onclick = () => this.changeFloor(-2);
         document.getElementById('mobile-map').onclick = () => this.toggleMap3D();
 
         this.touchStart = null;
@@ -371,7 +371,7 @@ class Engine {
         }
     }
 
-    updateFloorUI() { if (this.uiFloorSpan) this.uiFloorSpan.innerText = this.player.z; }
+    updateFloorUI() { if (this.uiFloorSpan) this.uiFloorSpan.innerText = (this.player.z + 1) / 2; }
 
     update() {
         if (this.isGameOver || this.isDestroyed) return;
@@ -432,15 +432,15 @@ class Engine {
             }
         }
 
-        if (this.keys['e'] || this.keys['pageup']) this.changeFloor(1);
-        if (this.keys['q'] || this.keys['pagedown']) this.changeFloor(-1);
+        if (this.keys['e'] || this.keys['pageup']) this.changeFloor(2);
+        if (this.keys['q'] || this.keys['pagedown']) this.changeFloor(-2);
 
         if (isPortrait) {
             const upBtn = document.getElementById('mobile-up');
             const downBtn = document.getElementById('mobile-down');
             const floorX = Math.floor(this.player.x), floorY = Math.floor(this.player.y);
-            upBtn.disabled = !(this.player.z < this.mazeGen.size - 1 && this.maze[floorX][floorY][this.player.z + 1] !== this.mazeGen.TYPES.WALL);
-            downBtn.disabled = !(this.player.z > 0 && this.maze[floorX][floorY][this.player.z - 1] !== this.mazeGen.TYPES.WALL);
+            upBtn.disabled = !(this.player.z + 2 < this.mazeGen.size && this.maze[floorX][floorY][this.player.z + 2] !== this.mazeGen.TYPES.WALL);
+            downBtn.disabled = !(this.player.z - 2 >= 0 && this.maze[floorX][floorY][this.player.z - 2] !== this.mazeGen.TYPES.WALL);
         }
 
         const now = performance.now();
@@ -451,7 +451,7 @@ class Engine {
             for (const hunter of this.hunters) {
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
                 if (hunter.state === 'TRACKING') trackingCount++;
-                if (Math.abs(hunter.z - this.player.z) <= 1) nearbyCount++;
+                if (Math.abs(hunter.z - this.player.z) <= 2) nearbyCount++;
                 if (hunter.x === Math.floor(this.player.x) && hunter.y === Math.floor(this.player.y) && hunter.z === this.player.z) this.triggerDeath();
             }
             if (trackingCount > 0) { this.uiHazardWarning.classList.remove('hidden'); this.canvas.classList.add('hunted-map-effect'); }
