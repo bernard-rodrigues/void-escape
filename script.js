@@ -47,13 +47,14 @@ class Hunter {
         this.id = id;
         this.state = 'WANDERING'; // WANDERING or TRACKING
         this.lastPos = { x: this.x, y: this.y, z: this.z };
+        this.history = []; // Keep track of the last 2 positions for the trail
     }
 
     move(playerPos, matrix, types) {
         const neighbors = this.getValidNeighbors(matrix, types);
         if (neighbors.length === 0) return;
 
-        if (matrix[this.x][this.y][this.z] === types.VISITED) {
+        if (matrix[this.x][this.y][this.z] === types.VISITED || matrix[this.x][this.y][this.z] === types.START || matrix[this.x][this.y][this.z] === types.EXIT) {
             this.state = 'TRACKING';
         }
 
@@ -72,6 +73,10 @@ class Hunter {
             next = forward.length > 0 ? forward[Math.floor(Math.random() * forward.length)] : neighbors[0];
         }
 
+        this.history.push({ x: this.x, y: this.y, z: this.z });
+        if (this.history.length > 2) {
+            this.history.shift();
+        }
         this.lastPos = { x: this.x, y: this.y, z: this.z };
         this.x = next.x;
         this.y = next.y;
@@ -380,78 +385,101 @@ class Engine {
         if (this.isMap3DActive) {
             this.controls.update();
             const size = this.mazeGen.size; // Get size for positioning
-            // Update hunter mesh positions
+            // Update hunter mesh positions and their trails
             for (const hm of this.hunterMeshes) {
                 const h = hm.hunter; // The actual hunter object
                 const mesh = hm.mesh; // The THREE.Mesh object
                 mesh.position.set(h.x - size/2, h.z - size/2, h.y - size/2);
+                
+                if (h.history && h.history.length > 0) {
+                    if (h.history.length === 2) {
+                        const oldest = h.history[0];
+                        const newest = h.history[1];
+                        
+                        hm.trail2.position.set(oldest.x - size/2, oldest.z - size/2, oldest.y - size/2);
+                        hm.trail2.visible = true;
+                        
+                        hm.trail1.position.set(newest.x - size/2, newest.z - size/2, newest.y - size/2);
+                        hm.trail1.visible = true;
+                    } else if (h.history.length === 1) {
+                        const newest = h.history[0];
+                        hm.trail1.position.set(newest.x - size/2, newest.z - size/2, newest.y - size/2);
+                        hm.trail1.visible = true;
+                        hm.trail2.visible = false;
+                    }
+                } else {
+                    hm.trail1.visible = false;
+                    hm.trail2.visible = false;
+                }
             }
         }
 
-        let moveX = 0, moveY = 0;
-        const isPortrait = window.innerHeight > window.innerWidth;
+        if (!this.isMap3DActive) {
+            let moveX = 0, moveY = 0;
+            const isPortrait = window.innerHeight > window.innerWidth;
 
-        if (!isPortrait && this.movementMode === 'tank') {
-            if (this.keys['a'] || this.keys['arrowleft']) this.player.dir -= CONFIG.ROT_SPEED;
-            if (this.keys['d'] || this.keys['arrowright']) this.player.dir += CONFIG.ROT_SPEED;
-            if (this.keys['w'] || this.keys['arrowup']) {
-                moveX = Math.cos(this.player.dir) * CONFIG.MOVE_SPEED;
-                moveY = Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
+            if (!isPortrait && this.movementMode === 'tank') {
+                if (this.keys['a'] || this.keys['arrowleft']) this.player.dir -= CONFIG.ROT_SPEED;
+                if (this.keys['d'] || this.keys['arrowright']) this.player.dir += CONFIG.ROT_SPEED;
+                if (this.keys['w'] || this.keys['arrowup']) {
+                    moveX = Math.cos(this.player.dir) * CONFIG.MOVE_SPEED;
+                    moveY = Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
+                }
+                if (this.keys['s'] || this.keys['arrowdown']) {
+                    moveX = -Math.cos(this.player.dir) * CONFIG.MOVE_SPEED;
+                    moveY = -Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
+                }
+            } else {
+                let dx = 0, dy = 0;
+                if (this.touchMoveVector) { dx = this.touchMoveVector.x; dy = this.touchMoveVector.y; }
+                else {
+                    if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
+                    if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
+                    if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
+                    if (this.keys['d'] || this.keys['arrowright']) dx += 1;
+                }
+                if (dx !== 0 || dy !== 0) {
+                    const mag = Math.sqrt(dx * dx + dy * dy);
+                    moveX = (dx / mag) * CONFIG.MOVE_SPEED;
+                    moveY = (dy / mag) * CONFIG.MOVE_SPEED;
+                    this.player.dir = Math.atan2(moveY, moveX);
+                }
             }
-            if (this.keys['s'] || this.keys['arrowdown']) {
-                moveX = -Math.cos(this.player.dir) * CONFIG.MOVE_SPEED;
-                moveY = -Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
-            }
-        } else {
-            let dx = 0, dy = 0;
-            if (this.touchMoveVector) { dx = this.touchMoveVector.x; dy = this.touchMoveVector.y; }
-            else {
-                if (this.keys['w'] || this.keys['arrowup']) dy -= 1;
-                if (this.keys['s'] || this.keys['arrowdown']) dy += 1;
-                if (this.keys['a'] || this.keys['arrowleft']) dx -= 1;
-                if (this.keys['d'] || this.keys['arrowright']) dx += 1;
-            }
-            if (dx !== 0 || dy !== 0) {
-                const mag = Math.sqrt(dx * dx + dy * dy);
-                moveX = (dx / mag) * CONFIG.MOVE_SPEED;
-                moveY = (dy / mag) * CONFIG.MOVE_SPEED;
-                this.player.dir = Math.atan2(moveY, moveX);
-            }
-        }
 
-        if (moveX !== 0 || moveY !== 0) {
-            const nextX = this.player.x + moveX;
-            const nextY = this.player.y + moveY;
-            const gridIdxX = Math.floor(nextX);
-            const gridIdxY = Math.floor(this.player.y);
-            if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && this.maze[gridIdxX][gridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
-                this.player.x = nextX;
+            if (moveX !== 0 || moveY !== 0) {
+                const nextX = this.player.x + moveX;
+                const nextY = this.player.y + moveY;
+                const gridIdxX = Math.floor(nextX);
+                const gridIdxY = Math.floor(this.player.y);
+                if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && this.maze[gridIdxX][gridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
+                    this.player.x = nextX;
+                }
+                const currentGridIdxX = Math.floor(this.player.x);
+                const nextGridIdxY = Math.floor(nextY);
+                if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && this.maze[currentGridIdxX][nextGridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
+                    this.player.y = nextY;
+                }
+                const finalGridIdxX = Math.floor(this.player.x), finalGridIdxY = Math.floor(this.player.y);
+                if (this.maze[finalGridIdxX][finalGridIdxY][this.player.z] === this.mazeGen.TYPES.EXIT) this.triggerVictory();
             }
-            const currentGridIdxX = Math.floor(this.player.x);
-            const nextGridIdxY = Math.floor(nextY);
-            if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && this.maze[currentGridIdxX][nextGridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
-                this.player.y = nextY;
+
+            const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
+            if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
+                if (this.maze[playerIdxX][playerIdxY][this.player.z] === this.mazeGen.TYPES.PATH) {
+                    this.maze[playerIdxX][playerIdxY][this.player.z] = this.mazeGen.TYPES.VISITED;
+                }
             }
-            const finalGridIdxX = Math.floor(this.player.x), finalGridIdxY = Math.floor(this.player.y);
-            if (this.maze[finalGridIdxX][finalGridIdxY][this.player.z] === this.mazeGen.TYPES.EXIT) this.triggerVictory();
-        }
 
-        const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
-        if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
-            if (this.maze[playerIdxX][playerIdxY][this.player.z] === this.mazeGen.TYPES.PATH) {
-                this.maze[playerIdxX][playerIdxY][this.player.z] = this.mazeGen.TYPES.VISITED;
+            if (this.keys['e'] || this.keys['pageup']) this.changeFloor(2);
+            if (this.keys['q'] || this.keys['pagedown']) this.changeFloor(-2);
+
+            if (isPortrait) {
+                const upBtn = document.getElementById('mobile-up');
+                const downBtn = document.getElementById('mobile-down');
+                const floorX = Math.floor(this.player.x), floorY = Math.floor(this.player.y);
+                upBtn.disabled = !(this.player.z + 1 < this.mazeGen.size && this.maze[floorX][floorY][this.player.z + 1] !== this.mazeGen.TYPES.WALL);
+                downBtn.disabled = !(this.player.z - 1 >= 0 && this.maze[floorX][floorY][this.player.z - 1] !== this.mazeGen.TYPES.WALL);
             }
-        }
-
-        if (this.keys['e'] || this.keys['pageup']) this.changeFloor(2);
-        if (this.keys['q'] || this.keys['pagedown']) this.changeFloor(-2);
-
-        if (isPortrait) {
-            const upBtn = document.getElementById('mobile-up');
-            const downBtn = document.getElementById('mobile-down');
-            const floorX = Math.floor(this.player.x), floorY = Math.floor(this.player.y);
-            upBtn.disabled = !(this.player.z + 1 < this.mazeGen.size && this.maze[floorX][floorY][this.player.z + 1] !== this.mazeGen.TYPES.WALL);
-            downBtn.disabled = !(this.player.z - 1 >= 0 && this.maze[floorX][floorY][this.player.z - 1] !== this.mazeGen.TYPES.WALL);
         }
 
         const now = performance.now();
@@ -462,7 +490,20 @@ class Engine {
             for (const hunter of this.hunters) {
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
                 if (hunter.state === 'TRACKING') trackingCount++;
-                if (Math.abs(hunter.z - this.player.z) <= 2) nearbyCount++;
+                const sameFloor = hunter.z === this.player.z;
+                let isNear = false;
+                if (sameFloor) {
+                    isNear = true;
+                } else {
+                    const dist = this.getPathDistance3D(hunter.x, hunter.y, hunter.z, Math.floor(this.player.x), Math.floor(this.player.y), this.player.z);
+                    const threshold = Math.max(5, Math.floor(this.degree * 1.2));
+                    if (dist <= threshold) {
+                        isNear = true;
+                    }
+                }
+                if (isNear) {
+                    nearbyCount++;
+                }
                 if (hunter.x === Math.floor(this.player.x) && hunter.y === Math.floor(this.player.y) && hunter.z === this.player.z) this.triggerDeath();
             }
             if (trackingCount > 0) { this.uiHazardWarning.classList.remove('hidden'); this.canvas.classList.add('hunted-map-effect'); }
@@ -556,6 +597,15 @@ class Engine {
                                 this.pulsatingMaterials.splice(index, 1);
                             }
                         }
+
+                        if (x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z) {
+                            const floorGeom = new THREE.BoxGeometry(0.9, 0.05, 0.9);
+                            const mesh = new THREE.Mesh(floorGeom, material);
+                            mesh.position.set(x - size/2, z - size/2 - 0.425, y - size/2);
+                            this.scene.add(mesh);
+                            continue;
+                        }
+
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.position.set(x - size/2, z - size/2, y - size/2);
                         this.scene.add(mesh);
@@ -568,13 +618,36 @@ class Engine {
         this.scene.add(pMarker);
         const hGeom = new THREE.SphereGeometry(0.4);
         const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8 });
+        
+        // Trail materials with lower opacities
+        const trailMat1 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.55, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.4 });
+        const trailMat2 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.25, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.2 });
+        const trailGeom = new THREE.SphereGeometry(0.3);
+
         for (let i = 0; i < this.hunters.length; i++) {
             const h = this.hunters[i];
+            
+            // Create trail meshes
+            const tMesh2 = new THREE.Mesh(trailGeom, trailMat2); // Oldest
+            const tMesh1 = new THREE.Mesh(trailGeom, trailMat1); // Newest
+            
+            tMesh2.visible = false;
+            tMesh1.visible = false;
+            
+            this.scene.add(tMesh2);
+            this.scene.add(tMesh1);
+
             const hMesh = new THREE.Mesh(hGeom, hMat);
             hMesh.position.set(h.x - size/2, h.z - size/2, h.y - size/2);
             this.scene.add(hMesh);
-            this.hunterMeshes.push({ hunter: h, mesh: hMesh });
-            console.log('Hunter mesh added:', h, hMesh);
+            
+            this.hunterMeshes.push({ 
+                hunter: h, 
+                mesh: hMesh,
+                trail1: tMesh1,
+                trail2: tMesh2
+            });
+            console.log('Hunter mesh and trails added:', h);
         }
         this.camera.position.set(size, size, size);
         this.controls.target.set(0, 0, 0);
@@ -608,6 +681,21 @@ class Engine {
         }
         const pulse = Math.sin(Date.now() / 200) * 5 + 10;
         for (const h of this.hunters) {
+            // Draw trail first so it renders behind the hunter
+            if (h.history) {
+                h.history.forEach((pos, idx) => {
+                    if (pos.z === z) {
+                        const opacity = idx === 0 && h.history.length === 2 ? 0.25 : 0.55;
+                        this.ctx.save();
+                        this.ctx.globalAlpha = opacity;
+                        this.ctx.fillStyle = CONFIG.COLORS.HUNTER;
+                        this.ctx.beginPath();
+                        this.ctx.arc(pos.x * cellSize + cellSize/2, pos.y * cellSize + cellSize/2, cellSize * 0.3, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        this.ctx.restore();
+                    }
+                });
+            }
             if (h.z === z) {
                 this.ctx.save();
                 this.ctx.fillStyle = CONFIG.COLORS.HUNTER;
@@ -646,6 +734,43 @@ class Engine {
             }
         }
         return false;
+    }
+
+    getPathDistance3D(x1, y1, z1, x2, y2, z2) {
+        if (x1 === x2 && y1 === y2 && z1 === z2) return 0;
+        const size = this.mazeGen.size;
+        const queue = [{ x: x1, y: y1, z: z1, dist: 0 }];
+        const visited = Array.from({ length: size }, () => 
+            Array.from({ length: size }, () => new Uint8Array(size))
+        );
+        visited[x1][y1][z1] = 1;
+
+        const dirs = [
+            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+            { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
+        ];
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            
+            for (const d of dirs) {
+                const nx = current.x + d.dx;
+                const ny = current.y + d.dy;
+                const nz = current.z + d.dz;
+                
+                if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size && !visited[nx][ny][nz]) {
+                    if (this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
+                        if (nx === x2 && ny === y2 && nz === z2) {
+                            return current.dist + 1;
+                        }
+                        visited[nx][ny][nz] = 1;
+                        queue.push({ x: nx, y: ny, z: nz, dist: current.dist + 1 });
+                    }
+                }
+            }
+        }
+        return Infinity; // No path found
     }
 
     updatePulse() {
