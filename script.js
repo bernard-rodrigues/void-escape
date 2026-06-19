@@ -6,7 +6,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
  */
 const CONFIG = {
     MAZE_DEGREE: 8,
-    BRANCHING_FACTOR: 0.3,
     MOVE_SPEED: 0.1,
     ROT_SPEED: 0.05,
     HUNTER_SPEED: 800, // ms per move
@@ -191,7 +190,7 @@ class Hunter {
  */
 class Maze3D {
     constructor(degree, branchingFactor) {
-        this.n = Math.max(3, Math.min(50, degree));
+        this.n = Math.max(3, Math.min(24, degree));
         this.branchingFactor = Math.max(0, Math.min(1, branchingFactor));
         this.size = 2 * this.n + 1;
         this.matrix = this.initMatrix();
@@ -333,12 +332,12 @@ class Engine {
     }
 
     initHunters(degree) {
-        if (degree < 8) return;
+        if (degree < CONFIG.MAZE_DEGREE) return;
         const size = this.mazeGen.size;
         const mid = Math.floor(size / 2);
         this.hunters.push(new Hunter(this.mazeGen, this.getExitPos(), 1));
-        if (degree >= 20) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(size - 2, 1, mid), 2));
-        if (degree >= 35) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(1, size - 2, mid), 3));
+        if (degree >= CONFIG.MAZE_DEGREE * 2) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(size - 2, 1, mid), 2));
+        if (degree >= CONFIG.MAZE_DEGREE * 3) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(1, size - 2, mid), 3));
         this.lastHunterMove = performance.now();
     }
 
@@ -938,9 +937,9 @@ window.onload = () => {
 
     const updateHunterDisplay = (degree) => {
         let count = 0;
-        if (degree >= 8) count = 1;
-        if (degree >= 20) count = 2;
-        if (degree >= 35) count = 3;
+        if (degree >= CONFIG.MAZE_DEGREE) count = 1;
+        if (degree >= CONFIG.MAZE_DEGREE * 2) count = 2;
+        if (degree >= CONFIG.MAZE_DEGREE * 3) count = 3;
         hunterCount.innerText = count;
         hunterCount.style.color = count > 0 ? '#f00' : '#a0f';
     };
