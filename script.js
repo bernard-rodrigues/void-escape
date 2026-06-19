@@ -59,7 +59,7 @@ class Hunter {
 
         // Transition to TRACKING if stepping on player's trail (VISITED, START, EXIT)
         const currentCellVal = matrix[this.x][this.y][this.z];
-        if (currentCellVal === types.VISITED || currentCellVal === types.START || currentCellVal === types.EXIT) {
+        if (currentCellVal === types.VISITED) {
             if (this.state !== 'TRACKING') {
                 this.state = 'TRACKING';
                 this.pathToTarget = []; // Reset exploration path
