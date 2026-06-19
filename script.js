@@ -29,7 +29,10 @@ const CONFIG = {
         THREE_VISITED: 0x888888,
         THREE_KNOWN: 0x88ccff,
         THREE_ELEVATOR_UP: 0x00ffff,
-        THREE_ELEVATOR_DOWN: 0xff00ff
+        THREE_ELEVATOR_DOWN: 0xff00ff,
+        // Used for the vertical shaft rendered between two floors the player connected via elevator.
+        // Visually split: bottom half = DOWN color (magenta), top half = UP color (cyan).
+        THREE_ELEVATOR_SHAFT: { bottom: 0xff00ff, top: 0x00ffff }
     }
 };
 
@@ -193,7 +196,7 @@ class Maze3D {
         this.size = 2 * this.n + 1;
         this.matrix = this.initMatrix();
         
-        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4 };
+        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5 };
         this.startPos = { x: 0.5, y: 1.5, z: 0 };
     }
 
@@ -605,10 +608,12 @@ class Engine {
         // Allow floor change only if moving up and hUp is true, or moving down and hDown is true
         if ((delta > 0 && hUp) || (delta < 0 && hDown)) {
             const nextZ = currentZ + delta;
-            // The nextCellType check is still valid for the actual path.
-            // But since the generation logic already guarantees paths are separated by walls (so delta = 2 leads to a path)
-            // this check might be redundant after checking hUp/hDown, but keeping it for robustness.
             if (nextZ >= 0 && nextZ < this.mazeGen.size && this.maze[currentX][currentY][nextZ] !== this.mazeGen.TYPES.WALL) {
+                // Mark the intermediate shaft cell so it renders in the 3D map
+                const shaftZ = currentZ + delta / 2;
+                if (this.maze[currentX][currentY][shaftZ] !== this.mazeGen.TYPES.ELEVATOR_VISITED) {
+                    this.maze[currentX][currentY][shaftZ] = this.mazeGen.TYPES.ELEVATOR_VISITED;
+                }
                 this.player.z = nextZ;
                 ['e', 'q', 'pageup', 'pagedown'].forEach(k => this.keys[k] = false);
                 this.updateFloorUI();
@@ -642,11 +647,29 @@ class Engine {
 
         const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
         const size = this.mazeGen.size;
+        
+        const shaftGeomBottom = new THREE.BoxGeometry(0.9, 0.425, 0.9);
+        const shaftGeomTop = new THREE.BoxGeometry(0.9, 0.425, 0.9);
+        
+        const shaftGeom = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8);
+        const shaftMat = new THREE.MeshPhongMaterial({
+            color: CONFIG.COLORS.THREE_VISITED,
+            transparent: true, opacity: 0.8
+        });
 
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
                     const val = this.maze[x][y][z];
+
+                    // Render elevator shaft cells (marked when player uses an elevator)
+                    if (val === this.mazeGen.TYPES.ELEVATOR_VISITED) {
+                        const mesh = new THREE.Mesh(shaftGeom, shaftMat);
+                        mesh.position.set(x - size/2, z - size/2, y - size/2);
+                        this.scene.add(mesh);
+                        continue;
+                    }
+
                     const isVisited = val >= 2;
                     const isKnown = val === 1 && this.isNearVisited(x, y, z);
                     if (isVisited || isKnown) {
@@ -669,13 +692,24 @@ class Engine {
                         const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
                         const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
                         if (hUp || hDown) {
-                            const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
-                            // Reassign to the existing material variable, don't redeclare
-                            material = new THREE.MeshPhongMaterial({ color: elevatorColor, transparent: true, opacity: 0.9, emissive: elevatorColor, emissiveIntensity: 0.4 });
-                            // If this material was added to pulsatingMaterials, remove it.
+                            // Remove do pulse caso tenha sido adicionado como isKnown
                             const index = this.pulsatingMaterials.indexOf(material);
-                            if (index > -1) {
-                                this.pulsatingMaterials.splice(index, 1);
+                            if (index > -1) this.pulsatingMaterials.splice(index, 1);
+
+                            if (hUp && hDown) {
+                                // Split bicolor: dois meshes empilhados
+                                const matBottom = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_DOWN, transparent: true, opacity: 0.9, emissive: CONFIG.COLORS.THREE_ELEVATOR_DOWN, emissiveIntensity: 0.4 });
+                                const matTop    = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_UP,   transparent: true, opacity: 0.9, emissive: CONFIG.COLORS.THREE_ELEVATOR_UP,   emissiveIntensity: 0.4 });
+                                const meshBottom = new THREE.Mesh(shaftGeomBottom, matBottom);
+                                const meshTop    = new THREE.Mesh(shaftGeomTop,    matTop);
+                                meshBottom.position.set(x - size/2, z - size/2 - 0.2125, y - size/2);
+                                meshTop.position.set(   x - size/2, z - size/2 + 0.2125, y - size/2);
+                                this.scene.add(meshBottom);
+                                this.scene.add(meshTop);
+                                continue; // Mesh já adicionado, pula o mesh padrão abaixo
+                            } else {
+                                const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
+                                material = new THREE.MeshPhongMaterial({ color: elevatorColor, transparent: true, opacity: 0.9, emissive: elevatorColor, emissiveIntensity: 0.4 });
                             }
                         }
 
@@ -812,7 +846,10 @@ class Engine {
             for (let dy = -1; dy <= 1; dy++) {
                 const nx = x + dx, ny = y + dy;
                 if (nx >= 0 && nx < this.mazeGen.size && ny >= 0 && ny < this.mazeGen.size) {
-                    if (this.maze[nx][ny][z] >= 2) return true;
+                    const v = this.maze[nx][ny][z];
+                    // ELEVATOR_VISITED (5) cells are only shown when explicitly used by the player,
+                    // not revealed by proximity to regular visited cells.
+                    if (v >= 2 && v !== this.mazeGen.TYPES.ELEVATOR_VISITED) return true;
                 }
             }
         }
