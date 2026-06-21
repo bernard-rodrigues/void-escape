@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>3D Maze Navigator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -86,13 +89,13 @@
 
         <aside id="map-legend">
             <h3>MAP LEGEND</h3>
-            <div class="legend-item"><span class="color-box" style="background: #888;"></span> Visited Path</div>
-            <div class="legend-item"><span class="color-box" style="background: #88ccff;"></span> Known Path</div>
-            <div class="legend-item"><span class="color-box" style="background: #ff0;"></span> Starting Point</div>
-            <div class="legend-item"><span class="color-box" style="background: #0f0;"></span> Maze Exit</div>
-            <div class="legend-item"><span class="color-box" style="background: #a0f;"></span> Void Hunter</div>
-            <div class="legend-item"><span class="color-box" style="background: #ff8c00;"></span> Teleport</div>
-            <div class="legend-item"><span class="symbol-box">▲/▼</span> Elevator</div>
+            <div class="legend-item"><span class="color-box color-box--visited"></span> Visited Path</div>
+            <div class="legend-item"><span class="color-box color-box--known"></span> Known Path</div>
+            <div class="legend-item"><span class="color-box color-box--start"></span> Starting Point</div>
+            <div class="legend-item"><span class="color-box color-box--exit"></span> Maze Exit</div>
+            <div class="legend-item"><span class="color-box color-box--hunter"></span> Void Hunter</div>
+            <div class="legend-item"><span class="color-box color-box--teleport"></span> Teleport</div>
+            <div class="legend-item"><span class="symbol-box">▲▼</span> Elevator</div>
         </aside>
         
         <!-- Mobile Controls Panel -->

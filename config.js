@@ -22,15 +22,19 @@ export const CONFIG = {
     COLORS: {
         // 2D & Global
         WALL: '#444',
-        PATH_KNOWN: '#5588aa',
+        PATH_KNOWN: '#88ccff',   // also mirrored in style.css --clr-pathfinder
         PATH_VISITED: '#888',
         NEON_UP: '#00ffff',
         NEON_DOWN: '#ff00ff',
         START: '#ff0',
         EXIT: '#0f0',
         PLAYER: '#f00',
+        PLAYER_OUTLINE: '#ffffff',          // outline stroke drawn around the player dot
         HUNTER: '#a0f',
         TELEPORT: '#ff8c00',
+        TELEPORT_INACTIVE: '#555555',       // teleport node consumed / on cooldown
+        REVEALED_PATH: '#ffffff',           // cell lit up by the Pathfinder ability
+        ELEVATOR_BIDIRECTIONAL: '#ffffff',  // ↕ symbol when elevator goes both ways
         // 3D Specific (Hex codes for Three.js)
         THREE_PLAYER: 0xff0000,
         THREE_HUNTER: 0xaa00ff,
@@ -41,7 +45,7 @@ export const CONFIG = {
         THREE_ELEVATOR_UP: 0x00ffff,
         THREE_ELEVATOR_DOWN: 0xff00ff,
         THREE_TELEPORT: 0xff8c00,
-        // Used for the vertical shaft rendered between two floors the player connected via elevator.
+        // Vertical shaft rendered between floors the player connected via elevator.
         // Visually split: bottom half = DOWN color (magenta), top half = UP color (cyan).
         THREE_ELEVATOR_SHAFT: { bottom: 0xff00ff, top: 0x00ffff }
     }

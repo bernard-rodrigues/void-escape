@@ -1,5 +1,5 @@
 :root {
-    /* Colors */
+    /* Colors — UI chrome (menus, overlays, warnings) */
     --clr-bg: #111;
     --clr-bg-alt: #050505;
     --clr-text: #eee;
@@ -9,11 +9,10 @@
     --clr-hazard: #f00;
     --clr-victory: #0f0;
     --clr-hunter: #a0f;
-    --clr-wall: #444;
-    --clr-path: #555;
-    --clr-path-known: #5588aa;
     --clr-teleport: #ff8c00;
-    
+    /* Pathfinder / known-path blue — also mirrored in config.js COLORS.PATH_KNOWN */
+    --clr-pathfinder: #88ccff;
+
     /* Scales */
     --h-unit: 1vh;
     --d-h-unit: 1dvh;
@@ -24,7 +23,7 @@ body {
     padding: 0;
     background-color: var(--clr-bg);
     color: var(--clr-text);
-    font-family: 'Courier New', Courier, monospace;
+    font-family: 'Roboto', sans-serif;
     overflow: hidden;
     touch-action: manipulation;
 }
@@ -101,9 +100,7 @@ body {
     margin-bottom: var(--h-unit);
     margin-bottom: var(--d-h-unit);
     text-transform: uppercase;
-    font-weight: bold;
-    text-shadow: 0 0 calc(var(--h-unit) * 0.5) var(--clr-hunter);
-    text-shadow: 0 0 calc(var(--d-h-unit) * 0.5) var(--clr-hunter);
+    font-weight: 700;
 }
 
 .teleport-info-start {
@@ -113,21 +110,17 @@ body {
     margin-bottom: var(--h-unit);
     margin-bottom: var(--d-h-unit);
     text-transform: uppercase;
-    font-weight: bold;
-    text-shadow: 0 0 calc(var(--h-unit) * 0.5) var(--clr-teleport);
-    text-shadow: 0 0 calc(var(--d-h-unit) * 0.5) var(--clr-teleport);
+    font-weight: 700;
 }
 
 .helper-info-start {
     font-size: calc(var(--h-unit) * 1.8);
     font-size: calc(var(--d-h-unit) * 1.8);
-    color: #88ccff;
+    color: var(--clr-pathfinder);
     margin-bottom: var(--h-unit);
     margin-bottom: var(--d-h-unit);
     text-transform: uppercase;
-    font-weight: bold;
-    text-shadow: 0 0 calc(var(--h-unit) * 0.5) #88ccff;
-    text-shadow: 0 0 calc(var(--d-h-unit) * 0.5) #88ccff;
+    font-weight: 700;
 }
 
 .control-group input[type="range"] {
@@ -369,17 +362,14 @@ body {
 #floor-display {
     font-size: calc(var(--h-unit) * 3);
     font-size: calc(var(--d-h-unit) * 3);
-    font-weight: bold;
-    text-shadow: calc(var(--h-unit) * 0.2) calc(var(--h-unit) * 0.2) #000;
-    text-shadow: calc(var(--d-h-unit) * 0.2) calc(var(--d-h-unit) * 0.2) #000;
+    font-weight: 700;
 }
 
 #helper-display {
     font-size: calc(var(--h-unit) * 2);
     font-size: calc(var(--d-h-unit) * 2);
-    font-weight: bold;
-    color: #88ccff;
-    text-shadow: 0 0 calc(var(--h-unit) * 0.5) #88ccff, 0 0 calc(var(--d-h-unit) * 0.5) #88ccff;
+    font-weight: 500;
+    color: var(--clr-pathfinder);
     margin-top: calc(var(--h-unit) * 1);
     margin-top: calc(var(--d-h-unit) * 1);
 }
@@ -440,6 +430,14 @@ body {
     border-radius: calc(var(--h-unit) * 0.3);
     border-radius: calc(var(--d-h-unit) * 0.3);
 }
+
+/* Legend color swatches — modifier classes replace all inline style="background:..." */
+.color-box--visited  { background: #888; }
+.color-box--known    { background: var(--clr-pathfinder); }
+.color-box--start    { background: #ff0; }
+.color-box--exit     { background: var(--clr-victory); }
+.color-box--hunter   { background: var(--clr-hunter); }
+.color-box--teleport { background: var(--clr-teleport); }
 
 .symbol-box {
     width: calc(var(--h-unit) * 1.5);
@@ -678,12 +676,11 @@ body {
     color: var(--clr-teleport);
     font-size: calc(var(--h-unit) * 2.5);
     font-size: calc(var(--d-h-unit) * 2.5);
-    font-weight: bold;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: calc(var(--h-unit) * 0.2);
     letter-spacing: calc(var(--d-h-unit) * 0.2);
     z-index: 500;
-    text-shadow: 0 0 var(--h-unit) var(--clr-teleport);
     animation: pulse-orange 1.5s infinite;
     pointer-events: none;
     text-align: center;

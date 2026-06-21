@@ -840,12 +840,12 @@ export class Engine {
                 const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
 
                 if (isRevealedPath) {
-                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
                     this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                     const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
                     const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
                     if (hUp || hDown) {
-                        this.ctx.fillStyle = (hUp && hDown) ? '#fff' : (hUp ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_DOWN);
+                        this.ctx.fillStyle = (hUp && hDown) ? CONFIG.COLORS.ELEVATOR_BIDIRECTIONAL : (hUp ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_DOWN);
                         this.ctx.font = `bold ${cellSize * 0.8}px Arial`;
                         this.ctx.textAlign = 'center';
                         this.ctx.fillText(hUp && hDown ? '↕' : (hUp ? '▲' : '▼'), x * cellSize + cellSize/2, y * cellSize + cellSize * 0.8);
@@ -856,7 +856,7 @@ export class Engine {
                                            this.inactiveTeleportPos.x === x && 
                                            this.inactiveTeleportPos.y === y && 
                                            this.inactiveTeleportPos.z === z;
-                        this.ctx.fillStyle = isInactive ? '#555555' : CONFIG.COLORS.TELEPORT;
+                        this.ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
                     } else {
                         this.ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
                     }
@@ -864,7 +864,7 @@ export class Engine {
                     const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
                     const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
                     if (hUp || hDown) {
-                        this.ctx.fillStyle = (hUp && hDown) ? '#fff' : (hUp ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_DOWN);
+                        this.ctx.fillStyle = (hUp && hDown) ? CONFIG.COLORS.ELEVATOR_BIDIRECTIONAL : (hUp ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_DOWN);
                         this.ctx.font = `bold ${cellSize * 0.8}px Arial`;
                         this.ctx.textAlign = 'center';
                         this.ctx.fillText(hUp && hDown ? '↕' : (hUp ? '▲' : '▼'), x * cellSize + cellSize/2, y * cellSize + cellSize * 0.8);
@@ -905,7 +905,7 @@ export class Engine {
             }
         }
         this.ctx.save();
-        this.ctx.strokeStyle = '#fff';
+        this.ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(Math.floor(px) * cellSize + 2, Math.floor(py) * cellSize + 2, cellSize - 4, cellSize - 4);
         this.ctx.restore();
@@ -917,7 +917,7 @@ export class Engine {
         this.ctx.lineWidth = 2;
         this.ctx.beginPath();
         this.ctx.moveTo(px * cellSize, py * cellSize);
-        this.ctx.lineTo(px * cellSize + Math.cos(pDir) * cellSize * 1.5, py * cellSize + Math.sin(pDir) * cellSize * 1.5);
+        this.ctx.lineTo(px * cellSize + Math.cos(pDir) * cellSize * 1, py * cellSize + Math.sin(pDir) * cellSize * 1);
         this.ctx.stroke();
     }
 
