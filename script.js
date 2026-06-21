@@ -27,27 +27,21 @@ window.onload = () => {
     const teleportCount = document.getElementById('teleport-count');
 
     const updateHunterDisplay = (degree) => {
-        let count = 0;
-        if (degree >= CONFIG.MAZE_DEGREE) count = 1;
-        if (degree >= CONFIG.MAZE_DEGREE * 2) count = 2;
-        if (degree >= CONFIG.MAZE_DEGREE * 3) count = 3;
+        const count = CONFIG.getHunterCount(degree);
         hunterCount.innerText = count;
         hunterCount.style.color = count > 0 ? '#f00' : '#a0f';
     };
 
     const updateTeleportDisplay = (degree) => {
-        const count = Math.max(2, Math.floor(degree / 2));
+        const count = CONFIG.getTeleportCount(degree);
         if (teleportCount) {
             teleportCount.innerText = count;
         }
     };
 
     const updateHelperDisplay = (degree) => {
-        let count = 0;
-        if (degree >= CONFIG.MAZE_DEGREE) count = 1;
-        if (degree >= CONFIG.MAZE_DEGREE * 2) count = 2;
-        if (degree >= CONFIG.MAZE_DEGREE * 3) count = 3;
-        const charges = count * 3 + 1;
+        const hunters = CONFIG.getHunterCount(degree);
+        const charges = CONFIG.getPathfinderCharges(hunters);
         const helperCountStart = document.getElementById('helper-count-start');
         if (helperCountStart) {
             helperCountStart.innerText = charges;

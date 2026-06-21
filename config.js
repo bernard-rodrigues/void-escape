@@ -3,9 +3,22 @@
  */
 export const CONFIG = {
     MAZE_DEGREE: 8,
-    MOVE_SPEED: 0.1,
-    ROT_SPEED: 0.05,
+    MOVE_SPEED_FACTOR: 2, // player is 2x faster than hunter speed
+    ROT_SPEED: 3.0, // radians per second
     HUNTER_SPEED: 800, // ms per move
+    getHunterCount(degree) {
+        let count = 0;
+        if (degree >= this.MAZE_DEGREE) count = 1;
+        if (degree >= this.MAZE_DEGREE * 2) count = 2;
+        if (degree >= this.MAZE_DEGREE * 3) count = 3;
+        return count;
+    },
+    getTeleportCount(degree) {
+        return Math.max(2, Math.floor(degree / 2));
+    },
+    getPathfinderCharges(hunterCount) {
+        return hunterCount * 3 + 1;
+    },
     COLORS: {
         // 2D & Global
         WALL: '#444',

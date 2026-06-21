@@ -1,3 +1,5 @@
+import { CONFIG } from './config.js';
+
 /**
  * 3D Maze Logic Handler
  */
@@ -80,8 +82,7 @@ export class Maze3D {
     }
 
     placeTeleports() {
-        const degree = this.n;
-        const count = Math.max(2, Math.floor(degree / 2));
+        const count = CONFIG.getTeleportCount(this.n);
         
         // Find all walkable paths, excluding start and exit, prioritizing dead-ends
         const deadEnds = [];

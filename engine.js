@@ -12,6 +12,7 @@ export class Engine {
         this.degree = degree;
         this.branchingFactor = branchingFactor;
         this.movementMode = movementMode;
+        this.vScale = 2.0;
 
         this.canvas = document.getElementById('main-2d-canvas');
         this.ctx = this.canvas.getContext('2d');
@@ -34,8 +35,9 @@ export class Engine {
         this.hunters = [];
         this.initHunters(degree);
 
-        this.maxHelperUses = this.hunters.length * 3 + 1;
+        this.maxHelperUses = CONFIG.getPathfinderCharges(this.hunters.length);
         this.helperUsesLeft = this.maxHelperUses;
+        this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
         this.activePathReveal = [];
         this.revealedPathProgress = 0;
@@ -105,12 +107,14 @@ export class Engine {
     }
 
     initHunters(degree) {
-        if (degree < CONFIG.MAZE_DEGREE) return;
+        const count = CONFIG.getHunterCount(degree);
+        if (count === 0) return;
         const size = this.mazeGen.size;
         const mid = Math.floor(size / 2);
-        this.hunters.push(new Hunter(this.mazeGen, this.getExitPos(), 1));
-        if (degree >= CONFIG.MAZE_DEGREE * 2) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(size - 2, 1, mid), 2));
-        if (degree >= CONFIG.MAZE_DEGREE * 3) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(1, size - 2, mid), 3));
+        
+        if (count >= 1) this.hunters.push(new Hunter(this.mazeGen, this.getExitPos(), 1));
+        if (count >= 2) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(size - 2, 1, mid), 2));
+        if (count >= 3) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(1, size - 2, mid), 3));
         this.lastHunterMove = performance.now();
     }
 
@@ -296,8 +300,8 @@ export class Engine {
 
     updateFloorUI() { if (this.uiFloorSpan) this.uiFloorSpan.innerText = (this.player.z + 1) / 2; }
 
-    update() {
-        if (this.isGameOver || this.isDestroyed) return;
+    update(dt) {
+        if (this.isGameOver || this.isDestroyed || !dt) return;
         if (this.isMap3DActive) {
             this.controls.update();
             const size = this.mazeGen.size; // Get size for positioning
@@ -305,21 +309,21 @@ export class Engine {
             for (const hm of this.hunterMeshes) {
                 const h = hm.hunter; // The actual hunter object
                 const mesh = hm.mesh; // The THREE.Mesh object
-                mesh.position.set(h.x - size/2, h.z - size/2, h.y - size/2);
+                mesh.position.set(h.x - size/2, (h.z - size/2) * this.vScale, h.y - size/2);
                 
                 if (h.history && h.history.length > 0) {
                     if (h.history.length === 2) {
                         const oldest = h.history[0];
                         const newest = h.history[1];
                         
-                        hm.trail2.position.set(oldest.x - size/2, oldest.z - size/2, oldest.y - size/2);
+                        hm.trail2.position.set(oldest.x - size/2, (oldest.z - size/2) * this.vScale, oldest.y - size/2);
                         hm.trail2.visible = true;
                         
-                        hm.trail1.position.set(newest.x - size/2, newest.z - size/2, newest.y - size/2);
+                        hm.trail1.position.set(newest.x - size/2, (newest.z - size/2) * this.vScale, newest.y - size/2);
                         hm.trail1.visible = true;
                     } else if (h.history.length === 1) {
                         const newest = h.history[0];
-                        hm.trail1.position.set(newest.x - size/2, newest.z - size/2, newest.y - size/2);
+                        hm.trail1.position.set(newest.x - size/2, (newest.z - size/2) * this.vScale, newest.y - size/2);
                         hm.trail1.visible = true;
                         hm.trail2.visible = false;
                     }
@@ -334,16 +338,21 @@ export class Engine {
             let moveX = 0, moveY = 0;
             const isPortrait = window.innerHeight > window.innerWidth;
 
+            const hunterSpeedSec = 1000 / CONFIG.HUNTER_SPEED;
+            const playerSpeedSec = hunterSpeedSec * CONFIG.MOVE_SPEED_FACTOR;
+            const moveDist = playerSpeedSec * dt;
+            const rotDist = CONFIG.ROT_SPEED * dt;
+
             if (!isPortrait && this.movementMode === 'tank') {
-                if (this.keys['a'] || this.keys['arrowleft']) this.player.dir -= CONFIG.ROT_SPEED;
-                if (this.keys['d'] || this.keys['arrowright']) this.player.dir += CONFIG.ROT_SPEED;
+                if (this.keys['a'] || this.keys['arrowleft']) this.player.dir -= rotDist;
+                if (this.keys['d'] || this.keys['arrowright']) this.player.dir += rotDist;
                 if (this.keys['w'] || this.keys['arrowup']) {
-                    moveX = Math.cos(this.player.dir) * CONFIG.MOVE_SPEED;
-                    moveY = Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
+                    moveX = Math.cos(this.player.dir) * moveDist;
+                    moveY = Math.sin(this.player.dir) * moveDist;
                 }
                 if (this.keys['s'] || this.keys['arrowdown']) {
-                    moveX = -Math.cos(this.player.dir) * CONFIG.MOVE_SPEED;
-                    moveY = -Math.sin(this.player.dir) * CONFIG.MOVE_SPEED;
+                    moveX = -Math.cos(this.player.dir) * moveDist;
+                    moveY = -Math.sin(this.player.dir) * moveDist;
                 }
             } else {
                 let dx = 0, dy = 0;
@@ -356,8 +365,8 @@ export class Engine {
                 }
                 if (dx !== 0 || dy !== 0) {
                     const mag = Math.sqrt(dx * dx + dy * dy);
-                    moveX = (dx / mag) * CONFIG.MOVE_SPEED;
-                    moveY = (dy / mag) * CONFIG.MOVE_SPEED;
+                    moveX = (dx / mag) * moveDist;
+                    moveY = (dy / mag) * moveDist;
                     this.player.dir = Math.atan2(moveY, moveX);
                 }
             }
@@ -591,7 +600,7 @@ export class Engine {
         const shaftGeomBottom = new THREE.BoxGeometry(0.9, 0.425, 0.9);
         const shaftGeomTop = new THREE.BoxGeometry(0.9, 0.425, 0.9);
         
-        const shaftGeom = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8);
+        const shaftGeom = new THREE.CylinderGeometry(0.35, 0.35, 2.0 * this.vScale, 8);
         const shaftMat = new THREE.MeshPhongMaterial({
             color: CONFIG.COLORS.THREE_VISITED,
             transparent: true, opacity: 0.8 * opFactor
@@ -638,7 +647,7 @@ export class Engine {
                             }
 
                             const mesh = new THREE.Mesh(shaftGeom, material);
-                            mesh.position.set(x - size/2, z - size/2, y - size/2);
+                            mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
                             this.scene.add(mesh);
                             this.gridMeshes[x][y][z] = mesh;
 
@@ -653,7 +662,7 @@ export class Engine {
                     const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
                     const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                     const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
-                    const isKnown = val === 1 && this.isNearVisited(x, y, z);
+                    const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
 
                     if (isTeleportDiscovered) {
                         const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
@@ -688,7 +697,7 @@ export class Engine {
                             opacity: opacity
                         });
                         const mesh = new THREE.Mesh(teleportGeom, teleportMat);
-                        mesh.position.set(x - size/2, z - size/2, y - size/2);
+                        mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
                         mesh.userData = { isTeleport: true, gridX: x, gridY: y, gridZ: z };
                         this.scene.add(mesh);
                         this.teleportMeshes.push(mesh);
@@ -740,8 +749,8 @@ export class Engine {
                                 const matTop    = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_DOWN, transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_DOWN, emissiveIntensity: 0.4 * opFactor });
                                 const meshBottom = new THREE.Mesh(shaftGeomBottom, matBottom);
                                 const meshTop    = new THREE.Mesh(shaftGeomTop,    matTop);
-                                meshBottom.position.set(x - size/2, z - size/2 - 0.2125, y - size/2);
-                                meshTop.position.set(   x - size/2, z - size/2 + 0.2125, y - size/2);
+                                meshBottom.position.set(x - size/2, (z - size/2) * this.vScale - 0.2125, y - size/2);
+                                meshTop.position.set(   x - size/2, (z - size/2) * this.vScale + 0.2125, y - size/2);
                                 this.scene.add(meshBottom);
                                 this.scene.add(meshTop);
                                 this.gridMeshes[x][y][z] = meshTop; // Reference to one of them is enough
@@ -757,14 +766,14 @@ export class Engine {
                         if (isPlayerHere || isHunterHere) {
                             const floorGeom = new THREE.BoxGeometry(0.9, 0.05, 0.9);
                             const mesh = new THREE.Mesh(floorGeom, material);
-                            mesh.position.set(x - size/2, z - size/2 - 0.425, y - size/2);
+                            mesh.position.set(x - size/2, (z - size/2) * this.vScale - 0.425, y - size/2);
                             this.scene.add(mesh);
                             this.gridMeshes[x][y][z] = mesh;
                             continue;
                         }
 
                         const mesh = new THREE.Mesh(geometry, material);
-                        mesh.position.set(x - size/2, z - size/2, y - size/2);
+                        mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
                         this.scene.add(mesh);
                         this.gridMeshes[x][y][z] = mesh;
                         if (isKnown && !isRevealedPath) {
@@ -776,7 +785,7 @@ export class Engine {
             }
         }
         const pMarker = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.THREE_PLAYER }));
-        pMarker.position.set(Math.floor(this.player.x) - size/2, this.player.z - size/2, Math.floor(this.player.y) - size/2);
+        pMarker.position.set(Math.floor(this.player.x) - size/2, (this.player.z - size/2) * this.vScale, Math.floor(this.player.y) - size/2);
         this.scene.add(pMarker);
         const hGeom = new THREE.SphereGeometry(0.4);
         const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8 });
@@ -800,7 +809,7 @@ export class Engine {
             this.scene.add(tMesh1);
 
             const hMesh = new THREE.Mesh(hGeom, hMat);
-            hMesh.position.set(h.x - size/2, h.z - size/2, h.y - size/2);
+            hMesh.position.set(h.x - size/2, (h.z - size/2) * this.vScale, h.y - size/2);
             this.scene.add(hMesh);
             
             this.hunterMeshes.push({ 
@@ -811,7 +820,7 @@ export class Engine {
             });
             console.log('Hunter mesh and trails added:', h);
         }
-        this.camera.position.set(size, size, size);
+        this.camera.position.set(size, size * this.vScale, size);
         this.controls.target.set(0, 0, 0);
         this.controls.update();
     }
@@ -827,7 +836,7 @@ export class Engine {
                 const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
-                const isKnown = (val === 1) && this.isNearVisited(x, y, z);
+                const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
                 const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
 
                 if (isRevealedPath) {
@@ -976,7 +985,12 @@ export class Engine {
 
     loop() {
         if (this.isDestroyed) return;
-        this.update();
+        const now = performance.now();
+        const dt = (now - this.lastFrameTime) / 1000;
+        this.lastFrameTime = now;
+        const clampedDt = Math.min(dt, 0.1);
+
+        this.update(clampedDt);
         if (this.isMap3DActive) {
             this.renderer.render(this.scene, this.camera);
             this.updatePulse();

@@ -236,8 +236,8 @@ body {
 }
 
 .end-btn:hover {
-    background: currentColor;
-    color: #000 !important;
+    background: #000;
+    color: #fff !important;
 }
 
 #victory-screen {
