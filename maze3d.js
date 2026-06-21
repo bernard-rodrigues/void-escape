@@ -8,7 +8,7 @@ export class Maze3D {
         this.size = 2 * this.n + 1;
         this.matrix = this.initMatrix();
         
-        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5 };
+        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6 };
         this.startPos = { x: 0.5, y: 1.5, z: 0 };
     }
 
@@ -43,6 +43,7 @@ export class Maze3D {
         }
 
         this.setEntryAndExit();
+        this.placeTeleports();
         return this.matrix;
     }
 
@@ -76,5 +77,94 @@ export class Maze3D {
         const lastCell = 2 * this.n - 1;
         this.matrix[lastCell][lastCell][exitZ] = this.TYPES.PATH;
         this.matrix[2 * this.n][lastCell][exitZ] = this.TYPES.EXIT;
+    }
+
+    placeTeleports() {
+        const degree = this.n;
+        const count = Math.max(2, Math.floor(degree / 2));
+        
+        // Find all walkable paths, excluding start and exit
+        const paths = [];
+        for (let x = 1; x < this.size - 1; x++) {
+            for (let y = 1; y < this.size - 1; y++) {
+                for (let z = 1; z < this.size - 1; z++) {
+                    if (this.matrix[x][y][z] === this.TYPES.PATH) {
+                        paths.push({ x, y, z });
+                    }
+                }
+            }
+        }
+
+        // Keep track of start and exit positions
+        const start = { x: 0, y: 1, z: this.startPos.z };
+        let exit = { x: 2 * this.n, y: 2 * this.n - 1, z: this.startPos.z };
+        for (let x = 0; x < this.size; x++) {
+            for (let y = 0; y < this.size; y++) {
+                for (let z = 0; z < this.size; z++) {
+                    if (this.matrix[x][y][z] === this.TYPES.EXIT) {
+                        exit = { x, y, z };
+                    }
+                }
+            }
+        }
+
+        const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
+
+        const teleports = [];
+        let minDistanceToStartExit = 4;
+        let minDistanceToOthers = 4;
+
+        // Try placing teleports with relaxation
+        while (teleports.length < count && minDistanceToStartExit > 0) {
+            teleports.length = 0; // reset
+            const candidates = paths.filter(p => {
+                const ds = getDist(p, start);
+                const de = getDist(p, exit);
+                return ds >= minDistanceToStartExit && de >= minDistanceToStartExit;
+            });
+
+            // Greedy placement
+            for (let i = 0; i < count; i++) {
+                let bestCand = null;
+                let maxMinDist = -1;
+
+                for (const c of candidates) {
+                    if (teleports.some(t => t.x === c.x && t.y === c.y && t.z === c.z)) continue;
+
+                    let minDistToOthers = Infinity;
+                    for (const t of teleports) {
+                        const d = getDist(c, t);
+                        if (d < minDistToOthers) minDistToOthers = d;
+                    }
+
+                    if (minDistToOthers >= minDistanceToOthers) {
+                        const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
+                        if (minD > maxMinDist) {
+                            maxMinDist = minD;
+                            bestCand = c;
+                        }
+                    }
+                }
+
+                if (bestCand) {
+                    teleports.push(bestCand);
+                } else {
+                    break;
+                }
+            }
+
+            if (teleports.length < count) {
+                if (minDistanceToOthers > 1) {
+                    minDistanceToOthers--;
+                } else {
+                    minDistanceToStartExit--;
+                }
+            }
+        }
+
+        // Apply selected teleports to matrix
+        for (const t of teleports) {
+            this.matrix[t.x][t.y][t.z] = this.TYPES.TELEPORT;
+        }
     }
 }

@@ -17,6 +17,7 @@ export const CONFIG = {
         EXIT: '#0f0',
         PLAYER: '#f00',
         HUNTER: '#a0f',
+        TELEPORT: '#ff8c00',
         // 3D Specific (Hex codes for Three.js)
         THREE_PLAYER: 0xff0000,
         THREE_HUNTER: 0xaa00ff,
@@ -26,6 +27,7 @@ export const CONFIG = {
         THREE_KNOWN: 0x88ccff,
         THREE_ELEVATOR_UP: 0x00ffff,
         THREE_ELEVATOR_DOWN: 0xff00ff,
+        THREE_TELEPORT: 0xff8c00,
         // Used for the vertical shaft rendered between two floors the player connected via elevator.
         // Visually split: bottom half = DOWN color (magenta), top half = UP color (cyan).
         THREE_ELEVATOR_SHAFT: { bottom: 0xff00ff, top: 0x00ffff }

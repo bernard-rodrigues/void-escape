@@ -40,6 +40,11 @@ export class Engine {
         this.isDestroyed = false;
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
+        this.discoveredTeleports = new Set();
+        this.teleportMeshes = [];
+        this.isTeleportMode = false;
+        this.raycaster = new THREE.Raycaster();
+        this.pointer = new THREE.Vector2();
         
         this.initThree();
         this.init();
@@ -58,6 +63,16 @@ export class Engine {
         window.removeEventListener('touchmove', this.handleTouchMove);
         window.removeEventListener('touchend', this.handleTouchEnd);
         
+        if (this.controls) {
+            this.controls.dispose();
+        }
+
+        if (this.uiMap3dContainer) {
+            this.uiMap3dContainer.removeEventListener('click', this.handleCanvasClick);
+            this.uiMap3dContainer.removeEventListener('pointerdown', this.handlePointerDown);
+            this.uiMap3dContainer.removeEventListener('pointerup', this.handlePointerUp);
+        }
+        
         if (this.renderer) {
             this.renderer.dispose();
             this.renderer.domElement.remove();
@@ -67,6 +82,7 @@ export class Engine {
         document.getElementById('mobile-up').onclick = null;
         document.getElementById('mobile-down').onclick = null;
         document.getElementById('mobile-map').onclick = null;
+        if (this.teleportInfoTimeout) clearTimeout(this.teleportInfoTimeout);
     }
 
     initHunters(degree) {
@@ -136,6 +152,10 @@ export class Engine {
         this.uiMap3dContainer.appendChild(this.renderer.domElement);
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.08;
+        this.controls.zoomSpeed = 0.35;
+        this.controls.minDistance = 2;
+        this.controls.maxDistance = 150;
     }
 
     init() {
@@ -144,7 +164,13 @@ export class Engine {
             const key = e.key.toLowerCase();
             this.keys[key] = true;
             if (preventScroll.includes(key)) e.preventDefault();
-            if (key === 'm') this.toggleMap3D();
+            if (key === 'm') {
+                if (this.isTeleportMode) {
+                    this.toggleTeleportMap(false);
+                } else {
+                    this.toggleMap3D();
+                }
+            }
         };
         this.handleKeyUp = e => this.keys[e.key.toLowerCase()] = false;
         this.handleResize = () => this.resize();
@@ -155,7 +181,56 @@ export class Engine {
 
         document.getElementById('mobile-up').onclick = () => this.changeFloor(2);
         document.getElementById('mobile-down').onclick = () => this.changeFloor(-2);
-        document.getElementById('mobile-map').onclick = () => this.toggleMap3D();
+        
+        document.getElementById('mobile-map').onclick = () => {
+            if (this.isMap3DActive) {
+                if (this.isTeleportMode) {
+                    this.toggleTeleportMap(false);
+                } else {
+                    this.toggleMap3D();
+                }
+                return;
+            }
+            
+            const px = Math.floor(this.player.x);
+            const py = Math.floor(this.player.y);
+            const pz = this.player.z;
+            const isOnTeleport = this.maze[px][py][pz] === this.mazeGen.TYPES.TELEPORT;
+            
+            if (isOnTeleport) {
+                if (this.discoveredTeleports.size >= 2) {
+                    this.toggleTeleportMap(true);
+                } else {
+                    this.showTeleportInfoBanner();
+                }
+            } else {
+                this.toggleMap3D();
+            }
+        };
+
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        this.handlePointerDown = (e) => {
+            isDragging = false;
+            startX = e.clientX;
+            startY = e.clientY;
+        };
+        this.handlePointerUp = (e) => {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            if (Math.sqrt(dx*dx + dy*dy) > 5) {
+                isDragging = true;
+            }
+        };
+        this.handleCanvasClick = (e) => {
+            if (isDragging) return;
+            this.onCanvasClick(e);
+        };
+        
+        this.uiMap3dContainer.addEventListener('pointerdown', this.handlePointerDown);
+        this.uiMap3dContainer.addEventListener('pointerup', this.handlePointerUp);
+        this.uiMap3dContainer.addEventListener('click', this.handleCanvasClick);
 
         this.touchStart = null;
         this.handleTouchStart = e => {
@@ -285,14 +360,51 @@ export class Engine {
             }
 
             const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
+            const playerIdxZ = this.player.z;
+            const isOnTeleport = this.maze[playerIdxX][playerIdxY][playerIdxZ] === this.mazeGen.TYPES.TELEPORT;
+
             if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
-                if (this.maze[playerIdxX][playerIdxY][this.player.z] === this.mazeGen.TYPES.PATH) {
-                    this.maze[playerIdxX][playerIdxY][this.player.z] = this.mazeGen.TYPES.VISITED;
+                if (this.maze[playerIdxX][playerIdxY][playerIdxZ] === this.mazeGen.TYPES.PATH) {
+                    this.maze[playerIdxX][playerIdxY][playerIdxZ] = this.mazeGen.TYPES.VISITED;
+                } else if (isOnTeleport) {
+                    const key = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
+                    if (!this.discoveredTeleports.has(key)) {
+                        this.discoveredTeleports.add(key);
+                    }
                 }
             }
 
-            if (this.keys['e'] || this.keys['pageup']) this.changeFloor(2);
-            if (this.keys['q'] || this.keys['pagedown']) this.changeFloor(-2);
+            if (isOnTeleport) {
+                if (this.keys['e'] || this.keys['pageup'] || this.keys['q'] || this.keys['pagedown']) {
+                    ['e', 'q', 'pageup', 'pagedown'].forEach(k => this.keys[k] = false);
+                    if (this.discoveredTeleports.size >= 2) {
+                        this.toggleTeleportMap(true);
+                    } else {
+                        this.showTeleportInfoBanner();
+                    }
+                }
+            } else {
+                if (this.keys['e'] || this.keys['pageup']) this.changeFloor(2);
+                if (this.keys['q'] || this.keys['pagedown']) this.changeFloor(-2);
+            }
+
+            const mapBtn = document.getElementById('mobile-map');
+            if (mapBtn) {
+                const isPortrait = window.innerHeight > window.innerWidth;
+                if (isPortrait) {
+                    if (isOnTeleport) {
+                        mapBtn.innerText = "TELEPORT";
+                        mapBtn.style.borderColor = "var(--clr-teleport, #ff8c00)";
+                        mapBtn.style.color = "var(--clr-teleport, #ff8c00)";
+                        mapBtn.style.background = "rgba(255, 140, 0, 0.2)";
+                    } else {
+                        mapBtn.innerText = "MAP";
+                        mapBtn.style.borderColor = "";
+                        mapBtn.style.color = "";
+                        mapBtn.style.background = "";
+                    }
+                }
+            }
 
             if (isPortrait) {
                 const upBtn = document.getElementById('mobile-up');
@@ -361,12 +473,15 @@ export class Engine {
 
     toggleMap3D() {
         this.isMap3DActive = !this.isMap3DActive;
+        this.isTeleportMode = false;
+        const warning = document.getElementById('teleport-warning');
+        if (warning) warning.classList.add('hidden');
         if (this.isMap3DActive) {
             this.uiMap3dContainer.classList.remove('hidden');
-            this.build3DMap();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
+            this.build3DMap();
         } else {
             this.uiMap3dContainer.classList.add('hidden');
         }
@@ -381,6 +496,7 @@ export class Engine {
 
         this.pulsatingMaterials = []; // Reset the array
         this.hunterMeshes = []; // Reset the array
+        this.teleportMeshes = []; // Reset the array
 
         const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
         const size = this.mazeGen.size;
@@ -407,8 +523,28 @@ export class Engine {
                         continue;
                     }
 
-                    const isVisited = val >= 2;
+                    const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                    const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
+                    const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
                     const isKnown = val === 1 && this.isNearVisited(x, y, z);
+
+                    if (isTeleportDiscovered) {
+                        const teleportGeom = new THREE.SphereGeometry(0.45, 16, 16);
+                        const teleportMat = new THREE.MeshPhongMaterial({
+                            color: CONFIG.COLORS.THREE_TELEPORT,
+                            emissive: CONFIG.COLORS.THREE_TELEPORT,
+                            emissiveIntensity: 0.8,
+                            transparent: true,
+                            opacity: 0.9
+                        });
+                        const mesh = new THREE.Mesh(teleportGeom, teleportMat);
+                        mesh.position.set(x - size/2, z - size/2, y - size/2);
+                        mesh.userData = { isTeleport: true, gridX: x, gridY: y, gridZ: z };
+                        this.scene.add(mesh);
+                        this.teleportMeshes.push(mesh);
+                        continue;
+                    }
+
                     if (isVisited || isKnown) {
                         let color = CONFIG.COLORS.THREE_KNOWN;
                         let material; // Declare material here
@@ -503,8 +639,10 @@ export class Engine {
             });
             console.log('Hunter mesh and trails added:', h);
         }
-        this.camera.position.set(size, size, size);
+        this.camera.position.set(size * 1.5, size * 1.5, size * 1.5);
         this.controls.target.set(0, 0, 0);
+        this.controls.minDistance = size * 0.5;
+        this.controls.maxDistance = size * 4.0;
         this.controls.update();
     }
 
@@ -516,10 +654,16 @@ export class Engine {
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 const val = this.maze[x][y][z];
-                const isVisited = val >= 2;
-                const isKnown = val === 1 && this.isNearVisited(x, y, z);
+                const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
+                const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
+                const isKnown = (val === 1) && this.isNearVisited(x, y, z);
                 if (isVisited) {
-                    this.ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
+                    if (isTeleportDiscovered) {
+                        this.ctx.fillStyle = CONFIG.COLORS.TELEPORT;
+                    } else {
+                        this.ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
+                    }
                     this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                     const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
                     const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
@@ -529,7 +673,10 @@ export class Engine {
                         this.ctx.textAlign = 'center';
                         this.ctx.fillText(hUp && hDown ? '↕' : (hUp ? '▲' : '▼'), x * cellSize + cellSize/2, y * cellSize + cellSize * 0.8);
                     }
-                } else if (isKnown) { this.ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); }
+                } else if (isKnown) { 
+                    this.ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; 
+                    this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
+                }
                 else if (val === 0 && this.isNearVisited(x, y, z)) { this.ctx.fillStyle = CONFIG.COLORS.WALL; this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); }
             }
         }
@@ -586,7 +733,8 @@ export class Engine {
                     const v = this.maze[nx][ny][z];
                     // ELEVATOR_VISITED (5) cells are only shown when explicitly used by the player,
                     // not revealed by proximity to regular visited cells.
-                    if (v >= 2 && v !== this.mazeGen.TYPES.ELEVATOR_VISITED) return true;
+                    if (v === 2 || v === 3 || v === 4) return true;
+                    if (v === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${nx},${ny},${z}`)) return true;
                 }
             }
         }
@@ -648,5 +796,69 @@ export class Engine {
         }
         else { this.draw2DMap(); }
         requestAnimationFrame(() => this.loop());
+    }
+
+    toggleTeleportMap(show) {
+        this.isMap3DActive = show;
+        this.isTeleportMode = show;
+        
+        const warning = document.getElementById('teleport-warning');
+        
+        if (show) {
+            this.uiMap3dContainer.classList.remove('hidden');
+            if (warning) warning.classList.remove('hidden');
+            
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.build3DMap();
+        } else {
+            this.uiMap3dContainer.classList.add('hidden');
+            if (warning) warning.classList.add('hidden');
+        }
+    }
+
+    showTeleportInfoBanner() {
+        const info = document.getElementById('teleport-info');
+        if (info) {
+            info.classList.remove('hidden');
+            if (this.teleportInfoTimeout) clearTimeout(this.teleportInfoTimeout);
+            this.teleportInfoTimeout = setTimeout(() => {
+                info.classList.add('hidden');
+            }, 3000);
+        }
+    }
+
+    onCanvasClick(event) {
+        if (!this.isTeleportMode) return;
+        
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        this.raycaster.setFromCamera(this.pointer, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.teleportMeshes);
+        
+        if (intersects.length > 0) {
+            const hitMesh = intersects[0].object;
+            const { gridX, gridY, gridZ } = hitMesh.userData;
+            this.teleportTo(gridX, gridY, gridZ);
+        }
+    }
+
+    teleportTo(x, y, z) {
+        this.player.x = x + 0.5;
+        this.player.y = y + 0.5;
+        this.player.z = z;
+        
+        this.toggleTeleportMap(false);
+        
+        if (this.maze[x][y][z] === this.mazeGen.TYPES.PATH) {
+            this.maze[x][y][z] = this.mazeGen.TYPES.VISITED;
+        }
+        
+        this.updateFloorUI();
+        this.draw2DMap();
+        this.keys = {};
     }
 }

@@ -24,6 +24,7 @@ window.onload = () => {
     const degreeVal = document.getElementById('degree-val');
     const branchVal = document.getElementById('branch-val');
     const hunterCount = document.getElementById('hunter-count');
+    const teleportCount = document.getElementById('teleport-count');
 
     const updateHunterDisplay = (degree) => {
         let count = 0;
@@ -34,9 +35,21 @@ window.onload = () => {
         hunterCount.style.color = count > 0 ? '#f00' : '#a0f';
     };
 
-    degreeSlider.oninput = () => { degreeVal.innerText = degreeSlider.value; updateHunterDisplay(parseInt(degreeSlider.value)); };
+    const updateTeleportDisplay = (degree) => {
+        const count = Math.max(2, Math.floor(degree / 2));
+        if (teleportCount) {
+            teleportCount.innerText = count;
+        }
+    };
+
+    degreeSlider.oninput = () => { 
+        degreeVal.innerText = degreeSlider.value; 
+        updateHunterDisplay(parseInt(degreeSlider.value)); 
+        updateTeleportDisplay(parseInt(degreeSlider.value)); 
+    };
     branchSlider.oninput = () => branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
     updateHunterDisplay(parseInt(degreeSlider.value));
+    updateTeleportDisplay(parseInt(degreeSlider.value));
 
     document.getElementById('start-btn').onclick = () => {
         startNewGame(parseInt(degreeSlider.value), parseFloat(branchSlider.value), document.getElementById('movement-mode').value);
