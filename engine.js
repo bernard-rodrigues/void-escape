@@ -152,8 +152,6 @@ export class Engine {
         this.uiMap3dContainer.appendChild(this.renderer.domElement);
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
-        this.controls.zoomSpeed = 0.5;
     }
 
     init() {
@@ -476,10 +474,10 @@ export class Engine {
         if (warning) warning.classList.add('hidden');
         if (this.isMap3DActive) {
             this.uiMap3dContainer.classList.remove('hidden');
+            this.build3DMap();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
-            this.build3DMap();
         } else {
             this.uiMap3dContainer.classList.add('hidden');
         }
@@ -639,8 +637,6 @@ export class Engine {
         }
         this.camera.position.set(size, size, size);
         this.controls.target.set(0, 0, 0);
-        this.controls.minDistance = 2;
-        this.controls.maxDistance = size * 4;
         this.controls.update();
     }
 
@@ -806,10 +802,10 @@ export class Engine {
             this.uiMap3dContainer.classList.remove('hidden');
             if (warning) warning.classList.remove('hidden');
             
+            this.build3DMap();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
-            this.build3DMap();
         } else {
             this.uiMap3dContainer.classList.add('hidden');
             if (warning) warning.classList.add('hidden');

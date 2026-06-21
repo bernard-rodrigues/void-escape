@@ -66,3 +66,20 @@ window.onload = () => {
         document.getElementById(id).onclick = returnToMenu;
     });
 };
+
+// Impedir zoom de página do navegador via atalho Ctrl + Scroll (roda do mouse)
+window.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+// Impedir zoom de página (gesto de pinça) em celulares e trackpads,
+// exceto quando interagindo diretamente com o canvas do mapa holográfico 3D.
+window.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) {
+        if (!e.target.closest('#map3d-container canvas')) {
+            e.preventDefault();
+        }
+    }
+}, { passive: false });

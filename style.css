@@ -26,6 +26,7 @@ body {
     color: var(--clr-text);
     font-family: 'Courier New', Courier, monospace;
     overflow: hidden;
+    touch-action: manipulation;
 }
 
 .hidden {
