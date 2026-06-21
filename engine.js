@@ -53,6 +53,7 @@ export class Engine {
         this.isMap3DActive = false;
         this.isGameOver = false;
         this.isDestroyed = false;
+        this.isIntroPlaying = false;
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
@@ -283,7 +284,10 @@ export class Engine {
         
         this.resize();
         this.updateFloorUI();
+        // Pre-hide canvas before first render to avoid intro flash
+        this.canvas.classList.add('intro-hidden');
         this.loop();
+        this.playIntroAnimation();
     }
 
     resize() {
@@ -570,7 +574,7 @@ export class Engine {
         }
     }
 
-    build3DMap() {
+    build3DMap(isIntro = false) {
         while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
         this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
@@ -707,9 +711,14 @@ export class Engine {
                     const key = `${x},${y},${z}`;
                     const isRevealedPath = this.revealedPathSet.has(key);
 
-                    if (isVisited || isKnown || isRevealedPath) {
-                        let color = CONFIG.COLORS.THREE_KNOWN;
-                        let material; // Declare material here
+                    // During intro: render every passable cell so BFS can reveal it
+                    const shouldRender = isIntro
+                        ? val !== this.mazeGen.TYPES.WALL
+                        : (isVisited || isKnown || isRevealedPath);
+
+                    if (shouldRender) {
+                        let color = isIntro ? CONFIG.COLORS.THREE_VISITED : CONFIG.COLORS.THREE_KNOWN;
+                        let material;
 
                         if (isRevealedPath) {
                             color = 0xffffff;
@@ -720,7 +729,7 @@ export class Engine {
                                 emissive: color,
                                 emissiveIntensity: 2.0 * opFactor
                             });
-                        } else if (isVisited) {
+                        } else if (isVisited || isIntro) {
                             color = CONFIG.COLORS.THREE_VISITED;
                             if (val === 3) color = CONFIG.COLORS.THREE_START;
                             else if (val === 4) color = CONFIG.COLORS.THREE_EXIT;
@@ -784,6 +793,9 @@ export class Engine {
                 }
             }
         }
+        // Skip player/hunter markers during intro (scene is clean)
+        if (isIntro) return;
+
         const pMarker = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.THREE_PLAYER }));
         pMarker.position.set(Math.floor(this.player.x) - size/2, (this.player.z - size/2) * this.vScale, Math.floor(this.player.y) - size/2);
         this.scene.add(pMarker);
@@ -818,7 +830,7 @@ export class Engine {
                 trail1: tMesh1,
                 trail2: tMesh2
             });
-            console.log('Hunter mesh and trails added:', h);
+
         }
         this.camera.position.set(size, size * this.vScale, size);
         this.controls.target.set(0, 0, 0);
@@ -990,13 +1002,213 @@ export class Engine {
         this.lastFrameTime = now;
         const clampedDt = Math.min(dt, 0.1);
 
-        this.update(clampedDt);
-        if (this.isMap3DActive) {
-            this.renderer.render(this.scene, this.camera);
-            this.updatePulse();
+        if (!this.isIntroPlaying) {
+            this.update(clampedDt);
+        } else {
+            this.controls.update(); // drive auto-rotate during intro
         }
-        else { this.draw2DMap(); }
+
+        if (this.isMap3DActive || this.isIntroPlaying) {
+            this.renderer.render(this.scene, this.camera);
+            if (!this.isIntroPlaying) this.updatePulse();
+        } else {
+            this.draw2DMap();
+        }
         requestAnimationFrame(() => this.loop());
+    }
+
+    /**
+     * Intro animation: dual-source BFS reveal from start + exit nodes,
+     * camera auto-rotate, glitch effect, then transition to 2D gameplay.
+     * Meshes are created lazily (one per step) to avoid synchronous freeze.
+     */
+    playIntroAnimation() {
+        this.isIntroPlaying = true;
+
+        const size = this.mazeGen.size;
+
+        // --- 1. Set up minimal scene: lights + renderer only (no mesh bulk) ---
+        while (this.scene.children.length > 0) this.scene.remove(this.scene.children[0]);
+        this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.position.set(10, 20, 10);
+        this.scene.add(dirLight);
+
+        this.uiMap3dContainer.classList.remove('hidden');
+        this.isMap3DActive = true;
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.camera.position.set(size * 0.9, size * this.vScale * 0.6, size * 0.9);
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+
+        // Hide 2D canvas during intro (already hidden before loop, but ensure it on replay)
+        this.canvas.classList.add('intro-hidden');
+        this.canvas.classList.remove('intro-reveal');
+
+        // --- 2. Place permanent start + exit markers ---
+        const startPos = this.mazeGen.startPos;
+        const exitPos  = this.getExitPos();
+        const markerGeom = new THREE.BoxGeometry(0.92, 0.92, 0.92);
+
+        const startMat = new THREE.MeshPhongMaterial({
+            color: CONFIG.COLORS.THREE_START, emissive: CONFIG.COLORS.THREE_START,
+            emissiveIntensity: 0.6, transparent: true, opacity: 0.95
+        });
+        const startMesh = new THREE.Mesh(markerGeom, startMat);
+        startMesh.position.set(
+            Math.floor(startPos.x) - size / 2,
+            (startPos.z - size / 2) * this.vScale,
+            Math.floor(startPos.y) - size / 2
+        );
+        this.scene.add(startMesh);
+
+        const exitMat = new THREE.MeshPhongMaterial({
+            color: CONFIG.COLORS.THREE_EXIT, emissive: CONFIG.COLORS.THREE_EXIT,
+            emissiveIntensity: 0.6, transparent: true, opacity: 0.95
+        });
+        const exitMesh = new THREE.Mesh(markerGeom, exitMat);
+        exitMesh.position.set(
+            exitPos.x - size / 2,
+            (exitPos.z - size / 2) * this.vScale,
+            exitPos.y - size / 2
+        );
+        this.scene.add(exitMesh);
+
+        // --- 3. BFS from start AND exit to build reveal order (pure data, no meshes yet) ---
+        const dirs3D = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+        const startKey = `${Math.floor(startPos.x)},${Math.floor(startPos.y)},${startPos.z}`;
+        const exitKey  = `${exitPos.x},${exitPos.y},${exitPos.z}`;
+        const visited  = new Set([startKey, exitKey]);
+
+        // Use index-based queues to avoid O(n) Array.shift
+        const qA = [{ x: Math.floor(startPos.x), y: Math.floor(startPos.y), z: startPos.z }];
+        const qB = [{ x: exitPos.x, y: exitPos.y, z: exitPos.z }];
+        let iA = 0, iB = 0;
+
+        const revealOrder = []; // { x, y, z } positions in BFS wave order
+        while (iA < qA.length || iB < qB.length) {
+            for (const [q, getI, setI] of [[qA, () => iA, v => iA = v], [qB, () => iB, v => iB = v]]) {
+                const i = getI();
+                if (i >= q.length) continue;
+                setI(i + 1);
+                const { x, y, z } = q[i];
+                for (const [dx, dy, dz] of dirs3D) {
+                    const nx = x + dx, ny = y + dy, nz = z + dz;
+                    const key = `${nx},${ny},${nz}`;
+                    if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size
+                        && !visited.has(key)
+                        && this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
+                        visited.add(key);
+                        q.push({ x: nx, y: ny, z: nz });
+                        // Only add floor-level cells (odd z) to the reveal list
+                        if (nz % 2 !== 0) revealOrder.push({ x: nx, y: ny, z: nz });
+                    }
+                }
+            }
+        }
+
+        // --- 4. Enable auto-rotation ---
+        this.controls.autoRotate = true;
+        this.controls.autoRotateSpeed = 1.8;
+        this.controls.enableZoom = false;
+        this.controls.enablePan = false;
+        this.controls.enableRotate = false;
+
+        // --- 5. Batch reveal for consistent ~3-5s duration regardless of maze size ---
+        const pathGeom = new THREE.BoxGeometry(0.88, 0.88, 0.88);
+        const pathMat  = new THREE.MeshPhongMaterial({
+            color: CONFIG.COLORS.THREE_VISITED, transparent: true, opacity: 0.72
+        });
+
+        const TICK_MS = 20;         // fixed tick interval (~1 rAF frame)
+        const TARGET_TICKS = 200;   // always ~200 ticks → ~4 seconds
+        const totalSteps = revealOrder.length;
+        const batchSize = Math.max(1, Math.ceil(totalSteps / TARGET_TICKS));
+
+        let stepIndex = 0;
+        let introTimer = null;
+        const revealedMeshes = [];
+
+        const finishIntro = () => {
+            if (introTimer) { clearTimeout(introTimer); introTimer = null; }
+            this._playGlitchAndTransition(revealedMeshes);
+        };
+
+        const skipHandler = () => finishIntro();
+        window.addEventListener('keydown', skipHandler, { once: true });
+        window.addEventListener('touchstart', skipHandler, { once: true });
+
+        const revealNext = () => {
+            if (this.isDestroyed) return;
+            const end = Math.min(stepIndex + batchSize, revealOrder.length);
+            for (; stepIndex < end; stepIndex++) {
+                const { x, y, z } = revealOrder[stepIndex];
+                const mesh = new THREE.Mesh(pathGeom, pathMat);
+                mesh.position.set(x - size / 2, (z - size / 2) * this.vScale, y - size / 2);
+                this.scene.add(mesh);
+                revealedMeshes.push(mesh);
+            }
+            if (stepIndex < revealOrder.length) {
+                introTimer = setTimeout(revealNext, TICK_MS);
+            } else {
+                window.removeEventListener('keydown', skipHandler);
+                window.removeEventListener('touchstart', skipHandler);
+                this._playGlitchAndTransition(revealedMeshes);
+            }
+        };
+
+        introTimer = setTimeout(revealNext, TICK_MS);
+    }
+
+
+    _playGlitchAndTransition(revealedMeshes) {
+        if (this.isDestroyed) return;
+        const GLITCH_FLASHES = 5;
+        const FLASH_INTERVAL = 90; // ms per flash
+        let flash = 0;
+
+        const doFlash = () => {
+            if (this.isDestroyed) return;
+            const visible = flash % 2 === 0; // alternates on/off
+            revealedMeshes.forEach(m => { if (m) m.visible = visible; });
+            flash++;
+            if (flash < GLITCH_FLASHES * 2) {
+                setTimeout(doFlash, FLASH_INTERVAL);
+            } else {
+                // All interior nodes off — only start/exit markers remain
+                revealedMeshes.forEach(m => { if (m) m.visible = false; });
+                setTimeout(() => this._transitionToGame(), 400);
+            }
+        };
+        doFlash();
+    }
+
+    _transitionToGame() {
+        if (this.isDestroyed) return;
+
+        // Stop auto-rotate and restore controls
+        this.controls.autoRotate = false;
+        this.controls.enableZoom = true;
+        this.controls.enablePan = true;
+        this.controls.enableRotate = true;
+
+        // Fade out 3D container
+        this.uiMap3dContainer.classList.add('intro-fade-out');
+
+        setTimeout(() => {
+            if (this.isDestroyed) return;
+            this.uiMap3dContainer.classList.add('hidden');
+            this.uiMap3dContainer.classList.remove('intro-fade-out');
+            this.isMap3DActive = false;
+            this.isIntroPlaying = false;
+
+            // Fade in 2D canvas
+            this.canvas.classList.remove('intro-hidden');
+            this.canvas.classList.add('intro-reveal');
+            setTimeout(() => this.canvas.classList.remove('intro-reveal'), 700);
+        }, 600);
     }
 
     toggleTeleportMap(show) {
