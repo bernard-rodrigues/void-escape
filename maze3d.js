@@ -83,8 +83,9 @@ export class Maze3D {
         const degree = this.n;
         const count = Math.max(2, Math.floor(degree / 2));
         
-        // Find all walkable paths, excluding start and exit
-        const paths = [];
+        // Find all walkable paths, excluding start and exit, prioritizing dead-ends
+        const deadEnds = [];
+        const normalPaths = [];
         for (let x = 1; x < this.size - 1; x++) {
             for (let y = 1; y < this.size - 1; y++) {
                 for (let z = 1; z < this.size - 1; z++) {
@@ -93,12 +94,31 @@ export class Maze3D {
                         const hUp = z + 1 < this.size && this.matrix[x][y][z + 1] !== this.TYPES.WALL;
                         const hDown = z - 1 >= 0 && this.matrix[x][y][z - 1] !== this.TYPES.WALL;
                         if (!hUp && !hDown) {
-                            paths.push({ x, y, z });
+                            let openCount = 0;
+                            const dirs = [
+                                { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+                                { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+                                { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
+                            ];
+                            for (const d of dirs) {
+                                const nx = x + d.dx, ny = y + d.dy, nz = z + d.dz;
+                                if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && nz >= 0 && nz < this.size) {
+                                    if (this.matrix[nx][ny][nz] !== this.TYPES.WALL) {
+                                        openCount++;
+                                    }
+                                }
+                            }
+                            if (openCount === 1) {
+                                deadEnds.push({ x, y, z });
+                            } else {
+                                normalPaths.push({ x, y, z });
+                            }
                         }
                     }
                 }
             }
         }
+        const paths = deadEnds.length >= count ? deadEnds : [...deadEnds, ...normalPaths];
 
         // Keep track of start and exit positions
         const start = { x: 0, y: 1, z: this.startPos.z };

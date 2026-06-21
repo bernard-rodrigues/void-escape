@@ -118,6 +118,18 @@ body {
     text-shadow: 0 0 calc(var(--d-h-unit) * 0.5) var(--clr-teleport);
 }
 
+.helper-info-start {
+    font-size: calc(var(--h-unit) * 1.8);
+    font-size: calc(var(--d-h-unit) * 1.8);
+    color: #88ccff;
+    margin-bottom: var(--h-unit);
+    margin-bottom: var(--d-h-unit);
+    text-transform: uppercase;
+    font-weight: bold;
+    text-shadow: 0 0 calc(var(--h-unit) * 0.5) #88ccff;
+    text-shadow: 0 0 calc(var(--d-h-unit) * 0.5) #88ccff;
+}
+
 .control-group input[type="range"] {
     width: 100%;
     cursor: pointer;
@@ -360,6 +372,16 @@ body {
     font-weight: bold;
     text-shadow: calc(var(--h-unit) * 0.2) calc(var(--h-unit) * 0.2) #000;
     text-shadow: calc(var(--d-h-unit) * 0.2) calc(var(--d-h-unit) * 0.2) #000;
+}
+
+#helper-display {
+    font-size: calc(var(--h-unit) * 2);
+    font-size: calc(var(--d-h-unit) * 2);
+    font-weight: bold;
+    color: #88ccff;
+    text-shadow: 0 0 calc(var(--h-unit) * 0.5) #88ccff, 0 0 calc(var(--d-h-unit) * 0.5) #88ccff;
+    margin-top: calc(var(--h-unit) * 1);
+    margin-top: calc(var(--d-h-unit) * 1);
 }
 
 #map-legend {
@@ -667,6 +689,27 @@ body {
     text-align: center;
 }
 
+#teleport-cooldown-timer {
+    position: fixed;
+    top: calc(var(--h-unit) * 15);
+    top: calc(var(--d-h-unit) * 15);
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--clr-teleport);
+    font-size: calc(var(--h-unit) * 3);
+    font-size: calc(var(--d-h-unit) * 3);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: calc(var(--h-unit) * 0.4);
+    letter-spacing: calc(var(--d-h-unit) * 0.4);
+    z-index: 500;
+    text-shadow: 0 0 calc(var(--h-unit) * 1.5) var(--clr-teleport);
+    text-shadow: 0 0 calc(var(--d-h-unit) * 1.5) var(--clr-teleport);
+    animation: pulse-orange 1.2s infinite;
+    pointer-events: none;
+    text-align: center;
+}
+
 @keyframes pulse-orange {
     0% { opacity: 0.3; transform: translateX(-50%) scale(0.95); }
     50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
@@ -685,5 +728,11 @@ body {
         top: calc(var(--d-h-unit) * 6);
         font-size: calc(var(--h-unit) * 1.8);
         font-size: calc(var(--d-h-unit) * 1.8);
+    }
+    #teleport-cooldown-timer {
+        top: calc(var(--h-unit) * 6);
+        top: calc(var(--d-h-unit) * 6);
+        font-size: calc(var(--h-unit) * 2);
+        font-size: calc(var(--d-h-unit) * 2);
     }
 }

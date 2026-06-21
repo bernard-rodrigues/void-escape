@@ -34,6 +34,19 @@ export class Engine {
         this.hunters = [];
         this.initHunters(degree);
 
+        this.maxHelperUses = this.hunters.length * 3 + 1;
+        this.helperUsesLeft = this.maxHelperUses;
+        this.revealedPathSet = new Set();
+        this.activePathReveal = [];
+        this.revealedPathProgress = 0;
+        this.knownMeshes = [];
+        this.gridMeshes = null;
+        this.pathRevealInterval = null;
+        this.uiHelperUses = document.getElementById('helper-uses');
+        this.uiHelperMaxUses = document.getElementById('helper-max-uses');
+        if (this.uiHelperUses) this.uiHelperUses.innerText = this.helperUsesLeft;
+        if (this.uiHelperMaxUses) this.uiHelperMaxUses.innerText = this.maxHelperUses;
+
         this.keys = {};
         this.isMap3DActive = false;
         this.isGameOver = false;
@@ -43,6 +56,10 @@ export class Engine {
         this.discoveredTeleports = new Set();
         this.teleportMeshes = [];
         this.isTeleportMode = false;
+        this.teleportCooldownTicks = 0;
+        this.inactiveTeleportPos = null;
+        this.uiCooldownTimer = document.getElementById('teleport-cooldown-timer');
+        this.uiCooldownTicks = document.getElementById('cooldown-ticks');
         this.raycaster = new THREE.Raycaster();
         this.pointer = new THREE.Vector2();
         
@@ -83,6 +100,8 @@ export class Engine {
         document.getElementById('mobile-down').onclick = null;
         document.getElementById('mobile-map').onclick = null;
         if (this.teleportInfoTimeout) clearTimeout(this.teleportInfoTimeout);
+        if (this.infoTimeout) clearTimeout(this.infoTimeout);
+        if (this.pathRevealInterval) clearInterval(this.pathRevealInterval);
     }
 
     initHunters(degree) {
@@ -139,6 +158,7 @@ export class Engine {
         this.uiMobileControls.classList.add('hidden');
         this.uiHazardWarning.classList.add('hidden');
         this.uiNearbyWarning.classList.add('hidden');
+        if (this.uiCooldownTimer) this.uiCooldownTimer.classList.add('hidden');
         this.uiMap3dContainer.classList.add('hidden');
         this.canvas.classList.remove('hunted-map-effect');
         this.isMap3DActive = false;
@@ -192,12 +212,16 @@ export class Engine {
             const py = Math.floor(this.player.y);
             const pz = this.player.z;
             const isOnTeleport = this.maze[px][py][pz] === this.mazeGen.TYPES.TELEPORT;
+            const isInactive = this.inactiveTeleportPos && 
+                               this.inactiveTeleportPos.x === px && 
+                               this.inactiveTeleportPos.y === py && 
+                               this.inactiveTeleportPos.z === pz;
             
-            if (isOnTeleport) {
+            if (isOnTeleport && !isInactive) {
                 if (this.discoveredTeleports.size >= 2) {
                     this.toggleTeleportMap(true);
                 } else {
-                    this.showTeleportInfoBanner();
+                    this.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
                 }
             } else {
                 this.toggleMap3D();
@@ -358,6 +382,10 @@ export class Engine {
             const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
             const playerIdxZ = this.player.z;
             const isOnTeleport = this.maze[playerIdxX][playerIdxY][playerIdxZ] === this.mazeGen.TYPES.TELEPORT;
+            const isInactive = this.inactiveTeleportPos && 
+                               this.inactiveTeleportPos.x === playerIdxX && 
+                               this.inactiveTeleportPos.y === playerIdxY && 
+                               this.inactiveTeleportPos.z === playerIdxZ;
 
             if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
                 if (this.maze[playerIdxX][playerIdxY][playerIdxZ] === this.mazeGen.TYPES.PATH) {
@@ -368,15 +396,20 @@ export class Engine {
                         this.discoveredTeleports.add(key);
                     }
                 }
+
+                const pathKey = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
+                if (this.revealedPathSet.has(pathKey)) {
+                    this.revealedPathSet.delete(pathKey);
+                }
             }
 
-            if (isOnTeleport) {
+            if (isOnTeleport && !isInactive) {
                 if (this.keys['e'] || this.keys['pageup'] || this.keys['q'] || this.keys['pagedown']) {
                     ['e', 'q', 'pageup', 'pagedown'].forEach(k => this.keys[k] = false);
                     if (this.discoveredTeleports.size >= 2) {
                         this.toggleTeleportMap(true);
                     } else {
-                        this.showTeleportInfoBanner();
+                        this.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
                     }
                 }
             } else {
@@ -388,7 +421,7 @@ export class Engine {
             if (mapBtn) {
                 const isPortrait = window.innerHeight > window.innerWidth;
                 if (isPortrait) {
-                    if (isOnTeleport) {
+                    if (isOnTeleport && !isInactive) {
                         mapBtn.innerText = "TELEPORT";
                         mapBtn.style.borderColor = "var(--clr-teleport, #ff8c00)";
                         mapBtn.style.color = "var(--clr-teleport, #ff8c00)";
@@ -414,11 +447,38 @@ export class Engine {
         const now = performance.now();
         if (now - this.lastHunterMove > CONFIG.HUNTER_SPEED) {
             this.lastHunterMove = now;
+
+            if (this.teleportCooldownTicks > 0) {
+                this.teleportCooldownTicks--;
+                if (this.uiCooldownTicks) {
+                    this.uiCooldownTicks.innerText = this.teleportCooldownTicks;
+                }
+                if (this.teleportCooldownTicks === 0) {
+                    if (this.uiCooldownTimer) {
+                        this.uiCooldownTimer.classList.add('hidden');
+                    }
+                    this.inactiveTeleportPos = null;
+                    
+                    // Transition hunters out of TELEPORT_TRACKING
+                    for (const hunter of this.hunters) {
+                        const cellVal = this.maze[hunter.x][hunter.y][hunter.z];
+                        if (cellVal === this.mazeGen.TYPES.VISITED || cellVal === this.mazeGen.TYPES.START || cellVal === this.mazeGen.TYPES.EXIT) {
+                            hunter.state = 'TRACKING';
+                        } else {
+                            hunter.state = 'WANDERING';
+                            hunter.pathToTarget = [];
+                            hunter.visitedNodes.clear();
+                            hunter.visitedNodes.add(`${hunter.x},${hunter.y},${hunter.z}`);
+                        }
+                    }
+                }
+            }
+
             let trackingCount = 0;
             let nearbyCount = 0;
             for (const hunter of this.hunters) {
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
-                if (hunter.state === 'TRACKING') trackingCount++;
+                if (hunter.state === 'TRACKING' || hunter.state === 'TELEPORT_TRACKING') trackingCount++;
                 const sameFloor = hunter.z === this.player.z;
                 let isNear = false;
                 if (sameFloor) {
@@ -435,8 +495,19 @@ export class Engine {
                 }
                 if (hunter.x === Math.floor(this.player.x) && hunter.y === Math.floor(this.player.y) && hunter.z === this.player.z) this.triggerDeath();
             }
-            if (trackingCount > 0) { this.uiHazardWarning.classList.remove('hidden'); this.canvas.classList.add('hunted-map-effect'); }
-            else { this.uiHazardWarning.classList.add('hidden'); this.canvas.classList.remove('hunted-map-effect'); }
+            if (trackingCount > 0) { 
+                this.uiHazardWarning.classList.remove('hidden'); 
+                if (this.teleportCooldownTicks > 0) {
+                    this.uiHazardWarning.innerText = "TELEPORT SIGNAL ACTIVE - HUNTERS CONVERGING";
+                } else {
+                    this.uiHazardWarning.innerText = "ENEMY IS HUNTING YOU";
+                }
+                this.canvas.classList.add('hunted-map-effect'); 
+            }
+            else { 
+                this.uiHazardWarning.classList.add('hidden'); 
+                this.canvas.classList.remove('hunted-map-effect'); 
+            }
             if (nearbyCount > 0) this.uiNearbyWarning.classList.remove('hidden');
             else this.uiNearbyWarning.classList.add('hidden');
         }
@@ -459,6 +530,13 @@ export class Engine {
                 if (this.maze[currentX][currentY][shaftZ] !== this.mazeGen.TYPES.ELEVATOR_VISITED) {
                     this.maze[currentX][currentY][shaftZ] = this.mazeGen.TYPES.ELEVATOR_VISITED;
                 }
+                
+                // Clear any pathfinder markings for this shaft and elevator destination
+                const shaftKey = `${currentX},${currentY},${shaftZ}`;
+                const destKey = `${currentX},${currentY},${nextZ}`;
+                this.revealedPathSet.delete(shaftKey);
+                this.revealedPathSet.delete(destKey);
+
                 this.player.z = nextZ;
                 ['e', 'q', 'pageup', 'pagedown'].forEach(k => this.keys[k] = false);
                 this.updateFloorUI();
@@ -493,9 +571,19 @@ export class Engine {
         this.pulsatingMaterials = []; // Reset the array
         this.hunterMeshes = []; // Reset the array
         this.teleportMeshes = []; // Reset the array
+        this.knownMeshes = []; // Reset the array
+        const size = this.mazeGen.size;
+        const isFloorVisited = (fx, fy, fz) => {
+            if (fz < 0 || fz >= size) return false;
+            const fVal = this.maze[fx][fy][fz];
+            return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
+        };
+
+        this.gridMeshes = Array.from({ length: size }, () => 
+            Array.from({ length: size }, () => new Array(size).fill(null))
+        );
 
         const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
-        const size = this.mazeGen.size;
         
         // Define opacity factor: make all other map elements more translucent during teleportation mode
         const opFactor = this.isTeleportMode ? 0.2 : 1.0;
@@ -514,11 +602,51 @@ export class Engine {
                 for (let z = 0; z < size; z++) {
                     const val = this.maze[x][y][z];
 
-                    // Render elevator shaft cells (marked when player uses an elevator)
-                    if (val === this.mazeGen.TYPES.ELEVATOR_VISITED) {
-                        const mesh = new THREE.Mesh(shaftGeom, shaftMat);
-                        mesh.position.set(x - size/2, z - size/2, y - size/2);
-                        this.scene.add(mesh);
+                    // Render elevator shaft cells (even z index and not a wall)
+                    const isShaft = z % 2 === 0 && val !== 0;
+                    if (isShaft) {
+                        const key = `${x},${y},${z}`;
+                        const isRevealedPath = this.revealedPathSet.has(key);
+                        const isShaftVisited = val === this.mazeGen.TYPES.ELEVATOR_VISITED;
+                        const isShaftKnown = (val === 1) && (isFloorVisited(x, y, z - 1) || isFloorVisited(x, y, z + 1));
+
+                        if (isShaftVisited || isShaftKnown || isRevealedPath) {
+                            let material;
+                            if (isRevealedPath) {
+                                material = new THREE.MeshPhongMaterial({
+                                    color: 0xffffff,
+                                    transparent: true,
+                                    opacity: 0.95 * opFactor,
+                                    emissive: 0xffffff,
+                                    emissiveIntensity: 2.0 * opFactor
+                                });
+                            } else if (isShaftVisited) {
+                                material = new THREE.MeshPhongMaterial({
+                                    color: CONFIG.COLORS.THREE_VISITED,
+                                    transparent: true,
+                                    opacity: 0.8 * opFactor
+                                });
+                            } else if (isShaftKnown) {
+                                material = new THREE.MeshPhongMaterial({
+                                    color: CONFIG.COLORS.THREE_KNOWN,
+                                    transparent: true,
+                                    opacity: 0.6 * opFactor,
+                                    emissive: CONFIG.COLORS.THREE_KNOWN,
+                                    emissiveIntensity: 0.5 * opFactor
+                                });
+                                this.pulsatingMaterials.push(material);
+                            }
+
+                            const mesh = new THREE.Mesh(shaftGeom, material);
+                            mesh.position.set(x - size/2, z - size/2, y - size/2);
+                            this.scene.add(mesh);
+                            this.gridMeshes[x][y][z] = mesh;
+
+                            if (isShaftKnown && !isRevealedPath) {
+                                mesh.userData = { gridX: x, gridY: y, gridZ: z };
+                                this.knownMeshes.push(mesh);
+                            }
+                        }
                         continue;
                     }
 
@@ -529,6 +657,10 @@ export class Engine {
 
                     if (isTeleportDiscovered) {
                         const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
+                        const isInactive = this.inactiveTeleportPos && 
+                                           this.inactiveTeleportPos.x === x && 
+                                           this.inactiveTeleportPos.y === y && 
+                                           this.inactiveTeleportPos.z === z;
                         
                         // In teleport mode, spheres are larger (radius 0.65 instead of 0.45)
                         // and have stronger emissive glow (intensity 2.5 instead of 0.8)
@@ -537,8 +669,11 @@ export class Engine {
                         let color = CONFIG.COLORS.THREE_TELEPORT;
                         let opacity = 0.95;
                         
-                        // Highlight the portal the player is currently standing on
-                        if (this.isTeleportMode && isPlayerHere) {
+                        if (isInactive) {
+                            color = 0x444444; // Dark grey for inactive
+                            emissiveInt = 0.0; // No glow
+                            opacity = 0.4;     // Translucent/dimmed
+                        } else if (this.isTeleportMode && isPlayerHere) {
                             color = 0x00ffff; // Cyan/blue glow for the current source portal
                             opacity = 0.5;    // Translucent so the player sphere inside is visible
                             emissiveInt = 3.0; // Extra bright/high emissivity
@@ -560,11 +695,23 @@ export class Engine {
                         continue;
                     }
 
-                    if (isVisited || isKnown) {
+                    const key = `${x},${y},${z}`;
+                    const isRevealedPath = this.revealedPathSet.has(key);
+
+                    if (isVisited || isKnown || isRevealedPath) {
                         let color = CONFIG.COLORS.THREE_KNOWN;
                         let material; // Declare material here
 
-                        if (isVisited) {
+                        if (isRevealedPath) {
+                            color = 0xffffff;
+                            material = new THREE.MeshPhongMaterial({
+                                color: color,
+                                transparent: true,
+                                opacity: 0.95 * opFactor,
+                                emissive: color,
+                                emissiveIntensity: 2.0 * opFactor
+                            });
+                        } else if (isVisited) {
                             color = CONFIG.COLORS.THREE_VISITED;
                             if (val === 3) color = CONFIG.COLORS.THREE_START;
                             else if (val === 4) color = CONFIG.COLORS.THREE_EXIT;
@@ -578,9 +725,6 @@ export class Engine {
                                 emissiveIntensity: 0.5 * opFactor 
                             });
                             this.pulsatingMaterials.push(material);
-                        } else {
-                            // If not visited and not known, we don't create a mesh, so continue.
-                            continue;
                         }
 
                         const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
@@ -591,15 +735,16 @@ export class Engine {
                             if (index > -1) this.pulsatingMaterials.splice(index, 1);
 
                             if (hUp && hDown) {
-                                // Split bicolor: dois meshes empilhados
-                                const matBottom = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_DOWN, transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_DOWN, emissiveIntensity: 0.4 * opFactor });
-                                const matTop    = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_UP,   transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_UP,   emissiveIntensity: 0.4 * opFactor });
+                                // Split bicolor: dois meshes empilhados (cores invertidas verticalmente)
+                                const matBottom = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_UP,   transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_UP,   emissiveIntensity: 0.4 * opFactor });
+                                const matTop    = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_DOWN, transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_DOWN, emissiveIntensity: 0.4 * opFactor });
                                 const meshBottom = new THREE.Mesh(shaftGeomBottom, matBottom);
                                 const meshTop    = new THREE.Mesh(shaftGeomTop,    matTop);
                                 meshBottom.position.set(x - size/2, z - size/2 - 0.2125, y - size/2);
                                 meshTop.position.set(   x - size/2, z - size/2 + 0.2125, y - size/2);
                                 this.scene.add(meshBottom);
                                 this.scene.add(meshTop);
+                                this.gridMeshes[x][y][z] = meshTop; // Reference to one of them is enough
                                 continue; // Mesh já adicionado, pula o mesh padrão abaixo
                             } else {
                                 const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
@@ -614,12 +759,18 @@ export class Engine {
                             const mesh = new THREE.Mesh(floorGeom, material);
                             mesh.position.set(x - size/2, z - size/2 - 0.425, y - size/2);
                             this.scene.add(mesh);
+                            this.gridMeshes[x][y][z] = mesh;
                             continue;
                         }
 
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.position.set(x - size/2, z - size/2, y - size/2);
                         this.scene.add(mesh);
+                        this.gridMeshes[x][y][z] = mesh;
+                        if (isKnown && !isRevealedPath) {
+                            mesh.userData = { gridX: x, gridY: y, gridZ: z };
+                            this.knownMeshes.push(mesh);
+                        }
                     }
                 }
             }
@@ -677,9 +828,26 @@ export class Engine {
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
                 const isKnown = (val === 1) && this.isNearVisited(x, y, z);
-                if (isVisited) {
+                const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
+
+                if (isRevealedPath) {
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
+                    const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
+                    if (hUp || hDown) {
+                        this.ctx.fillStyle = (hUp && hDown) ? '#fff' : (hUp ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_DOWN);
+                        this.ctx.font = `bold ${cellSize * 0.8}px Arial`;
+                        this.ctx.textAlign = 'center';
+                        this.ctx.fillText(hUp && hDown ? '↕' : (hUp ? '▲' : '▼'), x * cellSize + cellSize/2, y * cellSize + cellSize * 0.8);
+                    }
+                } else if (isVisited) {
                     if (isTeleportDiscovered) {
-                        this.ctx.fillStyle = CONFIG.COLORS.TELEPORT;
+                        const isInactive = this.inactiveTeleportPos && 
+                                           this.inactiveTeleportPos.x === x && 
+                                           this.inactiveTeleportPos.y === y && 
+                                           this.inactiveTeleportPos.z === z;
+                        this.ctx.fillStyle = isInactive ? '#555555' : CONFIG.COLORS.TELEPORT;
                     } else {
                         this.ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
                     }
@@ -750,9 +918,9 @@ export class Engine {
                 const nx = x + dx, ny = y + dy;
                 if (nx >= 0 && nx < this.mazeGen.size && ny >= 0 && ny < this.mazeGen.size) {
                     const v = this.maze[nx][ny][z];
-                    // ELEVATOR_VISITED (5) cells are only shown when explicitly used by the player,
-                    // not revealed by proximity to regular visited cells.
-                    if (v === 2 || v === 3 || v === 4) return true;
+                    // ELEVATOR_VISITED (5) and EXIT (4) cells do not automatically reveal adjacent
+                    // paths by proximity.
+                    if (v === 2 || v === 3) return true;
                     if (v === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${nx},${ny},${z}`)) return true;
                 }
             }
@@ -837,9 +1005,10 @@ export class Engine {
         }
     }
 
-    showTeleportInfoBanner() {
+    showInfoBanner(message) {
         const info = document.getElementById('teleport-info');
         if (info) {
+            info.innerText = message;
             info.classList.remove('hidden');
             if (this.teleportInfoTimeout) clearTimeout(this.teleportInfoTimeout);
             this.teleportInfoTimeout = setTimeout(() => {
@@ -849,20 +1018,127 @@ export class Engine {
     }
 
     onCanvasClick(event) {
-        if (!this.isTeleportMode) return;
+        if (!this.isMap3DActive) return;
         
         const rect = this.renderer.domElement.getBoundingClientRect();
         this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         
         this.raycaster.setFromCamera(this.pointer, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.teleportMeshes);
         
-        if (intersects.length > 0) {
-            const hitMesh = intersects[0].object;
-            const { gridX, gridY, gridZ } = hitMesh.userData;
-            this.teleportTo(gridX, gridY, gridZ);
+        if (this.isTeleportMode) {
+            const intersects = this.raycaster.intersectObjects(this.teleportMeshes);
+            if (intersects.length > 0) {
+                const hitMesh = intersects[0].object;
+                const { gridX, gridY, gridZ } = hitMesh.userData;
+                const isTargetInactive = this.inactiveTeleportPos && 
+                                         this.inactiveTeleportPos.x === gridX && 
+                                         this.inactiveTeleportPos.y === gridY && 
+                                         this.inactiveTeleportPos.z === gridZ;
+                if (!isTargetInactive) {
+                    this.teleportTo(gridX, gridY, gridZ);
+                }
+            }
+        } else {
+            // Normal 3D map: Pathfinder skill
+            const intersects = this.raycaster.intersectObjects(this.knownMeshes);
+            if (intersects.length > 0) {
+                const hitMesh = intersects[0].object;
+                const { gridX, gridY, gridZ } = hitMesh.userData;
+                
+                if (this.helperUsesLeft > 0) {
+                    this.helperUsesLeft--;
+                    if (this.uiHelperUses) this.uiHelperUses.innerText = this.helperUsesLeft;
+                    this.triggerPathReveal(gridX, gridY, gridZ);
+                } else {
+                    this.showInfoBanner("NO PATHFINDER CHARGES REMAINING");
+                }
+            }
         }
+    }
+
+    findShortestPath(start, end) {
+        if (start.x === end.x && start.y === end.y && start.z === end.z) return [];
+        const size = this.mazeGen.size;
+        const queue = [{ x: start.x, y: start.y, z: start.z, path: [] }];
+        const visited = Array.from({ length: size }, () => 
+            Array.from({ length: size }, () => new Uint8Array(size))
+        );
+        visited[start.x][start.y][start.z] = 1;
+
+        const dirs = [
+            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+            { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
+        ];
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            
+            for (const d of dirs) {
+                const nx = current.x + d.dx;
+                const ny = current.y + d.dy;
+                const nz = current.z + d.dz;
+                
+                if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size && !visited[nx][ny][nz]) {
+                    if (this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
+                        const newPath = [...current.path, { x: nx, y: ny, z: nz }];
+                        if (nx === end.x && ny === end.y && nz === end.z) {
+                            return newPath;
+                        }
+                        visited[nx][ny][nz] = 1;
+                        queue.push({ x: nx, y: ny, z: nz, path: newPath });
+                    }
+                }
+            }
+        }
+        return [];
+    }
+
+    triggerPathReveal(tx, ty, tz) {
+        if (this.pathRevealInterval) {
+            clearInterval(this.pathRevealInterval);
+            this.pathRevealInterval = null;
+        }
+
+        const start = {
+            x: Math.floor(this.player.x),
+            y: Math.floor(this.player.y),
+            z: this.player.z
+        };
+        const end = { x: tx, y: ty, z: tz };
+        const path = this.findShortestPath(start, end);
+
+        if (!path || path.length === 0) return;
+
+        this.activePathReveal = path;
+        this.revealedPathProgress = 0;
+        this.revealedPathSet.add(`${tx},${ty},${tz}`);
+
+        this.pathRevealInterval = setInterval(() => {
+            if (this.revealedPathProgress < this.activePathReveal.length) {
+                const node = this.activePathReveal[this.revealedPathProgress];
+                const key = `${node.x},${node.y},${node.z}`;
+                this.revealedPathSet.add(key);
+                
+                if (this.isMap3DActive && this.gridMeshes) {
+                    const mesh = this.gridMeshes[node.x][node.y][node.z];
+                    if (mesh) {
+                        mesh.material = new THREE.MeshPhongMaterial({
+                            color: 0xffffff,
+                            emissive: 0xffffff,
+                            emissiveIntensity: 2.0,
+                            transparent: true,
+                            opacity: 0.95 * (this.isTeleportMode ? 0.2 : 1.0)
+                        });
+                    }
+                }
+                this.revealedPathProgress++;
+            } else {
+                clearInterval(this.pathRevealInterval);
+                this.pathRevealInterval = null;
+            }
+        }, 120);
     }
 
     teleportTo(x, y, z) {
@@ -874,6 +1150,28 @@ export class Engine {
         
         if (this.maze[x][y][z] === this.mazeGen.TYPES.PATH) {
             this.maze[x][y][z] = this.mazeGen.TYPES.VISITED;
+        }
+
+        // Initialize teleport cooldown and attract hunters
+        const nTicks = Math.floor(this.degree * 1.5) + 3;
+        this.teleportCooldownTicks = nTicks;
+        this.inactiveTeleportPos = { x, y, z };
+
+        if (this.uiCooldownTimer) {
+            this.uiCooldownTimer.classList.remove('hidden');
+            if (this.uiCooldownTicks) {
+                this.uiCooldownTicks.innerText = this.teleportCooldownTicks;
+            }
+        }
+
+        for (const hunter of this.hunters) {
+            hunter.state = 'TELEPORT_TRACKING';
+            const path = hunter.findPathToTarget({ x, y, z }, this.maze, this.mazeGen.TYPES);
+            if (path) {
+                hunter.pathToTarget = path;
+            } else {
+                hunter.pathToTarget = [];
+            }
         }
         
         this.updateFloorUI();

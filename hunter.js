@@ -22,7 +22,7 @@ export class Hunter {
 
         // Transition to TRACKING if stepping on player's trail (VISITED, START, EXIT)
         const currentCellVal = matrix[this.x][this.y][this.z];
-        if (currentCellVal === types.VISITED) {
+        if (currentCellVal === types.VISITED && this.state !== 'TELEPORT_TRACKING') {
             if (this.state !== 'TRACKING') {
                 this.state = 'TRACKING';
                 this.pathToTarget = []; // Reset exploration path
@@ -50,21 +50,25 @@ export class Hunter {
 
         // If no next step is planned, find path to nearest unvisited cell
         if (!next) {
-            let path = this.findPathToNearestUnvisited(matrix, types);
-            if (!path || path.length === 0) {
-                // Reset visited log since all accessible target nodes are visited
-                this.visitedNodes.clear();
-                this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
-                path = this.findPathToNearestUnvisited(matrix, types);
-            }
-
-            if (path && path.length > 0) {
-                this.pathToTarget = path;
-                next = this.pathToTarget.shift();
+            if (this.state === 'TELEPORT_TRACKING') {
+                next = null; // Arrived at teleport destination, wait/stand still
             } else {
-                // Fallback to local valid neighbors
-                const forward = neighbors.filter(n => n.x !== this.lastPos.x || n.y !== this.lastPos.y || n.z !== this.lastPos.z);
-                next = forward.length > 0 ? forward[Math.floor(Math.random() * forward.length)] : neighbors[0];
+                let path = this.findPathToNearestUnvisited(matrix, types);
+                if (!path || path.length === 0) {
+                    // Reset visited log since all accessible target nodes are visited
+                    this.visitedNodes.clear();
+                    this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
+                    path = this.findPathToNearestUnvisited(matrix, types);
+                }
+
+                if (path && path.length > 0) {
+                    this.pathToTarget = path;
+                    next = this.pathToTarget.shift();
+                } else {
+                    // Fallback to local valid neighbors
+                    const forward = neighbors.filter(n => n.x !== this.lastPos.x || n.y !== this.lastPos.y || n.z !== this.lastPos.z);
+                    next = forward.length > 0 ? forward[Math.floor(Math.random() * forward.length)] : neighbors[0];
+                }
             }
         }
 
@@ -79,6 +83,37 @@ export class Hunter {
             this.z = next.z;
             this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
         }
+    }
+
+    findPathToTarget(targetPos, matrix, types) {
+        const size = matrix.length;
+        const queue = [{ x: this.x, y: this.y, z: this.z, path: [] }];
+        const visited = Array.from({ length: size }, () => 
+            Array.from({ length: size }, () => new Uint8Array(size))
+        );
+        visited[this.x][this.y][this.z] = 1;
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            
+            if (current.x === targetPos.x && current.y === targetPos.y && current.z === targetPos.z) {
+                return current.path;
+            }
+
+            const neighbors = this.getValidNeighbors(matrix, types, current.x, current.y, current.z, false);
+            for (const n of neighbors) {
+                if (!visited[n.x][n.y][n.z]) {
+                    visited[n.x][n.y][n.z] = 1;
+                    queue.push({
+                        x: n.x,
+                        y: n.y,
+                        z: n.z,
+                        path: [...current.path, n]
+                    });
+                }
+            }
+        }
+        return null;
     }
 
     findPathToNearestUnvisited(matrix, types) {

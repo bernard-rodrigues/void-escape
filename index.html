@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -17,6 +17,7 @@
                 <label for="maze-degree">Maze Degree: <span id="degree-val">8</span></label>
                 <div class="hunter-info">Active Hunters: <span id="hunter-count">1</span></div>
                 <div class="teleport-info-start">Active Teleports: <span id="teleport-count">4</span></div>
+                <div class="helper-info-start">Pathfinder Charges: <span id="helper-count-start">4</span></div>
                 <input type="range" id="maze-degree" min="3" max="24" value="8">
                 <p class="hint">Controls the grid size. Higher values create larger, more complex mazes.</p>
             </div>
@@ -64,21 +65,23 @@
 
     <div id="hazard-warning" class="hidden">ENEMY IS HUNTING YOU</div>
     <div id="nearby-warning" class="hidden">HUNTER IS NEARBY</div>
-    <div id="teleport-warning" class="hidden">CLIQUE EM UM DOS PONTOS DO TELEPORTE</div>
-    <div id="teleport-info" class="hidden">ENCONTRE OUTRO TELEPORTE PARA ATIVAR</div>
+    <div id="teleport-warning" class="hidden">CLICK ON A TELEPORT POINT</div>
+    <div id="teleport-info" class="hidden">FIND ANOTHER TELEPORT TO ACTIVATE</div>
+    <div id="teleport-cooldown-timer" class="hidden">TELEPORT ANOMALY: <span id="cooldown-ticks">0</span> TICKS</div>
 
     <main id="game-container">
         <!-- Primary 2D Navigation Map -->
-        <canvas id="main-2d-canvas" aria-label="Mapa de navegação 2D do labirinto"></canvas>
+        <canvas id="main-2d-canvas" aria-label="2D Navigation Map"></canvas>
         
         <section id="ui-overlay">
-            <div id="floor-display" aria-live="polite">Andar: <span id="current-floor">0</span></div>
+            <div id="floor-display" aria-live="polite">Floor: <span id="current-floor">0</span></div>
+            <div id="helper-display" aria-live="polite">Pathfinder: <span id="helper-uses">0</span>/<span id="helper-max-uses">0</span></div>
         </section>
 
         <aside id="controls-hint">
-            Setas ou WASD: Mover/Girar<br>
-            PgUp/PgDn ou Q/E: Subir/Descer<br>
-            <strong>M: Mapa Holográfico 3D</strong>
+            Arrows or WASD: Move/Rotate<br>
+            PgUp/PgDn or Q/E: Move Up/Down<br>
+            <strong>M: 3D Holographic Map</strong>
         </aside>
 
         <aside id="map-legend">
@@ -94,14 +97,14 @@
         
         <!-- Mobile Controls Panel -->
         <nav id="mobile-controls" class="hidden">
-            <button id="mobile-up" class="mobile-btn" disabled aria-label="Subir de andar">▲</button>
-            <button id="mobile-map" class="mobile-btn" aria-label="Abrir mapa">MAP</button>
-            <button id="mobile-down" class="mobile-btn" disabled aria-label="Descer de andar">▼</button>
+            <button id="mobile-up" class="mobile-btn" disabled aria-label="Go Up">▲</button>
+            <button id="mobile-map" class="mobile-btn" aria-label="Open Map">MAP</button>
+            <button id="mobile-down" class="mobile-btn" disabled aria-label="Go Down">▼</button>
         </nav>
         
         <!-- 3D Holographic Map Container -->
         <div id="map3d-container" class="hidden">
-            <div id="map3d-instructions">Arraste para girar | Scroll para zoom | M para voltar</div>
+            <div id="map3d-instructions">Drag to rotate | Scroll to zoom | M to return</div>
         </div>
     </main>
 

@@ -42,14 +42,28 @@ window.onload = () => {
         }
     };
 
+    const updateHelperDisplay = (degree) => {
+        let count = 0;
+        if (degree >= CONFIG.MAZE_DEGREE) count = 1;
+        if (degree >= CONFIG.MAZE_DEGREE * 2) count = 2;
+        if (degree >= CONFIG.MAZE_DEGREE * 3) count = 3;
+        const charges = count * 3 + 1;
+        const helperCountStart = document.getElementById('helper-count-start');
+        if (helperCountStart) {
+            helperCountStart.innerText = charges;
+        }
+    };
+
     degreeSlider.oninput = () => { 
         degreeVal.innerText = degreeSlider.value; 
         updateHunterDisplay(parseInt(degreeSlider.value)); 
         updateTeleportDisplay(parseInt(degreeSlider.value)); 
+        updateHelperDisplay(parseInt(degreeSlider.value));
     };
     branchSlider.oninput = () => branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
     updateHunterDisplay(parseInt(degreeSlider.value));
     updateTeleportDisplay(parseInt(degreeSlider.value));
+    updateHelperDisplay(parseInt(degreeSlider.value));
 
     document.getElementById('start-btn').onclick = () => {
         startNewGame(parseInt(degreeSlider.value), parseFloat(branchSlider.value), document.getElementById('movement-mode').value);
@@ -67,15 +81,15 @@ window.onload = () => {
     });
 };
 
-// Impedir zoom de página do navegador via atalho Ctrl + Scroll (roda do mouse)
+// Prevent browser page zoom via Ctrl + Wheel shortcut
 window.addEventListener('wheel', (e) => {
     if (e.ctrlKey) {
         e.preventDefault();
     }
 }, { passive: false });
 
-// Impedir zoom de página (gesto de pinça) em celulares e trackpads,
-// exceto quando interagindo diretamente com o canvas do mapa holográfico 3D.
+// Prevent pinch zoom gestures on mobile and trackpads,
+// except when directly interacting with the 3D holographic map canvas.
 window.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) {
         if (!e.target.closest('#map3d-container canvas')) {
