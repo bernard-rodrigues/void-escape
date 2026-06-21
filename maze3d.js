@@ -89,7 +89,12 @@ export class Maze3D {
             for (let y = 1; y < this.size - 1; y++) {
                 for (let z = 1; z < this.size - 1; z++) {
                     if (this.matrix[x][y][z] === this.TYPES.PATH) {
-                        paths.push({ x, y, z });
+                        // Exclude cells that connect floors vertically (elevators)
+                        const hUp = z + 1 < this.size && this.matrix[x][y][z + 1] !== this.TYPES.WALL;
+                        const hDown = z - 1 >= 0 && this.matrix[x][y][z - 1] !== this.TYPES.WALL;
+                        if (!hUp && !hDown) {
+                            paths.push({ x, y, z });
+                        }
                     }
                 }
             }

@@ -497,13 +497,16 @@ export class Engine {
         const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
         const size = this.mazeGen.size;
         
+        // Define opacity factor: make all other map elements more translucent during teleportation mode
+        const opFactor = this.isTeleportMode ? 0.2 : 1.0;
+
         const shaftGeomBottom = new THREE.BoxGeometry(0.9, 0.425, 0.9);
         const shaftGeomTop = new THREE.BoxGeometry(0.9, 0.425, 0.9);
         
         const shaftGeom = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8);
         const shaftMat = new THREE.MeshPhongMaterial({
             color: CONFIG.COLORS.THREE_VISITED,
-            transparent: true, opacity: 0.8
+            transparent: true, opacity: 0.8 * opFactor
         });
 
         for (let x = 0; x < size; x++) {
@@ -525,13 +528,29 @@ export class Engine {
                     const isKnown = val === 1 && this.isNearVisited(x, y, z);
 
                     if (isTeleportDiscovered) {
-                        const teleportGeom = new THREE.SphereGeometry(0.45, 16, 16);
+                        const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
+                        
+                        // In teleport mode, spheres are larger (radius 0.65 instead of 0.45)
+                        // and have stronger emissive glow (intensity 2.5 instead of 0.8)
+                        let radius = this.isTeleportMode ? 0.65 : 0.45;
+                        let emissiveInt = this.isTeleportMode ? 2.5 : 0.8;
+                        let color = CONFIG.COLORS.THREE_TELEPORT;
+                        let opacity = 0.95;
+                        
+                        // Highlight the portal the player is currently standing on
+                        if (this.isTeleportMode && isPlayerHere) {
+                            color = 0x00ffff; // Cyan/blue glow for the current source portal
+                            opacity = 0.5;    // Translucent so the player sphere inside is visible
+                            emissiveInt = 3.0; // Extra bright/high emissivity
+                        }
+
+                        const teleportGeom = new THREE.SphereGeometry(radius, 16, 16);
                         const teleportMat = new THREE.MeshPhongMaterial({
-                            color: CONFIG.COLORS.THREE_TELEPORT,
-                            emissive: CONFIG.COLORS.THREE_TELEPORT,
-                            emissiveIntensity: 0.8,
+                            color: color,
+                            emissive: color,
+                            emissiveIntensity: emissiveInt,
                             transparent: true,
-                            opacity: 0.9
+                            opacity: opacity
                         });
                         const mesh = new THREE.Mesh(teleportGeom, teleportMat);
                         mesh.position.set(x - size/2, z - size/2, y - size/2);
@@ -549,9 +568,15 @@ export class Engine {
                             color = CONFIG.COLORS.THREE_VISITED;
                             if (val === 3) color = CONFIG.COLORS.THREE_START;
                             else if (val === 4) color = CONFIG.COLORS.THREE_EXIT;
-                            material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.8 });
-                        } else if (isKnown) { // Corrected: else if (isKnown)
-                            material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.6, emissive: color, emissiveIntensity: 0.5 });
+                            material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.8 * opFactor });
+                        } else if (isKnown) {
+                            material = new THREE.MeshPhongMaterial({ 
+                                color: color, 
+                                transparent: true, 
+                                opacity: 0.6 * opFactor, 
+                                emissive: color, 
+                                emissiveIntensity: 0.5 * opFactor 
+                            });
                             this.pulsatingMaterials.push(material);
                         } else {
                             // If not visited and not known, we don't create a mesh, so continue.
@@ -567,8 +592,8 @@ export class Engine {
 
                             if (hUp && hDown) {
                                 // Split bicolor: dois meshes empilhados
-                                const matBottom = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_DOWN, transparent: true, opacity: 0.9, emissive: CONFIG.COLORS.THREE_ELEVATOR_DOWN, emissiveIntensity: 0.4 });
-                                const matTop    = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_UP,   transparent: true, opacity: 0.9, emissive: CONFIG.COLORS.THREE_ELEVATOR_UP,   emissiveIntensity: 0.4 });
+                                const matBottom = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_DOWN, transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_DOWN, emissiveIntensity: 0.4 * opFactor });
+                                const matTop    = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_UP,   transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_UP,   emissiveIntensity: 0.4 * opFactor });
                                 const meshBottom = new THREE.Mesh(shaftGeomBottom, matBottom);
                                 const meshTop    = new THREE.Mesh(shaftGeomTop,    matTop);
                                 meshBottom.position.set(x - size/2, z - size/2 - 0.2125, y - size/2);
@@ -578,7 +603,7 @@ export class Engine {
                                 continue; // Mesh já adicionado, pula o mesh padrão abaixo
                             } else {
                                 const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
-                                material = new THREE.MeshPhongMaterial({ color: elevatorColor, transparent: true, opacity: 0.9, emissive: elevatorColor, emissiveIntensity: 0.4 });
+                                material = new THREE.MeshPhongMaterial({ color: elevatorColor, transparent: true, opacity: 0.9 * opFactor, emissive: elevatorColor, emissiveIntensity: 0.4 * opFactor });
                             }
                         }
 
