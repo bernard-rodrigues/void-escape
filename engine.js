@@ -67,10 +67,10 @@ export class Engine {
             this.controls.dispose();
         }
 
-        if (this.uiMap3dContainer) {
-            this.uiMap3dContainer.removeEventListener('click', this.handleCanvasClick);
-            this.uiMap3dContainer.removeEventListener('pointerdown', this.handlePointerDown);
-            this.uiMap3dContainer.removeEventListener('pointerup', this.handlePointerUp);
+        if (this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.removeEventListener('click', this.handleCanvasClick);
+            this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
+            this.renderer.domElement.removeEventListener('pointerup', this.handlePointerUp);
         }
         
         if (this.renderer) {
@@ -152,10 +152,8 @@ export class Engine {
         this.uiMap3dContainer.appendChild(this.renderer.domElement);
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.08;
-        this.controls.zoomSpeed = 0.35;
-        this.controls.minDistance = 2;
-        this.controls.maxDistance = 150;
+        this.controls.dampingFactor = 0.05;
+        this.controls.zoomSpeed = 0.5;
     }
 
     init() {
@@ -228,9 +226,9 @@ export class Engine {
             this.onCanvasClick(e);
         };
         
-        this.uiMap3dContainer.addEventListener('pointerdown', this.handlePointerDown);
-        this.uiMap3dContainer.addEventListener('pointerup', this.handlePointerUp);
-        this.uiMap3dContainer.addEventListener('click', this.handleCanvasClick);
+        this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
+        this.renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
+        this.renderer.domElement.addEventListener('click', this.handleCanvasClick);
 
         this.touchStart = null;
         this.handleTouchStart = e => {
@@ -639,10 +637,10 @@ export class Engine {
             });
             console.log('Hunter mesh and trails added:', h);
         }
-        this.camera.position.set(size * 1.5, size * 1.5, size * 1.5);
+        this.camera.position.set(size, size, size);
         this.controls.target.set(0, 0, 0);
-        this.controls.minDistance = size * 0.5;
-        this.controls.maxDistance = size * 4.0;
+        this.controls.minDistance = 2;
+        this.controls.maxDistance = size * 4;
         this.controls.update();
     }
 
