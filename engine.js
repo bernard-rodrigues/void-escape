@@ -49,6 +49,10 @@ export class Engine {
         if (this.uiHelperUses) this.uiHelperUses.innerText = this.helperUsesLeft;
         if (this.uiHelperMaxUses) this.uiHelperMaxUses.innerText = this.maxHelperUses;
 
+        this.uiProximeterContainer = document.getElementById('proximeter-container');
+        this.uiProximeterCells = document.querySelectorAll('.proximeter-cell');
+        this.uiProximeterBar = document.querySelector('.proximeter-bar');
+
         this.keys = {};
         this.isMap3DActive = false;
         this.isGameOver = false;
@@ -167,6 +171,9 @@ export class Engine {
         this.uiMap3dContainer.classList.add('hidden');
         this.canvas.classList.remove('hunted-map-effect');
         this.isMap3DActive = false;
+        if (this.uiProximeterContainer) this.uiProximeterContainer.classList.add('hidden');
+        if (this.uiProximeterBar) this.uiProximeterBar.classList.remove('critical-alert');
+        this.uiProximeterCells.forEach(cell => cell.classList.remove('active'));
     }
 
     initThree() {
@@ -523,6 +530,22 @@ export class Engine {
             }
             if (nearbyCount > 0) this.uiNearbyWarning.classList.remove('hidden');
             else this.uiNearbyWarning.classList.add('hidden');
+
+            // Calculate minimum proximeter distance from any hunter (excluding shafts)
+            let minDistance = Infinity;
+            const px = Math.floor(this.player.x);
+            const py = Math.floor(this.player.y);
+            const pz = this.player.z;
+            
+            for (const hunter of this.hunters) {
+                const dist = this.getProximeterDistance(hunter.x, hunter.y, hunter.z, px, py, pz);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                }
+            }
+
+            // Update proximeter UI
+            this.updateProximeterUI(minDistance);
         }
     }
 
@@ -984,6 +1007,101 @@ export class Engine {
             }
         }
         return Infinity; // No path found
+    }
+
+    getProximeterDistance(x1, y1, z1, x2, y2, z2) {
+        if (x1 === x2 && y1 === y2 && z1 === z2) return 0;
+        const size = this.mazeGen.size;
+        
+        // 0-1 BFS uses a Deque. In JS, we simulate this with an array:
+        // shift() to remove from front, unshift() to add to front (cost 0), push() to add to back (cost 1).
+        const queue = [{ x: x1, y: y1, z: z1, dist: 0 }];
+        const visited = Array.from({ length: size }, () => 
+            Array.from({ length: size }, () => new Uint8Array(size))
+        );
+        visited[x1][y1][z1] = 1;
+
+        const dirs = [
+            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+            { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
+        ];
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            
+            // Optimization: since we only care about distance <= 10,
+            // we stop expanding if the current node has a distance >= 10.
+            if (current.dist >= 10) continue;
+
+            for (const d of dirs) {
+                const nx = current.x + d.dx;
+                const ny = current.y + d.dy;
+                const nz = current.z + d.dz;
+                
+                if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size && !visited[nx][ny][nz]) {
+                    if (this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
+                        const isShaft = (nz % 2 === 0);
+                        const cost = isShaft ? 0 : 1;
+                        const nextDist = current.dist + cost;
+
+                        if (nx === x2 && ny === y2 && nz === z2) {
+                            return nextDist;
+                        }
+                        
+                        visited[nx][ny][nz] = 1;
+                        
+                        const nextNode = { x: nx, y: ny, z: nz, dist: nextDist };
+                        if (cost === 0) {
+                            queue.unshift(nextNode);
+                        } else {
+                            queue.push(nextNode);
+                        }
+                    }
+                }
+            }
+        }
+        return Infinity; // No path found
+    }
+
+    updateProximeterUI(minDistance) {
+        if (!this.uiProximeterContainer) return;
+        
+        // Show proximeter container if there is at least one hunter and the game is active
+        if (this.hunters.length > 0 && !this.isGameOver) {
+            this.uiProximeterContainer.classList.remove('hidden');
+        } else {
+            this.uiProximeterContainer.classList.add('hidden');
+            return;
+        }
+
+        // Distance 10 -> 1 active cell
+        // Distance 9 -> 2 active cells
+        // ...
+        // Distance 1 -> 10 active cells
+        // Distance > 10 -> 0 active cells
+        let activeCellsCount = 0;
+        if (minDistance <= 10) {
+            activeCellsCount = 11 - minDistance;
+        }
+
+        this.uiProximeterCells.forEach((cell) => {
+            const index = parseInt(cell.getAttribute('data-index'));
+            if (index <= activeCellsCount) {
+                cell.classList.add('active');
+            } else {
+                cell.classList.remove('active');
+            }
+        });
+
+        // Trigger critical alert pulse animation if the closest hunter is at 1 case
+        if (this.uiProximeterBar) {
+            if (activeCellsCount === 10) {
+                this.uiProximeterBar.classList.add('critical-alert');
+            } else {
+                this.uiProximeterBar.classList.remove('critical-alert');
+            }
+        }
     }
 
     updatePulse() {
