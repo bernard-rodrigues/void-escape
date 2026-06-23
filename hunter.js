@@ -1,6 +1,7 @@
 /**
  * Enemy Hunter Logic
  */
+import { aStarPath, bfsNearestUnvisited } from './pathfinder.js';
 export class Hunter {
     constructor(maze, startPos, id) {
         this.maze = maze;
@@ -86,66 +87,28 @@ export class Hunter {
     }
 
     findPathToTarget(targetPos, matrix, types) {
-        const size = matrix.length;
-        const queue = [{ x: this.x, y: this.y, z: this.z, path: [] }];
-        const visited = Array.from({ length: size }, () => 
-            Array.from({ length: size }, () => new Uint8Array(size))
+        // Delegates to A* in pathfinder.js — the target is known, so A* is optimal.
+        const path = aStarPath(
+            { x: this.x, y: this.y, z: this.z },
+            targetPos,
+            matrix,
+            matrix.length,
+            types.WALL
         );
-        visited[this.x][this.y][this.z] = 1;
-
-        while (queue.length > 0) {
-            const current = queue.shift();
-            
-            if (current.x === targetPos.x && current.y === targetPos.y && current.z === targetPos.z) {
-                return current.path;
-            }
-
-            const neighbors = this.getValidNeighbors(matrix, types, current.x, current.y, current.z, false);
-            for (const n of neighbors) {
-                if (!visited[n.x][n.y][n.z]) {
-                    visited[n.x][n.y][n.z] = 1;
-                    queue.push({
-                        x: n.x,
-                        y: n.y,
-                        z: n.z,
-                        path: [...current.path, n]
-                    });
-                }
-            }
-        }
-        return null;
+        return path; // null if unreachable
     }
 
     findPathToNearestUnvisited(matrix, types) {
-        const size = matrix.length;
-        const queue = [{ x: this.x, y: this.y, z: this.z, path: [] }];
-        const visited = Array.from({ length: size }, () => 
-            Array.from({ length: size }, () => new Uint8Array(size))
+        // Target is unknown in advance — A* is not applicable here.
+        // Delegates to BFS in pathfinder.js, passing getValidNeighbors as the neighbour supplier.
+        return bfsNearestUnvisited(
+            { x: this.x, y: this.y, z: this.z },
+            this.visitedNodes,
+            matrix,
+            matrix.length,
+            types,
+            (cx, cy, cz, mat, t, restrict) => this.getValidNeighbors(mat, t, cx, cy, cz, restrict)
         );
-        visited[this.x][this.y][this.z] = 1;
-
-        while (queue.length > 0) {
-            const current = queue.shift();
-            const key = `${current.x},${current.y},${current.z}`;
-            
-            if (!this.visitedNodes.has(key)) {
-                return current.path;
-            }
-
-            const neighbors = this.getValidNeighbors(matrix, types, current.x, current.y, current.z);
-            for (const n of neighbors) {
-                if (!visited[n.x][n.y][n.z]) {
-                    visited[n.x][n.y][n.z] = 1;
-                    queue.push({
-                        x: n.x,
-                        y: n.y,
-                        z: n.z,
-                        path: [...current.path, n]
-                    });
-                }
-            }
-        }
-        return null;
     }
 
     getValidNeighbors(matrix, types, cx = this.x, cy = this.y, cz = this.z, restrictToPlayerTrail = (this.state === 'TRACKING')) {
