@@ -28,11 +28,6 @@ export class Engine {
 
         this.wallImage = new Image();
         this.wallImage.src = 'assets/images/wall.png';
-        this.wallOrientations = Array.from({ length: this.mazeGen.size }, () =>
-            Array.from({ length: this.mazeGen.size }, () =>
-                Array.from({ length: this.mazeGen.size }, () => Math.floor(Math.random() * 8))
-            )
-        );
         
         this.player = {
             x: this.mazeGen.startPos.x,
@@ -301,9 +296,17 @@ export class Engine {
         this.resize();
         this.updateFloorUI();
         // Pre-hide canvas before first render to avoid intro flash
-        this.canvas.classList.add('intro-hidden');
+        this.hideCanvasInstant();
         this.loop();
         this.playIntroAnimation();
+    }
+
+    hideCanvasInstant() {
+        this.canvas.style.transition = 'none';
+        this.canvas.classList.remove('intro-reveal');
+        this.canvas.classList.add('intro-hidden');
+        this.canvas.offsetHeight; // force reflow
+        this.canvas.style.transition = '';
     }
 
     resize() {
@@ -927,22 +930,8 @@ export class Engine {
                     this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
                 }
                 else if (val === 0 && this.isNearVisited(x, y, z)) {
-                    const cx = x * cellSize + cellSize / 2;
-                    const cy = y * cellSize + cellSize / 2;
                     if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
-                        this.ctx.save();
-                        this.ctx.translate(cx, cy);
-                        const orientation = this.wallOrientations[x][y][z];
-                        const mirrored = orientation >= 4;
-                        const rotationIndex = orientation % 4;
-                        if (mirrored) {
-                            this.ctx.scale(-1, 1);
-                        }
-                        if (rotationIndex > 0) {
-                            this.ctx.rotate(rotationIndex * Math.PI / 2);
-                        }
-                        this.ctx.drawImage(this.wallImage, -cellSize / 2, -cellSize / 2, cellSize, cellSize);
-                        this.ctx.restore();
+                        this.ctx.drawImage(this.wallImage, x * cellSize, y * cellSize, cellSize, cellSize);
                     } else {
                         this.ctx.fillStyle = CONFIG.COLORS.WALL;
                         this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
@@ -1112,8 +1101,7 @@ export class Engine {
         this.controls.update();
 
         // Hide 2D canvas during intro (already hidden before loop, but ensure it on replay)
-        this.canvas.classList.add('intro-hidden');
-        this.canvas.classList.remove('intro-reveal');
+        this.hideCanvasInstant();
 
         // --- 2. Place permanent start + exit markers ---
         const startPos = this.mazeGen.startPos;
