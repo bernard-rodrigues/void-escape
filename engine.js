@@ -25,6 +25,14 @@ export class Engine {
         
         this.mazeGen = new Maze3D(degree, branchingFactor);
         this.maze = this.mazeGen.generate();
+
+        this.wallImage = new Image();
+        this.wallImage.src = 'assets/images/wall.png';
+        this.wallOrientations = Array.from({ length: this.mazeGen.size }, () =>
+            Array.from({ length: this.mazeGen.size }, () =>
+                Array.from({ length: this.mazeGen.size }, () => Math.floor(Math.random() * 8))
+            )
+        );
         
         this.player = {
             x: this.mazeGen.startPos.x,
@@ -918,7 +926,28 @@ export class Engine {
                     this.ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; 
                     this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
                 }
-                else if (val === 0 && this.isNearVisited(x, y, z)) { this.ctx.fillStyle = CONFIG.COLORS.WALL; this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); }
+                else if (val === 0 && this.isNearVisited(x, y, z)) {
+                    const cx = x * cellSize + cellSize / 2;
+                    const cy = y * cellSize + cellSize / 2;
+                    if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
+                        this.ctx.save();
+                        this.ctx.translate(cx, cy);
+                        const orientation = this.wallOrientations[x][y][z];
+                        const mirrored = orientation >= 4;
+                        const rotationIndex = orientation % 4;
+                        if (mirrored) {
+                            this.ctx.scale(-1, 1);
+                        }
+                        if (rotationIndex > 0) {
+                            this.ctx.rotate(rotationIndex * Math.PI / 2);
+                        }
+                        this.ctx.drawImage(this.wallImage, -cellSize / 2, -cellSize / 2, cellSize, cellSize);
+                        this.ctx.restore();
+                    } else {
+                        this.ctx.fillStyle = CONFIG.COLORS.WALL;
+                        this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
             }
         }
         const pulse = Math.sin(Date.now() / 200) * 5 + 10;
