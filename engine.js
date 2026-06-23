@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from './config.js';
 import { Hunter } from './hunter.js';
 import { Maze3D } from './maze3d.js';
+import { aStarDistance, aStarPath, proximeterDistance } from './pathfinder.js';
 
 /**
  * Main Game Engine - 2D Map Navigation & 3D Overview
@@ -504,8 +505,13 @@ export class Engine {
                 if (sameFloor) {
                     isNear = true;
                 } else {
-                    const dist = this.getPathDistance3D(hunter.x, hunter.y, hunter.z, Math.floor(this.player.x), Math.floor(this.player.y), this.player.z);
                     const threshold = Math.max(5, Math.floor(this.degree * 1.2));
+                    const dist = aStarDistance(
+                        { x: hunter.x, y: hunter.y, z: hunter.z },
+                        { x: Math.floor(this.player.x), y: Math.floor(this.player.y), z: this.player.z },
+                        this.maze, this.mazeGen.size, this.mazeGen.TYPES.WALL,
+                        threshold
+                    );
                     if (dist <= threshold) {
                         isNear = true;
                     }
@@ -538,7 +544,11 @@ export class Engine {
             const pz = this.player.z;
             
             for (const hunter of this.hunters) {
-                const dist = this.getProximeterDistance(hunter.x, hunter.y, hunter.z, px, py, pz);
+                const dist = proximeterDistance(
+                    { x: hunter.x, y: hunter.y, z: hunter.z },
+                    { x: px, y: py, z: pz },
+                    this.maze, this.mazeGen.size, this.mazeGen.TYPES.WALL
+                );
                 if (dist < minDistance) {
                     minDistance = dist;
                 }
@@ -972,97 +982,8 @@ export class Engine {
         return false;
     }
 
-    getPathDistance3D(x1, y1, z1, x2, y2, z2) {
-        if (x1 === x2 && y1 === y2 && z1 === z2) return 0;
-        const size = this.mazeGen.size;
-        const queue = [{ x: x1, y: y1, z: z1, dist: 0 }];
-        const visited = Array.from({ length: size }, () => 
-            Array.from({ length: size }, () => new Uint8Array(size))
-        );
-        visited[x1][y1][z1] = 1;
-
-        const dirs = [
-            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
-            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
-            { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
-        ];
-
-        while (queue.length > 0) {
-            const current = queue.shift();
-            
-            for (const d of dirs) {
-                const nx = current.x + d.dx;
-                const ny = current.y + d.dy;
-                const nz = current.z + d.dz;
-                
-                if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size && !visited[nx][ny][nz]) {
-                    if (this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
-                        if (nx === x2 && ny === y2 && nz === z2) {
-                            return current.dist + 1;
-                        }
-                        visited[nx][ny][nz] = 1;
-                        queue.push({ x: nx, y: ny, z: nz, dist: current.dist + 1 });
-                    }
-                }
-            }
-        }
-        return Infinity; // No path found
-    }
-
-    getProximeterDistance(x1, y1, z1, x2, y2, z2) {
-        if (x1 === x2 && y1 === y2 && z1 === z2) return 0;
-        const size = this.mazeGen.size;
-        
-        // 0-1 BFS uses a Deque. In JS, we simulate this with an array:
-        // shift() to remove from front, unshift() to add to front (cost 0), push() to add to back (cost 1).
-        const queue = [{ x: x1, y: y1, z: z1, dist: 0 }];
-        const visited = Array.from({ length: size }, () => 
-            Array.from({ length: size }, () => new Uint8Array(size))
-        );
-        visited[x1][y1][z1] = 1;
-
-        const dirs = [
-            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
-            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
-            { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
-        ];
-
-        while (queue.length > 0) {
-            const current = queue.shift();
-            
-            // Optimization: since we only care about distance <= 10,
-            // we stop expanding if the current node has a distance >= 10.
-            if (current.dist >= 10) continue;
-
-            for (const d of dirs) {
-                const nx = current.x + d.dx;
-                const ny = current.y + d.dy;
-                const nz = current.z + d.dz;
-                
-                if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size && !visited[nx][ny][nz]) {
-                    if (this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
-                        const isShaft = (nz % 2 === 0);
-                        const cost = isShaft ? 0 : 1;
-                        const nextDist = current.dist + cost;
-
-                        if (nx === x2 && ny === y2 && nz === z2) {
-                            return nextDist;
-                        }
-                        
-                        visited[nx][ny][nz] = 1;
-                        
-                        const nextNode = { x: nx, y: ny, z: nz, dist: nextDist };
-                        if (cost === 0) {
-                            queue.unshift(nextNode);
-                        } else {
-                            queue.push(nextNode);
-                        }
-                    }
-                }
-            }
-        }
-        return Infinity; // No path found
-    }
+    // getPathDistance3D and getProximeterDistance have been moved to pathfinder.js
+    // as aStarDistance() and proximeterDistance() respectively.
 
     updateProximeterUI(minDistance) {
         if (!this.uiProximeterContainer) return;
@@ -1402,41 +1323,8 @@ export class Engine {
     }
 
     findShortestPath(start, end) {
-        if (start.x === end.x && start.y === end.y && start.z === end.z) return [];
-        const size = this.mazeGen.size;
-        const queue = [{ x: start.x, y: start.y, z: start.z, path: [] }];
-        const visited = Array.from({ length: size }, () => 
-            Array.from({ length: size }, () => new Uint8Array(size))
-        );
-        visited[start.x][start.y][start.z] = 1;
-
-        const dirs = [
-            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
-            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
-            { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
-        ];
-
-        while (queue.length > 0) {
-            const current = queue.shift();
-            
-            for (const d of dirs) {
-                const nx = current.x + d.dx;
-                const ny = current.y + d.dy;
-                const nz = current.z + d.dz;
-                
-                if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size && !visited[nx][ny][nz]) {
-                    if (this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
-                        const newPath = [...current.path, { x: nx, y: ny, z: nz }];
-                        if (nx === end.x && ny === end.y && nz === end.z) {
-                            return newPath;
-                        }
-                        visited[nx][ny][nz] = 1;
-                        queue.push({ x: nx, y: ny, z: nz, path: newPath });
-                    }
-                }
-            }
-        }
-        return [];
+        // Delegates to A* in pathfinder.js — more efficient than BFS for a known target.
+        return aStarPath(start, end, this.maze, this.mazeGen.size, this.mazeGen.TYPES.WALL) ?? [];
     }
 
     triggerPathReveal(tx, ty, tz) {
