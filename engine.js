@@ -1373,7 +1373,15 @@ export class Engine {
                                          this.inactiveTeleportPos.x === gridX && 
                                          this.inactiveTeleportPos.y === gridY && 
                                          this.inactiveTeleportPos.z === gridZ;
-                if (!isTargetInactive) {
+                
+                const px = Math.floor(this.player.x);
+                const py = Math.floor(this.player.y);
+                const pz = this.player.z;
+                const isCurrentPos = gridX === px && gridY === py && gridZ === pz;
+
+                if (isCurrentPos) {
+                    this.toggleTeleportMap(false);
+                } else if (!isTargetInactive) {
                     this.teleportTo(gridX, gridY, gridZ);
                 }
             }
