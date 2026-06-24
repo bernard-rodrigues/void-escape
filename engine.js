@@ -671,7 +671,7 @@ export class Engine {
         const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
         
         // Define opacity factor: make all other map elements more translucent during teleportation mode
-        const opFactor = this.isTeleportMode ? 0.2 : 1.0;
+        const opFactor = this.isTeleportMode ? 0.05 : 1.0;
 
         const shaftGeomBottom = new THREE.BoxGeometry(0.9, 0.425, 0.9);
         const shaftGeomTop = new THREE.BoxGeometry(0.9, 0.425, 0.9);
@@ -748,9 +748,9 @@ export class Engine {
                                            this.inactiveTeleportPos.y === y && 
                                            this.inactiveTeleportPos.z === z;
                         
-                        // In teleport mode, spheres are larger (radius 0.65 instead of 0.45)
+                        // In teleport mode, spheres are larger (radius 0.9 instead of 0.45)
                         // and have stronger emissive glow (intensity 2.5 instead of 0.8)
-                        let radius = this.isTeleportMode ? 0.65 : 0.45;
+                        let radius = this.isTeleportMode ? 0.9 : 0.45;
                         let emissiveInt = this.isTeleportMode ? 2.5 : 0.8;
                         let color = CONFIG.COLORS.THREE_TELEPORT;
                         let opacity = 0.95;
