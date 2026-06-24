@@ -107,7 +107,7 @@ export class Hunter {
             matrix,
             matrix.length,
             types,
-            (cx, cy, cz, mat, t, restrict) => this.getValidNeighbors(mat, t, cx, cy, cz, restrict)
+            (cx, cy, cz, mat, t) => this.getValidNeighbors(mat, t, cx, cy, cz, this.state === 'TRACKING')
         );
     }
 

@@ -395,12 +395,18 @@ export class Engine {
             }
 
             if (moveX !== 0 || moveY !== 0) {
+                const oldGridX = Math.floor(this.player.x);
+                const oldGridY = Math.floor(this.player.y);
                 const nextX = this.player.x + moveX;
                 const nextY = this.player.y + moveY;
                 const gridIdxX = Math.floor(nextX);
                 const gridIdxY = Math.floor(this.player.y);
                 if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && this.maze[gridIdxX][gridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
                     this.player.x = nextX;
+                    const newGridX = Math.floor(this.player.x);
+                    if (newGridX !== oldGridX && this.maze[newGridX][oldGridY][this.player.z] === this.mazeGen.TYPES.PATH) {
+                        this.maze[newGridX][oldGridY][this.player.z] = this.mazeGen.TYPES.VISITED;
+                    }
                 }
                 const currentGridIdxX = Math.floor(this.player.x);
                 const nextGridIdxY = Math.floor(nextY);
