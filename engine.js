@@ -69,6 +69,7 @@ export class Engine {
         this.isTeleportMode = false;
         this.teleportCooldownTicks = 0;
         this.inactiveTeleportPos = null;
+        this.floorTransition = null;
         this.uiCooldownTimer = document.getElementById('teleport-cooldown-timer');
         this.uiCooldownTicks = document.getElementById('cooldown-ticks');
         this.raycaster = new THREE.Raycaster();
@@ -307,6 +308,81 @@ export class Engine {
         this.canvas.classList.add('intro-hidden');
         this.canvas.offsetHeight; // force reflow
         this.canvas.style.transition = '';
+    }
+
+    drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, isRevealed = false) {
+        const isPlayerHere = x === Math.floor(px) && y === Math.floor(py);
+        if (isPlayerHere) {
+            const pulse = 0.85 + 0.15 * Math.sin(Date.now() / 150);
+            ctx.save();
+            ctx.globalAlpha = pulse;
+        }
+
+        // 1. Desenha o fundo do bloco
+        if (isRevealed) {
+            ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        } else {
+            if (hUp && hDown) {
+                ctx.fillStyle = CONFIG.COLORS.NEON_UP;
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize / 2);
+                ctx.fillStyle = CONFIG.COLORS.NEON_DOWN;
+                ctx.fillRect(x * cellSize, y * cellSize + cellSize / 2, cellSize, cellSize / 2);
+            } else if (hUp) {
+                ctx.fillStyle = CONFIG.COLORS.NEON_UP;
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            } else {
+                ctx.fillStyle = CONFIG.COLORS.NEON_DOWN;
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            }
+        }
+
+        // 2. Desenha as setas vetoriais (triângulos pretos)
+        const cx = x * cellSize + cellSize / 2;
+        const cy = y * cellSize + cellSize / 2;
+        ctx.fillStyle = '#000000';
+
+        if (hUp && hDown) {
+            const arrowSize = cellSize * 0.28;
+            const cyTop = cy - cellSize / 5;
+            const cyBottom = cy + cellSize / 5;
+
+            // Seta para cima
+            ctx.beginPath();
+            ctx.moveTo(cx, cyTop - arrowSize / 2);
+            ctx.lineTo(cx - arrowSize * 0.6, cyTop + arrowSize / 2);
+            ctx.lineTo(cx + arrowSize * 0.6, cyTop + arrowSize / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Seta para baixo
+            ctx.beginPath();
+            ctx.moveTo(cx, cyBottom + arrowSize / 2);
+            ctx.lineTo(cx - arrowSize * 0.6, cyBottom - arrowSize / 2);
+            ctx.lineTo(cx + arrowSize * 0.6, cyBottom - arrowSize / 2);
+            ctx.closePath();
+            ctx.fill();
+        } else if (hUp) {
+            const arrowSize = cellSize * 0.45;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - arrowSize / 2);
+            ctx.lineTo(cx - arrowSize * 0.6, cy + arrowSize / 2);
+            ctx.lineTo(cx + arrowSize * 0.6, cy + arrowSize / 2);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            const arrowSize = cellSize * 0.45;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy + arrowSize / 2);
+            ctx.lineTo(cx - arrowSize * 0.6, cy - arrowSize / 2);
+            ctx.lineTo(cx + arrowSize * 0.6, cy - arrowSize / 2);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        if (isPlayerHere) {
+            ctx.restore();
+        }
     }
 
     resize() {
@@ -575,9 +651,8 @@ export class Engine {
             this.updateProximeterUI(minDistance);
         }
     }
-
     changeFloor(delta) {
-        if (this.isGameOver) return;
+        if (this.isGameOver || this.floorTransition) return;
         const currentX = Math.floor(this.player.x);
         const currentY = Math.floor(this.player.y);
         const currentZ = this.player.z;
@@ -599,10 +674,37 @@ export class Engine {
                 const destKey = `${currentX},${currentY},${nextZ}`;
                 this.revealedPathSet.delete(shaftKey);
                 this.revealedPathSet.delete(destKey);
+                
+                // Prepare canvases for transition
+                const canvasOld = document.createElement('canvas');
+                canvasOld.width = this.canvas.width;
+                canvasOld.height = this.canvas.height;
+                const ctxOld = canvasOld.getContext('2d');
+                this.renderMapToContext(ctxOld, this.player.z);
 
                 this.player.z = nextZ;
-                ['e', 'q', 'pageup', 'pagedown'].forEach(k => this.keys[k] = false);
+
+                // Marca a célula de destino como visitada antes de capturar a imagem do novo andar
+                if (this.maze[currentX][currentY][nextZ] === this.mazeGen.TYPES.PATH) {
+                    this.maze[currentX][currentY][nextZ] = this.mazeGen.TYPES.VISITED;
+                }
+
+                const canvasNew = document.createElement('canvas');
+                canvasNew.width = this.canvas.width;
+                canvasNew.height = this.canvas.height;
+                const ctxNew = canvasNew.getContext('2d');
+                this.renderMapToContext(ctxNew, this.player.z);
+
+                this.floorTransition = {
+                    canvasOld,
+                    canvasNew,
+                    progress: 0,
+                    duration: 0.4,
+                    delta: delta
+                };
+
                 this.updateFloorUI();
+                this.draw2DMap(0);
                 if (this.maze[currentX][currentY][nextZ] === this.mazeGen.TYPES.EXIT) this.triggerVictory();
             }
         }
@@ -673,7 +775,7 @@ export class Engine {
                         const isShaftVisited = val === this.mazeGen.TYPES.ELEVATOR_VISITED;
                         const isShaftKnown = (val === 1) && (isFloorVisited(x, y, z - 1) || isFloorVisited(x, y, z + 1));
 
-                        if (isShaftVisited || isShaftKnown || isRevealedPath) {
+                        if (isShaftVisited || isShaftKnown || isRevealedPath || isIntro) {
                             let material;
                             if (isRevealedPath) {
                                 material = new THREE.MeshPhongMaterial({
@@ -689,15 +791,16 @@ export class Engine {
                                     transparent: true,
                                     opacity: 0.8 * opFactor
                                 });
-                            } else if (isShaftKnown) {
+                            } else if (isShaftKnown || isIntro) {
+                                const color = isIntro ? CONFIG.COLORS.THREE_VISITED : CONFIG.COLORS.THREE_KNOWN;
                                 material = new THREE.MeshPhongMaterial({
-                                    color: CONFIG.COLORS.THREE_KNOWN,
+                                    color: color,
                                     transparent: true,
-                                    opacity: 0.6 * opFactor,
-                                    emissive: CONFIG.COLORS.THREE_KNOWN,
-                                    emissiveIntensity: 0.5 * opFactor
+                                    opacity: isIntro ? 0.72 : (0.6 * opFactor),
+                                    emissive: color,
+                                    emissiveIntensity: isIntro ? 0 : (0.5 * opFactor)
                                 });
-                                this.pulsatingMaterials.push(material);
+                                if (!isIntro) this.pulsatingMaterials.push(material);
                             }
 
                             const mesh = new THREE.Mesh(shaftGeom, material);
@@ -783,7 +886,7 @@ export class Engine {
                             color = CONFIG.COLORS.THREE_VISITED;
                             if (val === 3) color = CONFIG.COLORS.THREE_START;
                             else if (val === 4) color = CONFIG.COLORS.THREE_EXIT;
-                            material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.8 * opFactor });
+                            material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: isIntro ? 0.72 : (0.8 * opFactor) });
                         } else if (isKnown) {
                             material = new THREE.MeshPhongMaterial({ 
                                 color: color, 
@@ -885,13 +988,56 @@ export class Engine {
         this.camera.position.set(size, size * this.vScale, size);
         this.controls.target.set(0, 0, 0);
         this.controls.update();
+    }    draw2DMap(dt = 0.016) {
+        if (this.floorTransition) {
+            this.floorTransition.progress += dt / this.floorTransition.duration;
+            if (this.floorTransition.progress >= 1.0) {
+                this.floorTransition = null;
+            }
+        }
+
+        if (this.floorTransition) {
+            const t = this.floorTransition.progress;
+            const cx = this.canvas.width / 2;
+            const cy = this.canvas.height / 2;
+            const isUp = this.floorTransition.delta > 0;
+
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+            let scaleOld, scaleNew;
+            if (isUp) {
+                scaleOld = 1.0 - 0.2 * t;
+                scaleNew = 1.2 - 0.2 * t;
+            } else {
+                scaleOld = 1.0 + 0.2 * t;
+                scaleNew = 0.8 + 0.2 * t;
+            }
+
+            // Desenha andar antigo
+            this.ctx.save();
+            this.ctx.globalAlpha = 1 - t;
+            this.ctx.translate(cx, cy);
+            this.ctx.scale(scaleOld, scaleOld);
+            this.ctx.drawImage(this.floorTransition.canvasOld, -cx, -cy);
+            this.ctx.restore();
+
+            // Desenha andar novo
+            this.ctx.save();
+            this.ctx.globalAlpha = t;
+            this.ctx.translate(cx, cy);
+            this.ctx.scale(scaleNew, scaleNew);
+            this.ctx.drawImage(this.floorTransition.canvasNew, -cx, -cy);
+            this.ctx.restore();
+        } else {
+            this.renderMapToContext(this.ctx, this.player.z);
+        }
     }
 
-    draw2DMap() {
+    renderMapToContext(ctx, z) {
         const size = this.mazeGen.size;
         const cellSize = this.canvas.width / size;
-        const { z, x: px, y: py, dir: pDir } = this.player;
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const { x: px, y: py } = this.player;
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 const val = this.maze[x][y][z];
@@ -901,16 +1047,16 @@ export class Engine {
                 const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
                 const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
 
+                const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
+                const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
+                const isElevator = hUp || hDown;
+
                 if (isRevealedPath) {
-                    this.ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
-                    this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
-                    const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
-                    if (hUp || hDown) {
-                        this.ctx.fillStyle = (hUp && hDown) ? CONFIG.COLORS.ELEVATOR_BIDIRECTIONAL : (hUp ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_DOWN);
-                        this.ctx.font = `bold ${cellSize * 0.8}px Arial`;
-                        this.ctx.textAlign = 'center';
-                        this.ctx.fillText(hUp && hDown ? '↕' : (hUp ? '▲' : '▼'), x * cellSize + cellSize/2, y * cellSize + cellSize * 0.8);
+                    if (isElevator) {
+                        this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, true);
+                    } else {
+                        ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                     }
                 } else if (isVisited) {
                     if (isTeleportDiscovered) {
@@ -918,29 +1064,33 @@ export class Engine {
                                            this.inactiveTeleportPos.x === x && 
                                            this.inactiveTeleportPos.y === y && 
                                            this.inactiveTeleportPos.z === z;
-                        this.ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                        const isPlayerHere = x === Math.floor(px) && y === Math.floor(py);
+                        if (isPlayerHere && !isInactive) {
+                            const pulse = 0.85 + 0.15 * Math.sin(Date.now() / 150);
+                            ctx.save();
+                            ctx.globalAlpha = pulse;
+                        }
+                        ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        if (isPlayerHere && !isInactive) {
+                            ctx.restore();
+                        }
+                    } else if (isElevator) {
+                        this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false);
                     } else {
-                        this.ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
-                    }
-                    this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
-                    const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
-                    if (hUp || hDown) {
-                        this.ctx.fillStyle = (hUp && hDown) ? CONFIG.COLORS.ELEVATOR_BIDIRECTIONAL : (hUp ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_DOWN);
-                        this.ctx.font = `bold ${cellSize * 0.8}px Arial`;
-                        this.ctx.textAlign = 'center';
-                        this.ctx.fillText(hUp && hDown ? '↕' : (hUp ? '▲' : '▼'), x * cellSize + cellSize/2, y * cellSize + cellSize * 0.8);
+                        ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                     }
                 } else if (isKnown) { 
-                    this.ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; 
-                    this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
+                    ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; 
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
                 }
                 else if (val === 0 && this.isNearVisited(x, y, z)) {
                     if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
-                        this.ctx.drawImage(this.wallImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                        ctx.drawImage(this.wallImage, x * cellSize, y * cellSize, cellSize, cellSize);
                     } else {
-                        this.ctx.fillStyle = CONFIG.COLORS.WALL;
-                        this.ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        ctx.fillStyle = CONFIG.COLORS.WALL;
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                     }
                 }
             }
@@ -952,42 +1102,42 @@ export class Engine {
                 h.history.forEach((pos, idx) => {
                     if (pos.z === z) {
                         const opacity = idx === 0 && h.history.length === 2 ? 0.25 : 0.55;
-                        this.ctx.save();
-                        this.ctx.globalAlpha = opacity;
-                        this.ctx.fillStyle = CONFIG.COLORS.HUNTER;
-                        this.ctx.beginPath();
-                        this.ctx.arc(pos.x * cellSize + cellSize/2, pos.y * cellSize + cellSize/2, cellSize * 0.3, 0, Math.PI * 2);
-                        this.ctx.fill();
-                        this.ctx.restore();
+                        ctx.save();
+                        ctx.globalAlpha = opacity;
+                        ctx.fillStyle = CONFIG.COLORS.HUNTER;
+                        ctx.beginPath();
+                        ctx.arc(pos.x * cellSize + cellSize/2, pos.y * cellSize + cellSize/2, cellSize * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
                     }
                 });
             }
             if (h.z === z) {
-                this.ctx.save();
-                this.ctx.fillStyle = CONFIG.COLORS.HUNTER;
-                this.ctx.shadowBlur = pulse;
-                this.ctx.shadowColor = CONFIG.COLORS.HUNTER;
-                this.ctx.beginPath();
-                this.ctx.arc(h.x * cellSize + cellSize/2, h.y * cellSize + cellSize/2, cellSize * 0.4, 0, Math.PI * 2);
-                this.ctx.fill();
-                this.ctx.restore();
+                ctx.save();
+                ctx.fillStyle = CONFIG.COLORS.HUNTER;
+                ctx.shadowBlur = pulse;
+                ctx.shadowColor = CONFIG.COLORS.HUNTER;
+                ctx.beginPath();
+                ctx.arc(h.x * cellSize + cellSize/2, h.y * cellSize + cellSize/2, cellSize * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
             }
         }
-        this.ctx.save();
-        this.ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(Math.floor(px) * cellSize + 2, Math.floor(py) * cellSize + 2, cellSize - 4, cellSize - 4);
-        this.ctx.restore();
-        this.ctx.fillStyle = CONFIG.COLORS.PLAYER;
-        this.ctx.beginPath();
-        this.ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.strokeStyle = CONFIG.COLORS.PLAYER;
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(px * cellSize, py * cellSize);
-        this.ctx.lineTo(px * cellSize + Math.cos(pDir) * cellSize * 1, py * cellSize + Math.sin(pDir) * cellSize * 1);
-        this.ctx.stroke();
+        ctx.save();
+        ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(Math.floor(px) * cellSize + 2, Math.floor(py) * cellSize + 2, cellSize - 4, cellSize - 4);
+        ctx.restore();
+        ctx.fillStyle = CONFIG.COLORS.PLAYER;
+        ctx.beginPath();
+        ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = CONFIG.COLORS.PLAYER;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px * cellSize, py * cellSize);
+        ctx.lineTo(px * cellSize + Math.cos(this.player.dir) * cellSize * 1, py * cellSize + Math.sin(this.player.dir) * cellSize * 1);
+        ctx.stroke();
     }
 
     isNearVisited(x, y, z) {
@@ -1075,7 +1225,7 @@ export class Engine {
             this.renderer.render(this.scene, this.camera);
             if (!this.isIntroPlaying) this.updatePulse();
         } else {
-            this.draw2DMap();
+            this.draw2DMap(clampedDt);
         }
         requestAnimationFrame(() => this.loop());
     }
@@ -1164,8 +1314,7 @@ export class Engine {
                         && this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
                         visited.add(key);
                         q.push({ x: nx, y: ny, z: nz });
-                        // Only add floor-level cells (odd z) to the reveal list
-                        if (nz % 2 !== 0) revealOrder.push({ x: nx, y: ny, z: nz });
+                        revealOrder.push({ x: nx, y: ny, z: nz });
                     }
                 }
             }
@@ -1207,7 +1356,14 @@ export class Engine {
             const end = Math.min(stepIndex + batchSize, revealOrder.length);
             for (; stepIndex < end; stepIndex++) {
                 const { x, y, z } = revealOrder[stepIndex];
-                const mesh = new THREE.Mesh(pathGeom, pathMat);
+                const isShaft = z % 2 === 0;
+                let geom;
+                if (isShaft) {
+                    geom = new THREE.CylinderGeometry(0.35, 0.35, 2.0 * this.vScale, 8);
+                } else {
+                    geom = pathGeom;
+                }
+                const mesh = new THREE.Mesh(geom, pathMat);
                 mesh.position.set(x - size / 2, (z - size / 2) * this.vScale, y - size / 2);
                 this.scene.add(mesh);
                 revealedMeshes.push(mesh);
