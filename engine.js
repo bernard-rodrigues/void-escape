@@ -156,6 +156,23 @@ export class Engine {
         this.ui.showDeath();
     }
 
+    /**
+     * Checks every frame whether any hunter occupies the same cell as the player.
+     * Must be called independently of the hunter-move tick so the player cannot
+     * "pass through" a stationary hunter between ticks.
+     */
+    checkHunterCollision() {
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+        for (const hunter of this.hunters) {
+            if (hunter.x === px && hunter.y === py && hunter.z === pz) {
+                this.triggerDeath();
+                return;
+            }
+        }
+    }
+
     hideGameUI() {
         this.ui.hideGameUI();
         this.canvas.classList.remove('hunted-map-effect');
@@ -456,6 +473,10 @@ export class Engine {
                 if (this.maze[finalGridIdxX][finalGridIdxY][this.player.z] === this.mazeGen.TYPES.EXIT) this.triggerVictory();
             }
 
+            // Per-frame collision check: detects when the player walks into a hunter's cell.
+            this.checkHunterCollision();
+            if (this.isGameOver) return;
+
             const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
             const playerIdxZ = this.player.z;
             const isOnTeleport = this.maze[playerIdxX][playerIdxY][playerIdxZ] === this.mazeGen.TYPES.TELEPORT;
@@ -546,7 +567,9 @@ export class Engine {
                 if (isNear) {
                     nearbyCount++;
                 }
-                if (hunter.x === Math.floor(this.player.x) && hunter.y === Math.floor(this.player.y) && hunter.z === this.player.z) this.triggerDeath();
+                // Per-tick collision check: detects when a hunter walks into the player's cell.
+                this.checkHunterCollision();
+                if (this.isGameOver) return;
             }
 
             const isTracking = trackingCount > 0;
