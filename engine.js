@@ -687,9 +687,7 @@ export class Engine {
             return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
         };
 
-        this.gridMeshes = Array.from({ length: size }, () => 
-            Array.from({ length: size }, () => new Array(size).fill(null))
-        );
+        this.gridMeshes = new Array(size * size * size).fill(null);
 
         const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
         
@@ -749,7 +747,7 @@ export class Engine {
                             const mesh = new THREE.Mesh(shaftGeom, material);
                             mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
                             this.scene.add(mesh);
-                            this.gridMeshes[x][y][z] = mesh;
+                            this.gridMeshes[(x * size * size) + (y * size) + z] = mesh;
 
                             if (isShaftKnown && !isRevealedPath) {
                                 mesh.userData = { gridX: x, gridY: y, gridZ: z };
@@ -858,7 +856,7 @@ export class Engine {
                                 meshTop.position.set(   x - size/2, (z - size/2) * this.vScale + 0.2125, y - size/2);
                                 this.scene.add(meshBottom);
                                 this.scene.add(meshTop);
-                                this.gridMeshes[x][y][z] = meshTop; // Reference to one of them is enough
+                                this.gridMeshes[(x * size * size) + (y * size) + z] = meshTop; // Reference to one of them is enough
                                 continue; // Mesh já adicionado, pula o mesh padrão abaixo
                             } else {
                                 const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
@@ -873,14 +871,14 @@ export class Engine {
                             const mesh = new THREE.Mesh(floorGeom, material);
                             mesh.position.set(x - size/2, (z - size/2) * this.vScale - 0.425, y - size/2);
                             this.scene.add(mesh);
-                            this.gridMeshes[x][y][z] = mesh;
+                            this.gridMeshes[(x * size * size) + (y * size) + z] = mesh;
                             continue;
                         }
 
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
                         this.scene.add(mesh);
-                        this.gridMeshes[x][y][z] = mesh;
+                        this.gridMeshes[(x * size * size) + (y * size) + z] = mesh;
                         if (isKnown && !isRevealedPath) {
                             mesh.userData = { gridX: x, gridY: y, gridZ: z };
                             this.knownMeshes.push(mesh);
@@ -1456,7 +1454,8 @@ export class Engine {
                 this.revealedPathSet.add(key);
                 
                 if (this.isMap3DActive && this.gridMeshes) {
-                    const mesh = this.gridMeshes[node.x][node.y][node.z];
+                    const size = this.mazeGen.size;
+                    const mesh = this.gridMeshes[(node.x * size * size) + (node.y * size) + node.z];
                     if (mesh) {
                         mesh.material = new THREE.MeshPhongMaterial({
                             color: 0xffffff,
