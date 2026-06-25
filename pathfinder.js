@@ -1,22 +1,5 @@
 /**
- * pathfinder.js — Pathfinding heuristics for Void Escape
- *
- * Exports:
- *   - aStarPath(start, end, maze, size)      → {x,y,z}[] | null
- *   - aStarDistance(start, end, maze, size)  → number
- *   - bfsNearestUnvisited(start, visited, maze, size, types) → {x,y,z}[] | null
- *   - bfsProximeterDistance(start, end, maze, size)          → number
- *
- * Design notes
- * ────────────
- * A* uses a binary min-heap priority queue to avoid O(n) Array.shift().
- * The heuristic is the 3D Manhattan distance, which is admissible for a
- * unit-cost grid and therefore guarantees optimal paths.
- *
- * getProximeterDistance / getPathDistance3D used to allocate a fresh Uint8Array
- * cube on every call. The new aStarDistance reuses a single flat Int32Array
- * (gCost table) initialised to -1, and a separate Uint8Array for visited
- * tracking, both allocated once and reset only for the cells that were touched.
+ * pathfinder.js — Pathfinding heuristics for Void Escape (optimized with flat arrays)
  */
 
 // ─── Min-heap (priority queue) ────────────────────────────────────────────────
@@ -87,7 +70,7 @@ function heuristic(ax, ay, az, bx, by, bz) {
  *
  * @param {{x:number,y:number,z:number}} start
  * @param {{x:number,y:number,z:number}} end
- * @param {number[][][]} maze   - 3D grid where 0 (WALL) is impassable
+ * @param {Int8Array}    maze   - 1D flat grid where wallType is impassable
  * @param {number}       size   - grid side length
  * @param {number}       [wallType=0] - cell value considered a wall
  * @returns {{x:number,y:number,z:number}[]|null} path from start (exclusive) to end (inclusive), or null
@@ -95,9 +78,7 @@ function heuristic(ax, ay, az, bx, by, bz) {
 export function aStarPath(start, end, maze, size, wallType = 0) {
     if (start.x === end.x && start.y === end.y && start.z === end.z) return [];
 
-    // parent map: key → {x,y,z} of the node we came from
     const cameFrom = new Map();
-    // gCost map: key → best cost so far
     const gCost = new Map();
 
     const startKey = `${start.x},${start.y},${start.z}`;
@@ -114,18 +95,7 @@ export function aStarPath(start, end, maze, size, wallType = 0) {
         const curKey = `${cur.x},${cur.y},${cur.z}`;
 
         if (cur.x === end.x && cur.y === end.y && cur.z === end.z) {
-            // Reconstruct path
-            const path = [];
-            let k = curKey;
-            while (cameFrom.has(k)) {
-                const n = cameFrom.get(k);
-                path.push(cur.x === end.x && cur.y === end.y && cur.z === end.z && path.length === 0
-                    ? { x: cur.x, y: cur.y, z: cur.z }
-                    : n);
-                k = `${n.x},${n.y},${n.z}`;
-            }
-            // Rebuild properly
-            return _reconstructPath(cameFrom, curKey, start);
+            return _reconstructPath(cameFrom, curKey);
         }
 
         const curG = gCost.get(curKey);
@@ -133,7 +103,9 @@ export function aStarPath(start, end, maze, size, wallType = 0) {
         for (const { dx, dy, dz } of DIRS6) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
-            if (maze[nx][ny][nz] === wallType) continue;
+            
+            // 1D Array Access
+            if (maze[nx * size * size + ny * size + nz] === wallType) continue;
 
             const neighborKey = `${nx},${ny},${nz}`;
             const tentativeG = curG + 1;
@@ -149,15 +121,14 @@ export function aStarPath(start, end, maze, size, wallType = 0) {
         }
     }
 
-    return null; // no path
+    return null;
 }
 
 /**
  * Reconstructs the path from the cameFrom map.
- * Returns nodes from start (exclusive) to end (inclusive).
  * @private
  */
-function _reconstructPath(cameFrom, endKey, start) {
+function _reconstructPath(cameFrom, endKey) {
     const path = [];
     let k = endKey;
     while (cameFrom.has(k)) {
@@ -170,21 +141,17 @@ function _reconstructPath(cameFrom, endKey, start) {
     return path;
 }
 
-// ─── A* — distance only (no path reconstruction) ─────────────────────────────
+// ─── A* — distance only ─────────────────────────────
 
 /**
  * Returns the shortest path distance between two points in a 3D maze using A*.
- * More efficient than aStarPath when only the distance is needed.
- *
- * Supports an optional `maxDist` early-exit to avoid exploring the full maze
- * when only proximity checks are needed (e.g. proximeter).
  *
  * @param {{x:number,y:number,z:number}} start
  * @param {{x:number,y:number,z:number}} end
- * @param {number[][][]} maze
+ * @param {Int8Array}    maze
  * @param {number}       size
  * @param {number}       [wallType=0]
- * @param {number}       [maxDist=Infinity] - stop and return Infinity if this threshold is exceeded
+ * @param {number}       [maxDist=Infinity]
  * @returns {number} distance, or Infinity if unreachable / beyond maxDist
  */
 export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = Infinity) {
@@ -205,7 +172,6 @@ export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = In
         const curKey = `${cur.x},${cur.y},${cur.z}`;
         const curG = gCost.get(curKey);
 
-        // Early exit: if current best g already exceeds cap, no need to explore further
         if (curG > maxDist) return Infinity;
 
         if (cur.x === end.x && cur.y === end.y && cur.z === end.z) {
@@ -215,7 +181,9 @@ export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = In
         for (const { dx, dy, dz } of DIRS6) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
-            if (maze[nx][ny][nz] === wallType) continue;
+            
+            // 1D Array Access
+            if (maze[nx * size * size + ny * size + nz] === wallType) continue;
 
             const neighborKey = `${nx},${ny},${nz}`;
             const tentativeG = curG + 1;
@@ -237,15 +205,11 @@ export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = In
 
 /**
  * Proximeter-aware distance: elevator shaft cells (even z-index) have cost 0,
- * all other passable cells have cost 1. Uses a 0-1 BFS (deque) which is
- * optimal for this edge-weight distribution and simpler than a full A* here.
- *
- * Replaces the previous `getProximeterDistance` BFS with early-exit support
- * built in, and avoids per-call 3D array allocation by using a Map for visited.
+ * all other passable cells have cost 1. Uses a 0-1 BFS (deque).
  *
  * @param {{x:number,y:number,z:number}} start
  * @param {{x:number,y:number,z:number}} end
- * @param {number[][][]} maze
+ * @param {Int8Array}    maze
  * @param {number}       size
  * @param {number}       [wallType=0]
  * @param {number}       [maxDist=10]
@@ -254,7 +218,6 @@ export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = In
 export function proximeterDistance(start, end, maze, size, wallType = 0, maxDist = 10) {
     if (start.x === end.x && start.y === end.y && start.z === end.z) return 0;
 
-    // Deque simulation: front pointer + array (avoid O(n) shift)
     const deque = [{ x: start.x, y: start.y, z: start.z, dist: 0 }];
     let head = 0;
     const dist = new Map();
@@ -263,12 +226,14 @@ export function proximeterDistance(start, end, maze, size, wallType = 0, maxDist
     while (head < deque.length) {
         const cur = deque[head++];
 
-        if (cur.dist > maxDist) continue; // early exit
+        if (cur.dist > maxDist) continue;
 
         for (const { dx, dy, dz } of DIRS6) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
-            if (maze[nx][ny][nz] === wallType) continue;
+            
+            // 1D Array Access
+            if (maze[nx * size * size + ny * size + nz] === wallType) continue;
 
             const neighborKey = `${nx},${ny},${nz}`;
             const isShaft = nz % 2 === 0;
@@ -281,7 +246,6 @@ export function proximeterDistance(start, end, maze, size, wallType = 0, maxDist
                 if (nx === end.x && ny === end.y && nz === end.z) return nextDist;
 
                 if (cost === 0) {
-                    // zero-cost edge: push to front (deque behaviour)
                     deque.splice(head, 0, { x: nx, y: ny, z: nz, dist: nextDist });
                 } else {
                     deque.push({ x: nx, y: ny, z: nz, dist: nextDist });
@@ -297,26 +261,22 @@ export function proximeterDistance(start, end, maze, size, wallType = 0, maxDist
 
 /**
  * BFS to find the shortest path to the nearest cell not present in `visitedNodes`.
- * A* is not applicable here because the target is unknown in advance.
  *
  * @param {{x:number,y:number,z:number}} start
- * @param {Set<string>}  visitedNodes  - set of "x,y,z" keys already visited
- * @param {number[][][]} maze
+ * @param {Set<string>}  visitedNodes
+ * @param {Int8Array}    maze
  * @param {number}       size
  * @param {{ WALL: number }} types
- * @param {(cx:number,cy:number,cz:number,matrix:number[][][],types:object,restrict:boolean) => {x:number,y:number,z:number}[]} getNeighborsFn
- *   - caller-supplied function to get valid neighbours (respects elevator/trail rules)
+ * @param {(cx:number,cy:number,cz:number,matrix:Int8Array,types:object,restrict:boolean) => {x:number,y:number,z:number}[]} getNeighborsFn
  * @returns {{x:number,y:number,z:number}[]|null}
  */
 export function bfsNearestUnvisited(start, visitedNodes, maze, size, types, getNeighborsFn) {
-    // Use index-based queue to avoid O(n) shift
     const queue = [{ x: start.x, y: start.y, z: start.z, path: [] }];
     let head = 0;
 
-    const seen = Array.from({ length: size }, () =>
-        Array.from({ length: size }, () => new Uint8Array(size))
-    );
-    seen[start.x][start.y][start.z] = 1;
+    // Optimized: contiguous 1D array for tracking visited cells in current search
+    const seen = new Uint8Array(size * size * size);
+    seen[start.x * size * size + start.y * size + start.z] = 1;
 
     while (head < queue.length) {
         const cur = queue[head++];
@@ -328,8 +288,9 @@ export function bfsNearestUnvisited(start, visitedNodes, maze, size, types, getN
 
         const neighbors = getNeighborsFn(cur.x, cur.y, cur.z, maze, types, false);
         for (const n of neighbors) {
-            if (!seen[n.x][n.y][n.z]) {
-                seen[n.x][n.y][n.z] = 1;
+            const nIdx = n.x * size * size + n.y * size + n.z;
+            if (!seen[nIdx]) {
+                seen[nIdx] = 1;
                 queue.push({ x: n.x, y: n.y, z: n.z, path: [...cur.path, n] });
             }
         }

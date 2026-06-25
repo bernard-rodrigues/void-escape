@@ -122,7 +122,7 @@ export class Engine {
         for (let x = 0; x < this.mazeGen.size; x++) {
             for (let y = 0; y < this.mazeGen.size; y++) {
                 for (let z = 0; z < this.mazeGen.size; z++) {
-                    if (this.maze[x][y][z] === this.mazeGen.TYPES.EXIT) return { x, y, z };
+                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.EXIT) return { x, y, z };
                 }
             }
         }
@@ -136,7 +136,7 @@ export class Engine {
         for (let x = 0; x < s; x++) {
             for (let y = 0; y < s; y++) {
                 for (let z = 0; z < s; z++) {
-                    if (this.maze[x][y][z] !== 0) {
+                    if (this.maze.get(x, y, z) !== 0) {
                         const dist = Math.abs(x - tx) + Math.abs(y - ty) + Math.abs(z - tz);
                         if (dist < minDist) { minDist = dist; best = { x, y, z }; }
                     }
@@ -222,7 +222,7 @@ export class Engine {
                 const px = Math.floor(this.player.x);
                 const py = Math.floor(this.player.y);
                 const pz = this.player.z;
-                const isOnTeleport = this.maze[px][py][pz] === this.mazeGen.TYPES.TELEPORT;
+                const isOnTeleport = this.maze.get(px, py, pz) === this.mazeGen.TYPES.TELEPORT;
                 const isInactive = this.inactiveTeleportPos && 
                                    this.inactiveTeleportPos.x === px && 
                                    this.inactiveTeleportPos.y === py && 
@@ -373,8 +373,8 @@ export class Engine {
         const currentX = Math.floor(this.player.x);
         const currentY = Math.floor(this.player.y);
         const currentZ = this.player.z;
-        const hUp = currentZ + 1 < this.mazeGen.size && this.maze[currentX][currentY][currentZ + 1] !== this.mazeGen.TYPES.WALL;
-        const hDown = currentZ - 1 >= 0 && this.maze[currentX][currentY][currentZ - 1] !== this.mazeGen.TYPES.WALL;
+        const hUp = currentZ + 1 < this.mazeGen.size && this.maze.get(currentX, currentY, currentZ + 1) !== this.mazeGen.TYPES.WALL;
+        const hDown = currentZ - 1 >= 0 && this.maze.get(currentX, currentY, currentZ - 1) !== this.mazeGen.TYPES.WALL;
         this.ui.updateFloor(currentZ, hUp, hDown);
     }
 
@@ -457,20 +457,20 @@ export class Engine {
                 const nextY = this.player.y + moveY;
                 const gridIdxX = Math.floor(nextX);
                 const gridIdxY = Math.floor(this.player.y);
-                if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && this.maze[gridIdxX][gridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
+                if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && this.maze.get(gridIdxX, gridIdxY, this.player.z) !== this.mazeGen.TYPES.WALL) {
                     this.player.x = nextX;
                     const newGridX = Math.floor(this.player.x);
-                    if (newGridX !== oldGridX && this.maze[newGridX][oldGridY][this.player.z] === this.mazeGen.TYPES.PATH) {
-                        this.maze[newGridX][oldGridY][this.player.z] = this.mazeGen.TYPES.VISITED;
+                    if (newGridX !== oldGridX && this.maze.get(newGridX, oldGridY, this.player.z) === this.mazeGen.TYPES.PATH) {
+                        this.maze.set(newGridX, oldGridY, this.player.z, this.mazeGen.TYPES.VISITED);
                     }
                 }
                 const currentGridIdxX = Math.floor(this.player.x);
                 const nextGridIdxY = Math.floor(nextY);
-                if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && this.maze[currentGridIdxX][nextGridIdxY][this.player.z] !== this.mazeGen.TYPES.WALL) {
+                if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && this.maze.get(currentGridIdxX, nextGridIdxY, this.player.z) !== this.mazeGen.TYPES.WALL) {
                     this.player.y = nextY;
                 }
                 const finalGridIdxX = Math.floor(this.player.x), finalGridIdxY = Math.floor(this.player.y);
-                if (this.maze[finalGridIdxX][finalGridIdxY][this.player.z] === this.mazeGen.TYPES.EXIT) this.triggerVictory();
+                if (this.maze.get(finalGridIdxX, finalGridIdxY, this.player.z) === this.mazeGen.TYPES.EXIT) this.triggerVictory();
             }
 
             // Per-frame collision check: detects when the player walks into a hunter's cell.
@@ -479,15 +479,15 @@ export class Engine {
 
             const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
             const playerIdxZ = this.player.z;
-            const isOnTeleport = this.maze[playerIdxX][playerIdxY][playerIdxZ] === this.mazeGen.TYPES.TELEPORT;
+            const isOnTeleport = this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.TELEPORT;
             const isInactive = this.inactiveTeleportPos && 
                                this.inactiveTeleportPos.x === playerIdxX && 
                                this.inactiveTeleportPos.y === playerIdxY && 
                                this.inactiveTeleportPos.z === playerIdxZ;
 
             if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
-                if (this.maze[playerIdxX][playerIdxY][playerIdxZ] === this.mazeGen.TYPES.PATH) {
-                    this.maze[playerIdxX][playerIdxY][playerIdxZ] = this.mazeGen.TYPES.VISITED;
+                if (this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.PATH) {
+                    this.maze.set(playerIdxX, playerIdxY, playerIdxZ, this.mazeGen.TYPES.VISITED);
                 } else if (isOnTeleport) {
                     const key = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
                     if (!this.discoveredTeleports.has(key)) {
@@ -530,7 +530,7 @@ export class Engine {
                     this.inactiveTeleportPos = null;
                     
                     for (const hunter of this.hunters) {
-                        const cellVal = this.maze[hunter.x][hunter.y][hunter.z];
+                        const cellVal = this.maze.get(hunter.x, hunter.y, hunter.z);
                         if (cellVal === this.mazeGen.TYPES.VISITED || cellVal === this.mazeGen.TYPES.START || cellVal === this.mazeGen.TYPES.EXIT) {
                             hunter.state = 'TRACKING';
                         } else {
@@ -607,15 +607,15 @@ export class Engine {
         const currentX = Math.floor(this.player.x);
         const currentY = Math.floor(this.player.y);
         const currentZ = this.player.z;
-        const hUp = currentZ + 1 < this.mazeGen.size && this.maze[currentX][currentY][currentZ + 1] !== this.mazeGen.TYPES.WALL;
-        const hDown = currentZ - 1 >= 0 && this.maze[currentX][currentY][currentZ - 1] !== this.mazeGen.TYPES.WALL;
+        const hUp = currentZ + 1 < this.mazeGen.size && this.maze.get(currentX, currentY, currentZ + 1) !== this.mazeGen.TYPES.WALL;
+        const hDown = currentZ - 1 >= 0 && this.maze.get(currentX, currentY, currentZ - 1) !== this.mazeGen.TYPES.WALL;
         
         if ((delta > 0 && hUp) || (delta < 0 && hDown)) {
             const nextZ = currentZ + delta;
-            if (nextZ >= 0 && nextZ < this.mazeGen.size && this.maze[currentX][currentY][nextZ] !== this.mazeGen.TYPES.WALL) {
+            if (nextZ >= 0 && nextZ < this.mazeGen.size && this.maze.get(currentX, currentY, nextZ) !== this.mazeGen.TYPES.WALL) {
                 const shaftZ = currentZ + delta / 2;
-                if (this.maze[currentX][currentY][shaftZ] !== this.mazeGen.TYPES.ELEVATOR_VISITED) {
-                    this.maze[currentX][currentY][shaftZ] = this.mazeGen.TYPES.ELEVATOR_VISITED;
+                if (this.maze.get(currentX, currentY, shaftZ) !== this.mazeGen.TYPES.ELEVATOR_VISITED) {
+                    this.maze.set(currentX, currentY, shaftZ, this.mazeGen.TYPES.ELEVATOR_VISITED);
                 }
                 
                 const shaftKey = `${currentX},${currentY},${shaftZ}`;
@@ -631,8 +631,8 @@ export class Engine {
 
                 this.player.z = nextZ;
 
-                if (this.maze[currentX][currentY][nextZ] === this.mazeGen.TYPES.PATH) {
-                    this.maze[currentX][currentY][nextZ] = this.mazeGen.TYPES.VISITED;
+                if (this.maze.get(currentX, currentY, nextZ) === this.mazeGen.TYPES.PATH) {
+                    this.maze.set(currentX, currentY, nextZ, this.mazeGen.TYPES.VISITED);
                 }
 
                 const canvasNew = document.createElement('canvas');
@@ -651,7 +651,7 @@ export class Engine {
 
                 this.updateFloorUI();
                 this.draw2DMap(0);
-                if (this.maze[currentX][currentY][nextZ] === this.mazeGen.TYPES.EXIT) this.triggerVictory();
+                if (this.maze.get(currentX, currentY, nextZ) === this.mazeGen.TYPES.EXIT) this.triggerVictory();
             }
         }
     }
@@ -683,7 +683,7 @@ export class Engine {
         const size = this.mazeGen.size;
         const isFloorVisited = (fx, fy, fz) => {
             if (fz < 0 || fz >= size) return false;
-            const fVal = this.maze[fx][fy][fz];
+            const fVal = this.maze.get(fx, fy, fz);
             return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
         };
 
@@ -708,7 +708,7 @@ export class Engine {
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
-                    const val = this.maze[x][y][z];
+                    const val = this.maze.get(x, y, z);
 
                     // Render elevator shaft cells (even z index and not a wall)
                     const isShaft = z % 2 === 0 && val !== 0;
@@ -841,8 +841,8 @@ export class Engine {
                             this.pulsatingMaterials.push(material);
                         }
 
-                        const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
-                        const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
+                        const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== 0;
+                        const hDown = z > 0 && this.maze.get(x, y, z - 1) !== 0;
                         if (hUp || hDown) {
                             // Remove do pulse caso tenha sido adicionado como isKnown
                             const index = this.pulsatingMaterials.indexOf(material);
@@ -983,15 +983,15 @@ export class Engine {
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
-                const val = this.maze[x][y][z];
+                const val = this.maze.get(x, y, z);
                 const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
                 const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
                 const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
 
-                const hUp = z < size - 1 && this.maze[x][y][z+1] !== 0;
-                const hDown = z > 0 && this.maze[x][y][z-1] !== 0;
+                const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== 0;
+                const hDown = z > 0 && this.maze.get(x, y, z - 1) !== 0;
                 const isElevator = hUp || hDown;
 
                 if (isRevealedPath) {
@@ -1088,7 +1088,7 @@ export class Engine {
             for (let dy = -1; dy <= 1; dy++) {
                 const nx = x + dx, ny = y + dy;
                 if (nx >= 0 && nx < this.mazeGen.size && ny >= 0 && ny < this.mazeGen.size) {
-                    const v = this.maze[nx][ny][z];
+                    const v = this.maze.get(nx, ny, z);
                     // ELEVATOR_VISITED (5) and EXIT (4) cells do not automatically reveal adjacent
                     // paths by proximity.
                     if (v === 2 || v === 3) return true;
@@ -1250,7 +1250,7 @@ export class Engine {
                     const key = `${nx},${ny},${nz}`;
                     if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size
                         && !visited.has(key)
-                        && this.maze[nx][ny][nz] !== this.mazeGen.TYPES.WALL) {
+                        && this.maze.get(nx, ny, nz) !== this.mazeGen.TYPES.WALL) {
                         visited.add(key);
                         q.push({ x: nx, y: ny, z: nz });
                         revealOrder.push({ x: nx, y: ny, z: nz });
@@ -1482,8 +1482,8 @@ export class Engine {
         
         this.toggleTeleportMap(false);
         
-        if (this.maze[x][y][z] === this.mazeGen.TYPES.PATH) {
-            this.maze[x][y][z] = this.mazeGen.TYPES.VISITED;
+        if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH) {
+            this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
         }
 
         const nTicks = Math.floor(this.degree * 1.5) + 3;

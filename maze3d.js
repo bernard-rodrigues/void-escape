@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 
 /**
- * 3D Maze Logic Handler
+ * 3D Maze Logic Handler - Represents the maze using a 1D contiguously allocated Int8Array
  */
 export class Maze3D {
     constructor(degree, branchingFactor) {
@@ -15,9 +15,11 @@ export class Maze3D {
     }
 
     initMatrix() {
-        return Array.from({ length: this.size }, () => 
-            Array.from({ length: this.size }, () => new Int8Array(this.size).fill(0))
-        );
+        return new Int8Array(this.size * this.size * this.size);
+    }
+
+    _idx(x, y, z) {
+        return (x * this.size * this.size) + (y * this.size) + z;
     }
 
     generate() {
@@ -26,7 +28,7 @@ export class Maze3D {
         const startY = 1 + 2 * Math.floor(Math.random() * this.n);
         const startZ = 1 + 2 * Math.floor(Math.random() * this.n);
 
-        this.matrix[startX][startY][startZ] = this.TYPES.PATH;
+        this.matrix[this._idx(startX, startY, startZ)] = this.TYPES.PATH;
         cells.push({ x: startX, y: startY, z: startZ });
 
         while (cells.length > 0) {
@@ -36,8 +38,8 @@ export class Maze3D {
 
             if (neighbors.length > 0) {
                 const neighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
-                this.matrix[neighbor.x][neighbor.y][neighbor.z] = this.TYPES.PATH;
-                this.matrix[(cell.x + neighbor.x) / 2][(cell.y + neighbor.y) / 2][(cell.z + neighbor.z) / 2] = this.TYPES.PATH;
+                this.matrix[this._idx(neighbor.x, neighbor.y, neighbor.z)] = this.TYPES.PATH;
+                this.matrix[this._idx((cell.x + neighbor.x) / 2, (cell.y + neighbor.y) / 2, (cell.z + neighbor.z) / 2)] = this.TYPES.PATH;
                 cells.push(neighbor);
             } else {
                 cells.splice(index, 1);
@@ -46,7 +48,15 @@ export class Maze3D {
 
         this.setEntryAndExit();
         this.placeTeleports();
-        return this.matrix;
+
+        // Enrich the TypedArray with convenience O(1) coordinate mapping methods
+        const size = this.size;
+        const matrix = this.matrix;
+        matrix.size = size;
+        matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
+        matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+
+        return matrix;
     }
 
     getUnvisitedNeighbors(x, y, z) {
@@ -58,7 +68,7 @@ export class Maze3D {
         ];
         for (const dir of dirs) {
             const nx = x + dir.dx, ny = y + dir.dy, nz = z + dir.dz;
-            if (this.isValid(nx, ny, nz) && this.matrix[nx][ny][nz] === this.TYPES.WALL) {
+            if (this.isValid(nx, ny, nz) && this.matrix[this._idx(nx, ny, nz)] === this.TYPES.WALL) {
                 neighbors.push({ x: nx, y: ny, z: nz });
             }
         }
@@ -71,29 +81,27 @@ export class Maze3D {
 
     setEntryAndExit() {
         const entryZ = 1 + 2 * Math.floor(Math.random() * this.n);
-        this.matrix[1][1][entryZ] = this.TYPES.PATH;
-        this.matrix[0][1][entryZ] = this.TYPES.START;
+        this.matrix[this._idx(1, 1, entryZ)] = this.TYPES.PATH;
+        this.matrix[this._idx(0, 1, entryZ)] = this.TYPES.START;
         this.startPos = { x: 0.5, y: 1.5, z: entryZ };
 
         const exitZ = 1 + 2 * Math.floor(Math.random() * this.n);
         const lastCell = 2 * this.n - 1;
-        this.matrix[lastCell][lastCell][exitZ] = this.TYPES.PATH;
-        this.matrix[2 * this.n][lastCell][exitZ] = this.TYPES.EXIT;
+        this.matrix[this._idx(lastCell, lastCell, exitZ)] = this.TYPES.PATH;
+        this.matrix[this._idx(2 * this.n, lastCell, exitZ)] = this.TYPES.EXIT;
     }
 
     placeTeleports() {
         const count = CONFIG.getTeleportCount(this.n);
         
-        // Find all walkable paths, excluding start and exit, prioritizing dead-ends
         const deadEnds = [];
         const normalPaths = [];
         for (let x = 1; x < this.size - 1; x++) {
             for (let y = 1; y < this.size - 1; y++) {
                 for (let z = 1; z < this.size - 1; z++) {
-                    if (this.matrix[x][y][z] === this.TYPES.PATH) {
-                        // Exclude cells that connect floors vertically (elevators)
-                        const hUp = z + 1 < this.size && this.matrix[x][y][z + 1] !== this.TYPES.WALL;
-                        const hDown = z - 1 >= 0 && this.matrix[x][y][z - 1] !== this.TYPES.WALL;
+                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.PATH) {
+                        const hUp = z + 1 < this.size && this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL;
+                        const hDown = z - 1 >= 0 && this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL;
                         if (!hUp && !hDown) {
                             let openCount = 0;
                             const dirs = [
@@ -104,7 +112,7 @@ export class Maze3D {
                             for (const d of dirs) {
                                 const nx = x + d.dx, ny = y + d.dy, nz = z + d.dz;
                                 if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && nz >= 0 && nz < this.size) {
-                                    if (this.matrix[nx][ny][nz] !== this.TYPES.WALL) {
+                                    if (this.matrix[this._idx(nx, ny, nz)] !== this.TYPES.WALL) {
                                         openCount++;
                                     }
                                 }
@@ -121,13 +129,12 @@ export class Maze3D {
         }
         const paths = deadEnds.length >= count ? deadEnds : [...deadEnds, ...normalPaths];
 
-        // Keep track of start and exit positions
         const start = { x: 0, y: 1, z: this.startPos.z };
         let exit = { x: 2 * this.n, y: 2 * this.n - 1, z: this.startPos.z };
         for (let x = 0; x < this.size; x++) {
             for (let y = 0; y < this.size; y++) {
                 for (let z = 0; z < this.size; z++) {
-                    if (this.matrix[x][y][z] === this.TYPES.EXIT) {
+                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.EXIT) {
                         exit = { x, y, z };
                     }
                 }
@@ -140,16 +147,14 @@ export class Maze3D {
         let minDistanceToStartExit = 4;
         let minDistanceToOthers = 4;
 
-        // Try placing teleports with relaxation
         while (teleports.length < count && minDistanceToStartExit > 0) {
-            teleports.length = 0; // reset
+            teleports.length = 0;
             const candidates = paths.filter(p => {
                 const ds = getDist(p, start);
                 const de = getDist(p, exit);
                 return ds >= minDistanceToStartExit && de >= minDistanceToStartExit;
             });
 
-            // Greedy placement
             for (let i = 0; i < count; i++) {
                 let bestCand = null;
                 let maxMinDist = -1;
@@ -188,9 +193,8 @@ export class Maze3D {
             }
         }
 
-        // Apply selected teleports to matrix
         for (const t of teleports) {
-            this.matrix[t.x][t.y][t.z] = this.TYPES.TELEPORT;
+            this.matrix[this._idx(t.x, t.y, t.z)] = this.TYPES.TELEPORT;
         }
     }
 }
