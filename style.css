@@ -179,7 +179,7 @@ body {
     background: var(--clr-bg);
 }
 
-#start-btn {
+#start-btn, .continue-btn {
     background: transparent;
     border: calc(var(--h-unit) * 0.2) solid var(--clr-neon);
     border: calc(var(--d-h-unit) * 0.2) solid var(--clr-neon);
@@ -199,42 +199,14 @@ body {
     margin-top: calc(var(--d-h-unit) * 2);
     box-shadow: 0 0 var(--h-unit) rgba(0, 255, 255, 0.3);
     box-shadow: 0 0 var(--d-h-unit) rgba(0, 255, 255, 0.3);
+    display: inline-block;
 }
 
-#start-btn:hover {
+#start-btn:hover, .continue-btn:hover {
     background: var(--clr-neon);
     color: #000;
     box-shadow: 0 0 calc(var(--h-unit) * 3) var(--clr-neon);
     box-shadow: 0 0 calc(var(--d-h-unit) * 3) var(--clr-neon);
-}
-
-/* Continue button on main menu — appears below start-btn when a save exists */
-.continue-btn {
-    background: transparent;
-    border: calc(var(--h-unit) * 0.15) solid rgba(0, 255, 200, 0.5);
-    border: calc(var(--d-h-unit) * 0.15) solid rgba(0, 255, 200, 0.5);
-    color: rgba(0, 255, 200, 0.8);
-    padding: calc(var(--h-unit) * 1) calc(var(--h-unit) * 3.5);
-    padding: calc(var(--d-h-unit) * 1) calc(var(--d-h-unit) * 3.5);
-    font-size: calc(var(--h-unit) * 2);
-    font-size: calc(var(--d-h-unit) * 2);
-    font-family: inherit;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: calc(var(--h-unit) * 0.2);
-    letter-spacing: calc(var(--d-h-unit) * 0.2);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: calc(var(--h-unit) * 1);
-    margin-top: calc(var(--d-h-unit) * 1);
-}
-
-.continue-btn:hover {
-    background: rgba(0, 255, 200, 0.12);
-    color: rgb(0, 255, 200);
-    border-color: rgb(0, 255, 200);
-    box-shadow: 0 0 calc(var(--h-unit) * 2) rgba(0, 255, 200, 0.4);
-    box-shadow: 0 0 calc(var(--d-h-unit) * 2) rgba(0, 255, 200, 0.4);
 }
 
 .end-game-btns {
