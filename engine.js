@@ -67,6 +67,7 @@ export class Engine {
         this.inactiveTeleportPos = null;
         this.floorTransition = null;
         this.hasSavePoint = false;
+        this.lastPlayerCell = null;
 
         this.raycaster = new THREE.Raycaster();
         this.pointer = new THREE.Vector2();
@@ -427,6 +428,45 @@ export class Engine {
         this.updateRendererSize();
     }
 
+    /**
+     * Calculates the percentage of the maze corridors visited by the player.
+     * Excludes WALL and EXIT cells from both total and visited counts.
+     * Returns an integer from 0 to 100.
+     */
+    getMapVisitedPercentage() {
+        let totalEligible = 0;
+        let visitedCount = 0;
+        const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const val = this.maze.get(x, y, z);
+                    // WALL and EXIT do not count towards the total corridors
+                    if (val === TYPES.WALL || val === TYPES.EXIT) {
+                        continue;
+                    }
+                    totalEligible++;
+
+                    // Visited logic: player walked over it, started on it, used the elevator,
+                    // or stepped on a teleport (and discovered it)
+                    const isVisited = val === TYPES.VISITED ||
+                                      val === TYPES.START ||
+                                      val === TYPES.ELEVATOR_VISITED ||
+                                      (val === TYPES.TELEPORT && this.discoveredTeleports.has(`${x},${y},${z}`));
+
+                    if (isVisited) {
+                        visitedCount++;
+                    }
+                }
+            }
+        }
+
+        if (totalEligible === 0) return 0;
+        return Math.floor((visitedCount / totalEligible) * 100);
+    }
+
     updateFloorUI() {
         const currentX = Math.floor(this.player.x);
         const currentY = Math.floor(this.player.y);
@@ -434,6 +474,10 @@ export class Engine {
         const hUp = currentZ + 1 < this.mazeGen.size && this.maze.get(currentX, currentY, currentZ + 1) !== this.mazeGen.TYPES.WALL;
         const hDown = currentZ - 1 >= 0 && this.maze.get(currentX, currentY, currentZ - 1) !== this.mazeGen.TYPES.WALL;
         this.ui.updateFloor(currentZ, hUp, hDown);
+
+        // Update map visited percentage display
+        const percent = this.getMapVisitedPercentage();
+        this.ui.updateVisitedPercent(percent);
     }
 
     update(dt) {
@@ -548,9 +592,14 @@ export class Engine {
                     this.maze.set(playerIdxX, playerIdxY, playerIdxZ, this.mazeGen.TYPES.VISITED);
                 } else if (isOnTeleport) {
                     const key = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
-                    if (!this.discoveredTeleports.has(key)) {
+                    const wasOnThisTeleport = this.lastPlayerCell &&
+                                              this.lastPlayerCell.x === playerIdxX &&
+                                              this.lastPlayerCell.y === playerIdxY &&
+                                              this.lastPlayerCell.z === playerIdxZ;
+
+                    if (!wasOnThisTeleport && !isInactive) {
                         this.discoveredTeleports.add(key);
-                        // New teleport reached → auto-save
+                        // Reentered or newly found teleport -> auto-save
                         this.triggerSave();
                     }
                 }
@@ -577,6 +626,7 @@ export class Engine {
 
             this.ui.updateMobileMapButton(isOnTeleport, isInactive, isPortrait);
             this.updateFloorUI();
+            this.lastPlayerCell = { x: playerIdxX, y: playerIdxY, z: playerIdxZ };
         }
 
         const now = performance.now();

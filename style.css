@@ -395,6 +395,15 @@ body {
     font-weight: 700;
 }
 
+#visited-display {
+    font-size: calc(var(--h-unit) * 2);
+    font-size: calc(var(--d-h-unit) * 2);
+    font-weight: 500;
+    color: #bbbbbb;
+    margin-top: calc(var(--h-unit) * 1);
+    margin-top: calc(var(--d-h-unit) * 1);
+}
+
 #helper-display {
     font-size: calc(var(--h-unit) * 2);
     font-size: calc(var(--d-h-unit) * 2);

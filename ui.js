@@ -28,6 +28,7 @@ export class UIManager {
         this.uiSavingIndicator = document.getElementById('saving-indicator');
         this.savingIndicatorTimeout = null;
 
+        this.uiVisitedPercent = document.getElementById('visited-percent');
         this.teleportInfoTimeout = null;
     }
 
@@ -87,6 +88,15 @@ export class UIManager {
     updatePathfinderUses(left, max) {
         if (this.uiHelperUses) this.uiHelperUses.innerText = left;
         if (this.uiHelperMaxUses) this.uiHelperMaxUses.innerText = max;
+    }
+
+    /**
+     * Update map visited percentage display.
+     */
+    updateVisitedPercent(percent) {
+        if (this.uiVisitedPercent) {
+            this.uiVisitedPercent.innerText = percent;
+        }
     }
 
     /**
