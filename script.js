@@ -9,6 +9,7 @@ let currentGame = null;
  */
 const startNewGame = (degree, branching, movementMode) => {
     if (currentGame) currentGame.destroy();
+    clearSave(); // Clear old saves when a fresh game is started
     document.getElementById('start-menu').classList.add('hidden');
     document.getElementById('victory-screen').classList.add('hidden');
     document.getElementById('game-over-screen').classList.add('hidden');
