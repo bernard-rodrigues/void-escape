@@ -12,7 +12,7 @@ import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
 export class Engine {
-    constructor(degree, branchingFactor, movementMode) {
+    constructor(degree, branchingFactor, movementMode, savedState = null) {
         this.degree = degree;
         this.branchingFactor = branchingFactor;
         this.movementMode = movementMode;
@@ -72,7 +72,7 @@ export class Engine {
         this.pointer = new THREE.Vector2();
         
         this.initThree();
-        this.init();
+        this.init(savedState);
     }
 
     destroy() {
@@ -241,7 +241,7 @@ export class Engine {
         this.controls.enableDamping = true;
     }
 
-    init() {
+    init(savedState = null) {
         this.handleKeyDownExtra = e => {
             const key = e.key.toLowerCase();
             if (key === 'm') {
@@ -320,7 +320,13 @@ export class Engine {
         this.updateFloorUI();
         this.hideCanvasInstant();
         this.loop();
-        this.playIntroAnimation();
+        
+        if (savedState) {
+            this.restoreFromSave(savedState);
+            this.playContinueAnimation();
+        } else {
+            this.playIntroAnimation();
+        }
     }
 
     hideCanvasInstant() {
@@ -1223,6 +1229,100 @@ export class Engine {
             this.draw2DMap(clampedDt);
         }
         requestAnimationFrame(() => this.loop());
+    }
+
+    /**
+     * Continue transition animation: renders the map instantly in its current state
+     * (showing already visited and known paths with their official colors), auto-rotates
+     * the camera, and then zooms in onto the player's current location before transitioning to 2D.
+     */
+    playContinueAnimation() {
+        this.isIntroPlaying = true;
+        const size = this.mazeGen.size;
+
+        this.ui.setMap3DVisible(true);
+        this.isMap3DActive = true;
+        this.updateRendererSize();
+
+        // 1. Build the static 3D map from current state (official colors, no lazy BFS)
+        this.build3DMap(false);
+
+        // 2. Center camera around the maze bounds
+        this.camera.position.set(size * 0.9, size * this.vScale * 0.6, size * 0.9);
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+
+        this.hideCanvasInstant();
+
+        // 3. Set up camera rotation
+        this.controls.autoRotate = true;
+        this.controls.autoRotateSpeed = 2.0;
+        this.controls.enableZoom = false;
+        this.controls.enablePan = false;
+        this.controls.enableRotate = false;
+
+        let continueTimer = null;
+
+        const finishContinue = () => {
+            if (continueTimer) { clearTimeout(continueTimer); continueTimer = null; }
+            window.removeEventListener('keydown', skipHandler);
+            window.removeEventListener('touchstart', skipHandler);
+
+            this.controls.autoRotate = false;
+            this.animateCameraToPlayer(() => {
+                this._transitionToGame();
+            });
+        };
+
+        const skipHandler = () => finishContinue();
+        window.addEventListener('keydown', skipHandler, { once: true });
+        window.addEventListener('touchstart', skipHandler, { once: true });
+
+        // Spin for 2.5 seconds before starting zoom and transition
+        continueTimer = setTimeout(finishContinue, 2500);
+    }
+
+    /**
+     * Smoothly interpolates (ease-in-out-cubic) the camera position and controls target
+     * towards the player's 3D grid location.
+     */
+    animateCameraToPlayer(onComplete) {
+        const size = this.mazeGen.size;
+        const playerX = this.player.x - size / 2;
+        const playerY = (this.player.z - size / 2) * this.vScale;
+        const playerZ = this.player.y - size / 2;
+
+        const startTarget = this.controls.target.clone();
+        const endTarget = new THREE.Vector3(playerX, playerY, playerZ);
+
+        const startCam = this.camera.position.clone();
+        const endCam = new THREE.Vector3(playerX + 4, playerY + 5, playerZ + 4);
+
+        const duration = 1100; // ~1 second zoom in
+        const startTime = performance.now();
+
+        const animate = (now) => {
+            if (this.isDestroyed) return;
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+
+            // easeInOutCubic
+            const ease = progress < 0.5 
+                ? 4 * progress * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+            this.controls.target.lerpVectors(startTarget, endTarget, ease);
+            this.camera.position.lerpVectors(startCam, endCam, ease);
+            this.controls.update();
+
+            if (progress < 1.0) {
+                requestAnimationFrame(animate);
+            } else {
+                onComplete();
+            }
+        };
+
+        requestAnimationFrame(animate);
     }
 
     /**

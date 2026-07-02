@@ -29,10 +29,9 @@ const continueGame = () => {
     document.getElementById('victory-screen').classList.add('hidden');
     document.getElementById('game-over-screen').classList.add('hidden');
 
-    // Build engine with saved config so maze dimensions match stored matrix
-    currentGame = new Engine(snapshot.degree, snapshot.branchingFactor, snapshot.movementMode);
-    // Patch live state from snapshot (maze matrix, player, hunters, etc.)
-    currentGame.restoreFromSave(snapshot);
+    // Build engine with saved config so maze dimensions match stored matrix, passing the snapshot
+    // to trigger the state restoration and specialized continue transition animation.
+    currentGame = new Engine(snapshot.degree, snapshot.branchingFactor, snapshot.movementMode, snapshot);
 };
 
 const returnToMenu = () => {
