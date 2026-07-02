@@ -836,10 +836,10 @@ body {
 /* ── Saving Indicator ──────────────────────────────────────────────────────── */
 #saving-indicator {
     position: fixed;
-    bottom: calc(var(--h-unit) * 8);
-    bottom: calc(var(--d-h-unit) * 8);
-    right: calc(var(--h-unit) * 4);
-    right: calc(var(--d-h-unit) * 4);
+    bottom: calc(var(--h-unit) * 4);
+    bottom: calc(var(--d-h-unit) * 4);
+    left: calc(var(--h-unit) * 4);
+    left: calc(var(--d-h-unit) * 4);
     color: #00ffc8;
     font-size: calc(var(--h-unit) * 2);
     font-size: calc(var(--d-h-unit) * 2);
@@ -866,14 +866,16 @@ body {
     100% { opacity: 1;   transform: scale(1);    }
 }
 
-/* "saving-pulse" class: fade in fast, stay, then the timeout removes it */
+/* "saving-pulse" class: fade in fast, stay, then the timeout removes it.
+   Uses margin-based animation instead of transform to avoid conflicting with
+   any positional transform on mobile. */
 .saving-pulse {
     animation: saving-fadein 0.25s ease-out forwards;
 }
 
 @keyframes saving-fadein {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0);   }
+    from { opacity: 0; margin-bottom: -6px; }
+    to   { opacity: 1; margin-bottom: 0;    }
 }
 
 @media (orientation: portrait) {
@@ -895,11 +897,15 @@ body {
         font-size: calc(var(--h-unit) * 2);
         font-size: calc(var(--d-h-unit) * 2);
     }
+    /* Saving indicator: centered horizontally, safely above the mobile controls bar.
+       Mobile controls bar = height 12 h-unit + 0 bottom = occupies bottom 0..12 h-unit.
+       We sit at bottom 14 h-unit to leave a 2-unit gap above the bar. */
     #saving-indicator {
         bottom: calc(var(--h-unit) * 14);
         bottom: calc(var(--d-h-unit) * 14);
-        right: 50%;
-        transform: translateX(50%);
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
         font-size: calc(var(--h-unit) * 1.8);
         font-size: calc(var(--d-h-unit) * 1.8);
     }
