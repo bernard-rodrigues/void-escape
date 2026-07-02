@@ -208,6 +208,35 @@ body {
     box-shadow: 0 0 calc(var(--d-h-unit) * 3) var(--clr-neon);
 }
 
+/* Continue button on main menu — appears below start-btn when a save exists */
+.continue-btn {
+    background: transparent;
+    border: calc(var(--h-unit) * 0.15) solid rgba(0, 255, 200, 0.5);
+    border: calc(var(--d-h-unit) * 0.15) solid rgba(0, 255, 200, 0.5);
+    color: rgba(0, 255, 200, 0.8);
+    padding: calc(var(--h-unit) * 1) calc(var(--h-unit) * 3.5);
+    padding: calc(var(--d-h-unit) * 1) calc(var(--d-h-unit) * 3.5);
+    font-size: calc(var(--h-unit) * 2);
+    font-size: calc(var(--d-h-unit) * 2);
+    font-family: inherit;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: calc(var(--h-unit) * 0.2);
+    letter-spacing: calc(var(--d-h-unit) * 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: calc(var(--h-unit) * 1);
+    margin-top: calc(var(--d-h-unit) * 1);
+}
+
+.continue-btn:hover {
+    background: rgba(0, 255, 200, 0.12);
+    color: rgb(0, 255, 200);
+    border-color: rgb(0, 255, 200);
+    box-shadow: 0 0 calc(var(--h-unit) * 2) rgba(0, 255, 200, 0.4);
+    box-shadow: 0 0 calc(var(--d-h-unit) * 2) rgba(0, 255, 200, 0.4);
+}
+
 .end-game-btns {
     display: flex;
     justify-content: center;
@@ -231,6 +260,17 @@ body {
 .end-btn:hover {
     background: #000;
     color: #fff !important;
+}
+
+/* Continue button on death screen — highlighted in green to stand out */
+.continue-highlight {
+    border-color: #00ffc8;
+    color: #00ffc8;
+}
+.continue-highlight:hover {
+    background: rgba(0, 255, 200, 0.15) !important;
+    color: #00ffc8 !important;
+    box-shadow: 0 0 12px rgba(0, 255, 200, 0.5);
 }
 
 #victory-screen {
@@ -793,6 +833,49 @@ body {
     100% { opacity: 0.3; transform: translateX(-50%) scale(0.95); }
 }
 
+/* ── Saving Indicator ──────────────────────────────────────────────────────── */
+#saving-indicator {
+    position: fixed;
+    bottom: calc(var(--h-unit) * 8);
+    bottom: calc(var(--d-h-unit) * 8);
+    right: calc(var(--h-unit) * 4);
+    right: calc(var(--d-h-unit) * 4);
+    color: #00ffc8;
+    font-size: calc(var(--h-unit) * 2);
+    font-size: calc(var(--d-h-unit) * 2);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    z-index: 600;
+    pointer-events: none;
+    text-shadow: 0 0 8px rgba(0, 255, 200, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+}
+
+.saving-icon {
+    font-size: 1.1em;
+    animation: saving-spin 1.2s linear infinite;
+}
+
+@keyframes saving-spin {
+    0%   { opacity: 1;   transform: scale(1);    }
+    25%  { opacity: 0.6; transform: scale(0.9);  }
+    50%  { opacity: 1;   transform: scale(1.1);  }
+    75%  { opacity: 0.6; transform: scale(0.9);  }
+    100% { opacity: 1;   transform: scale(1);    }
+}
+
+/* "saving-pulse" class: fade in fast, stay, then the timeout removes it */
+.saving-pulse {
+    animation: saving-fadein 0.25s ease-out forwards;
+}
+
+@keyframes saving-fadein {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0);   }
+}
+
 @media (orientation: portrait) {
     #teleport-warning {
         top: calc(var(--h-unit) * 2);
@@ -811,5 +894,13 @@ body {
         top: calc(var(--d-h-unit) * 6);
         font-size: calc(var(--h-unit) * 2);
         font-size: calc(var(--d-h-unit) * 2);
+    }
+    #saving-indicator {
+        bottom: calc(var(--h-unit) * 14);
+        bottom: calc(var(--d-h-unit) * 14);
+        right: 50%;
+        transform: translateX(50%);
+        font-size: calc(var(--h-unit) * 1.8);
+        font-size: calc(var(--d-h-unit) * 1.8);
     }
 }

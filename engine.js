@@ -6,6 +6,7 @@ import { Maze3D } from './maze3d.js';
 import { aStarDistance, aStarPath, proximeterDistance } from './pathfinder.js';
 import { UIManager } from './ui.js';
 import { InputHandler } from './input.js';
+import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
 /**
  * Main Game Engine - 2D Map Navigation & 3D Overview
@@ -65,6 +66,7 @@ export class Engine {
         this.teleportCooldownTicks = 0;
         this.inactiveTeleportPos = null;
         this.floorTransition = null;
+        this.hasSavePoint = false;
 
         this.raycaster = new THREE.Raycaster();
         this.pointer = new THREE.Vector2();
@@ -146,14 +148,64 @@ export class Engine {
         return best;
     }
 
+    /**
+     * Persist the current game state and briefly show a "SAVING..." indicator.
+     */
+    triggerSave() {
+        saveGame(this);
+        this.hasSavePoint = true;
+        this.ui.showSavingIndicator();
+    }
+
     triggerVictory() {
         this.isGameOver = true;
+        clearSave(); // Victory clears the save so "Continue" is no longer offered
         this.ui.showVictory();
     }
 
     triggerDeath() {
         this.isGameOver = true;
-        this.ui.showDeath();
+        this.ui.showDeath(this.hasSavePoint);
+    }
+
+    /**
+     * Patches the engine's live state from a previously serialised snapshot.
+     * Called by script.js immediately after construction when the player chooses
+     * "Continue". The maze has already been generated (same parameters), so we
+     * only need to overwrite the matrix bytes and runtime state.
+     * @param {object} snapshot - Snapshot returned by loadSave()
+     */
+    restoreFromSave(snapshot) {
+        // Restore the maze matrix (visited cells, teleport positions, etc.)
+        restoreMatrix(this.mazeGen, snapshot.matrix);
+
+        // Restore player
+        this.player.x = snapshot.player.x;
+        this.player.y = snapshot.player.y;
+        this.player.z = snapshot.player.z;
+        this.player.dir = snapshot.player.dir;
+
+        // Restore hunters
+        for (let i = 0; i < this.hunters.length && i < snapshot.hunters.length; i++) {
+            restoreHunter(this.hunters[i], snapshot.hunters[i]);
+        }
+
+        // Restore teleport state
+        this.discoveredTeleports = new Set(snapshot.discoveredTeleports);
+        this.inactiveTeleportPos = snapshot.inactiveTeleportPos;
+        this.teleportCooldownTicks = snapshot.teleportCooldownTicks;
+
+        // Restore pathfinder
+        this.helperUsesLeft = snapshot.helperUsesLeft;
+        this.maxHelperUses = snapshot.maxHelperUses;
+        this.ui.updatePathfinderUses(this.helperUsesLeft, this.maxHelperUses);
+
+        // Restore revealed paths
+        this.revealedPathSet = new Set(snapshot.revealedPathSet);
+
+        // Mark that this session was loaded from a save (so Continue remains available
+        // until the player reaches a new teleport or dies)
+        this.hasSavePoint = true;
     }
 
     /**
@@ -492,6 +544,8 @@ export class Engine {
                     const key = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
                     if (!this.discoveredTeleports.has(key)) {
                         this.discoveredTeleports.add(key);
+                        // New teleport reached → auto-save
+                        this.triggerSave();
                     }
                 }
 

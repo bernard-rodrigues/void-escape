@@ -1,8 +1,12 @@
 import { CONFIG } from './config.js';
 import { Engine } from './engine.js';
+import { loadSave, hasSave, clearSave } from './save.js';
 
 let currentGame = null;
 
+/**
+ * Start a brand-new game with the given parameters.
+ */
 const startNewGame = (degree, branching, movementMode) => {
     if (currentGame) currentGame.destroy();
     document.getElementById('start-menu').classList.add('hidden');
@@ -11,10 +15,36 @@ const startNewGame = (degree, branching, movementMode) => {
     currentGame = new Engine(degree, branching, movementMode);
 };
 
+/**
+ * Continue a saved game. Constructs the engine with the saved parameters, then
+ * patches in the full game state from the snapshot.
+ */
+const continueGame = () => {
+    const snapshot = loadSave();
+    if (!snapshot) return;
+
+    if (currentGame) currentGame.destroy();
+    document.getElementById('start-menu').classList.add('hidden');
+    document.getElementById('victory-screen').classList.add('hidden');
+    document.getElementById('game-over-screen').classList.add('hidden');
+
+    // Build engine with saved config so maze dimensions match stored matrix
+    currentGame = new Engine(snapshot.degree, snapshot.branchingFactor, snapshot.movementMode);
+    // Patch live state from snapshot (maze matrix, player, hunters, etc.)
+    currentGame.restoreFromSave(snapshot);
+};
+
 const returnToMenu = () => {
     if (currentGame) currentGame.destroy();
     document.getElementById('victory-screen').classList.add('hidden');
     document.getElementById('game-over-screen').classList.add('hidden');
+
+    // Show / hide the Continue button depending on whether a save exists
+    const continueBtn = document.getElementById('continue-btn-menu');
+    if (continueBtn) {
+        continueBtn.style.display = hasSave() ? '' : 'none';
+    }
+
     document.getElementById('start-menu').classList.remove('hidden');
 };
 
@@ -59,11 +89,18 @@ window.onload = () => {
     updateTeleportDisplay(parseInt(degreeSlider.value));
     updateHelperDisplay(parseInt(degreeSlider.value));
 
+    // Show / hide menu Continue button on first load
+    const continueBtnMenu = document.getElementById('continue-btn-menu');
+    if (continueBtnMenu) {
+        continueBtnMenu.style.display = hasSave() ? '' : 'none';
+        continueBtnMenu.onclick = continueGame;
+    }
+
     document.getElementById('start-btn').onclick = () => {
         startNewGame(parseInt(degreeSlider.value), parseFloat(branchSlider.value), document.getElementById('movement-mode').value);
     };
 
-    // End game button logic
+    // End-game button logic
     ['restart-btn-victory', 'retry-btn-death'].forEach(id => {
         document.getElementById(id).onclick = () => {
             startNewGame(currentGame.degree, currentGame.branchingFactor, currentGame.movementMode);
@@ -73,6 +110,12 @@ window.onload = () => {
     ['menu-btn-victory', 'menu-btn-death'].forEach(id => {
         document.getElementById(id).onclick = returnToMenu;
     });
+
+    // Continue from death screen (go back to last teleport save point)
+    const continueBtnDeath = document.getElementById('continue-btn-death');
+    if (continueBtnDeath) {
+        continueBtnDeath.onclick = continueGame;
+    }
 };
 
 // Prevent browser page zoom via Ctrl + Wheel shortcut

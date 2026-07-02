@@ -42,6 +42,7 @@
             </div>
 
             <button id="start-btn">GENERATE MAZE</button>
+            <button id="continue-btn-menu" class="continue-btn" style="display:none">CONTINUE</button>
         </div>
     </section>
 
@@ -61,6 +62,7 @@
             <h1>Terminated</h1>
             <p>You were caught by the void hunters.</p>
             <div class="end-game-btns">
+                <button id="continue-btn-death" class="end-btn continue-highlight">CONTINUE</button>
                 <button id="retry-btn-death" class="end-btn">PLAY AGAIN</button>
                 <button id="menu-btn-death" class="end-btn">MAIN MENU</button>
             </div>
@@ -72,6 +74,7 @@
     <div id="teleport-warning" class="hidden">CLICK ON A TELEPORT POINT</div>
     <div id="teleport-info" class="hidden">FIND ANOTHER TELEPORT TO ACTIVATE</div>
     <div id="teleport-cooldown-timer" class="hidden">TELEPORT ANOMALY: <span id="cooldown-ticks">0</span> TICKS</div>
+    <div id="saving-indicator" class="hidden"><span class="saving-icon">💾</span> SAVING...</div>
 
     <main id="game-container">
         <!-- Primary 2D Navigation Map -->

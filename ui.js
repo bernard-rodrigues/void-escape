@@ -25,6 +25,9 @@ export class UIManager {
         this.uiMobileDown = document.getElementById('mobile-down');
         this.uiMobileMap = document.getElementById('mobile-map');
 
+        this.uiSavingIndicator = document.getElementById('saving-indicator');
+        this.savingIndicatorTimeout = null;
+
         this.teleportInfoTimeout = null;
     }
 
@@ -40,11 +43,16 @@ export class UIManager {
 
     /**
      * Show game over overlay and hide game controls.
+     * @param {boolean} hasSavePoint - Whether to show the Continue button.
      */
-    showDeath() {
+    showDeath(hasSavePoint = false) {
         this.hideGameUI();
         if (this.uiGameOverScreen) {
             this.uiGameOverScreen.classList.remove('hidden');
+        }
+        const continueBtn = document.getElementById('continue-btn-death');
+        if (continueBtn) {
+            continueBtn.style.display = hasSavePoint ? '' : 'none';
         }
     }
 
@@ -90,6 +98,20 @@ export class UIManager {
         }
         if (this.uiMobileUp) this.uiMobileUp.disabled = !hasUp;
         if (this.uiMobileDown) this.uiMobileDown.disabled = !hasDown;
+    }
+
+    /**
+     * Show a brief animated "SAVING..." indicator (auto-hides after 2 s).
+     */
+    showSavingIndicator() {
+        if (!this.uiSavingIndicator) return;
+        if (this.savingIndicatorTimeout) clearTimeout(this.savingIndicatorTimeout);
+        this.uiSavingIndicator.classList.remove('hidden');
+        this.uiSavingIndicator.classList.add('saving-pulse');
+        this.savingIndicatorTimeout = setTimeout(() => {
+            this.uiSavingIndicator.classList.add('hidden');
+            this.uiSavingIndicator.classList.remove('saving-pulse');
+        }, 2000);
     }
 
     /**
@@ -240,6 +262,9 @@ export class UIManager {
     destroy() {
         if (this.teleportInfoTimeout) {
             clearTimeout(this.teleportInfoTimeout);
+        }
+        if (this.savingIndicatorTimeout) {
+            clearTimeout(this.savingIndicatorTimeout);
         }
     }
 }
