@@ -27,6 +27,8 @@ export const CONFIG = {
         PATH_VISITED: '#888',
         NEON_UP: '#00ffff',
         NEON_DOWN: '#ff00ff',
+        NEON_UP_UNUSED: '#006666',   // desaturated dark cyan for unvisited up elevator
+        NEON_DOWN_UNUSED: '#660066', // desaturated dark magenta for unvisited down elevator
         START: '#ff0',
         EXIT: '#0f0',
         PLAYER: '#f00',

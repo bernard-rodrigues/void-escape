@@ -338,7 +338,7 @@ export class Engine {
         this.canvas.style.transition = '';
     }
 
-    drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, isRevealed = false) {
+    drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, isRevealed = false, z = 0) {
         const isPlayerHere = x === Math.floor(px) && y === Math.floor(py);
         if (isPlayerHere) {
             const pulse = 0.85 + 0.15 * Math.sin(Date.now() / 150);
@@ -346,21 +346,25 @@ export class Engine {
             ctx.globalAlpha = pulse;
         }
 
+        // Determine if each transition (Z+1 for UP, Z-1 for DOWN) was used/visited
+        const upVisited = hUp && (this.maze.get(x, y, z + 1) === this.mazeGen.TYPES.ELEVATOR_VISITED);
+        const downVisited = hDown && (this.maze.get(x, y, z - 1) === this.mazeGen.TYPES.ELEVATOR_VISITED);
+
         // 1. Desenha o fundo do bloco
         if (isRevealed) {
             ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         } else {
             if (hUp && hDown) {
-                ctx.fillStyle = CONFIG.COLORS.NEON_UP;
+                ctx.fillStyle = upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED;
                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize / 2);
-                ctx.fillStyle = CONFIG.COLORS.NEON_DOWN;
+                ctx.fillStyle = downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED;
                 ctx.fillRect(x * cellSize, y * cellSize + cellSize / 2, cellSize, cellSize / 2);
             } else if (hUp) {
-                ctx.fillStyle = CONFIG.COLORS.NEON_UP;
+                ctx.fillStyle = upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED;
                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
             } else {
-                ctx.fillStyle = CONFIG.COLORS.NEON_DOWN;
+                ctx.fillStyle = downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED;
                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
             }
         }
@@ -1104,7 +1108,7 @@ export class Engine {
 
                 if (isRevealedPath) {
                     if (isElevator) {
-                        this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, true);
+                        this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, true, z);
                     } else {
                         ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
                         ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
@@ -1127,7 +1131,7 @@ export class Engine {
                             ctx.restore();
                         }
                     } else if (isElevator) {
-                        this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false);
+                        this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
                     } else {
                         ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
                         ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
