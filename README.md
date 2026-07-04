@@ -39,6 +39,3 @@ Um simulador de exploração de labirinto 3D com temática cyberpunk, desafios d
 - `index.html`: Estrutura da UI e containers de renderização.
 - `style.css`: Estilização cyberpunk e animações de alerta.
 - `script.js`: Engine principal, gerador de labirinto e lógica dos Caçadores.
-
----
-Desenvolvido como um protótipo de alta fidelidade para exploração procedural.
