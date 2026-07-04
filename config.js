@@ -3,6 +3,7 @@
  */
 export const CONFIG = {
     MAZE_DEGREE: 8,
+    BRAID_FACTOR: 0.10, // Fraction of eligible walls to turn into paths (0.0 to 1.0)
     MOVE_SPEED_FACTOR: 2, // player is 2x faster than hunter speed
     ROT_SPEED: 3.0, // radians per second
     HUNTER_SPEED: 800, // ms per move

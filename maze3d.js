@@ -46,6 +46,7 @@ export class Maze3D {
             }
         }
 
+        this.applyBraid();
         this.setEntryAndExit();
         this.placeTeleports();
 
@@ -196,5 +197,150 @@ export class Maze3D {
         for (const t of teleports) {
             this.matrix[this._idx(t.x, t.y, t.z)] = this.TYPES.TELEPORT;
         }
+    }
+
+    /**
+     * Converts a fraction (CONFIG.BRAID_FACTOR) of eligible walls into paths.
+     * Respects spatial constraints: preventing wide corridors (> 1 cell wide)
+     * and preventing parallel elevator shafts adjacent to each other.
+     */
+    applyBraid() {
+        const size = this.size;
+        const candidates = [];
+
+        // 1. Gather all walls that divide exactly two path corridors
+        for (let x = 1; x < size - 1; x++) {
+            for (let y = 1; y < size - 1; y++) {
+                for (let z = 1; z < size - 1; z++) {
+                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.WALL) {
+                        const isWallX = (x % 2 === 0) && (y % 2 !== 0) && (z % 2 !== 0);
+                        const isWallY = (y % 2 === 0) && (x % 2 !== 0) && (z % 2 !== 0);
+                        const isWallZ = (z % 2 === 0) && (x % 2 !== 0) && (y % 2 !== 0);
+
+                        if (isWallX) {
+                            if (this.matrix[this._idx(x - 1, y, z)] !== this.TYPES.WALL && 
+                                this.matrix[this._idx(x + 1, y, z)] !== this.TYPES.WALL) {
+                                candidates.push({ x, y, z, type: 'X' });
+                            }
+                        } else if (isWallY) {
+                            if (this.matrix[this._idx(x, y - 1, z)] !== this.TYPES.WALL && 
+                                this.matrix[this._idx(x, y + 1, z)] !== this.TYPES.WALL) {
+                                candidates.push({ x, y, z, type: 'Y' });
+                            }
+                        } else if (isWallZ) {
+                            if (this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL && 
+                                this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL) {
+                                candidates.push({ x, y, z, type: 'Z' });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Shuffle candidates uniformly (Fisher-Yates)
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = candidates[i];
+            candidates[i] = candidates[j];
+            candidates[j] = temp;
+        }
+
+        // 3. Open walls until target braid limit is met, validating constraints
+        const braidFactor = CONFIG.BRAID_FACTOR || 0.10;
+        const targetOpenings = Math.floor(candidates.length * braidFactor);
+        let openedCount = 0;
+
+        for (const cand of candidates) {
+            if (openedCount >= targetOpenings) break;
+
+            // Constraint 1: Prevent wide corridors (2x2 path clusters)
+            if (this.isWideConnection(cand.x, cand.y, cand.z)) {
+                continue;
+            }
+
+            // Constraint 2: Prevent adjacent or diagonal elevators
+            if (cand.type === 'Z' && this.isAdjacentElevator(cand.x, cand.y, cand.z)) {
+                continue;
+            }
+
+            this.matrix[this._idx(cand.x, cand.y, cand.z)] = this.TYPES.PATH;
+            openedCount++;
+        }
+    }
+
+    /**
+     * Checks if turning (x, y, z) into a path would form a 2x2 cluster of path cells
+     * in any of the XY, XZ, or YZ planes.
+     */
+    isWideConnection(x, y, z) {
+        const size = this.size;
+        const isOpened = (nx, ny, nz) => {
+            if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) return false;
+            if (nx === x && ny === y && nz === z) return true;
+            return this.matrix[this._idx(nx, ny, nz)] !== this.TYPES.WALL;
+        };
+
+        // Check XY plane
+        const checkXY = (
+            (isOpened(x, y + 1, z) && isOpened(x + 1, y, z) && isOpened(x + 1, y + 1, z)) ||
+            (isOpened(x - 1, y, z) && isOpened(x - 1, y + 1, z) && isOpened(x, y + 1, z)) ||
+            (isOpened(x, y - 1, z) && isOpened(x + 1, y - 1, z) && isOpened(x + 1, y, z)) ||
+            (isOpened(x - 1, y - 1, z) && isOpened(x, y - 1, z) && isOpened(x - 1, y, z))
+        );
+        if (checkXY) return true;
+
+        // Check XZ plane
+        const checkXZ = (
+            (isOpened(x, y, z + 1) && isOpened(x + 1, y, z) && isOpened(x + 1, y, z + 1)) ||
+            (isOpened(x - 1, y, z) && isOpened(x - 1, y, z + 1) && isOpened(x, y, z + 1)) ||
+            (isOpened(x, y, z - 1) && isOpened(x + 1, y, z - 1) && isOpened(x + 1, y, z)) ||
+            (isOpened(x - 1, y, z - 1) && isOpened(x, y, z - 1) && isOpened(x - 1, y, z))
+        );
+        if (checkXZ) return true;
+
+        // Check YZ plane
+        const checkYZ = (
+            (isOpened(x, y, z + 1) && isOpened(x, y + 1, z) && isOpened(x, y + 1, z + 1)) ||
+            (isOpened(x, y - 1, z) && isOpened(x, y - 1, z + 1) && isOpened(x, y, z + 1)) ||
+            (isOpened(x, y, z - 1) && isOpened(x, y + 1, z - 1) && isOpened(x, y + 1, z)) ||
+            (isOpened(x, y - 1, z - 1) && isOpened(x, y, z - 1) && isOpened(x, y - 1, z))
+        );
+        if (checkYZ) return true;
+
+        return false;
+    }
+
+    /**
+     * Checks if there are any active vertical connections (shafts) in the 8 neighboring
+     * positions in the XY plane, checking current level transition Z, and adjacent ones (Z-2, Z+2).
+     */
+    isAdjacentElevator(x, y, z) {
+        const size = this.size;
+        const dirs = [
+            { dx: -1, dy: -1 }, { dx: -1, dy: 0 }, { dx: -1, dy: 1 },
+            { dx: 0, dy: -1 },                     { dx: 0, dy: 1 },
+            { dx: 1, dy: -1 },  { dx: 1, dy: 0 },  { dx: 1, dy: 1 }
+        ];
+
+        for (const dir of dirs) {
+            const nx = x + dir.dx;
+            const ny = y + dir.dy;
+            if (nx < 0 || nx >= size || ny < 0 || ny >= size) continue;
+
+            // Check current Z transition
+            if (this.matrix[this._idx(nx, ny, z)] !== this.TYPES.WALL) {
+                return true;
+            }
+            // Check lower Z transition
+            if (z - 2 >= 0 && this.matrix[this._idx(nx, ny, z - 2)] !== this.TYPES.WALL) {
+                return true;
+            }
+            // Check upper Z transition
+            if (z + 2 < size && this.matrix[this._idx(nx, ny, z + 2)] !== this.TYPES.WALL) {
+                return true;
+            }
+        }
+        return false;
     }
 }
