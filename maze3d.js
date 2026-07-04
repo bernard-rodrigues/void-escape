@@ -5,7 +5,7 @@ import { CONFIG } from './config.js';
  */
 export class Maze3D {
     constructor(degree, branchingFactor) {
-        this.n = Math.max(3, Math.min(24, degree));
+        this.n = Math.max(3, Math.min(16, degree));
         this.branchingFactor = Math.max(0, Math.min(1, branchingFactor));
         this.size = 2 * this.n + 1;
         this.matrix = this.initMatrix();

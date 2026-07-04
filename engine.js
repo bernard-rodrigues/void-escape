@@ -806,7 +806,7 @@ export class Engine {
         const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
         
         // Define opacity factor: make all other map elements more translucent during teleportation mode
-        const opFactor = this.isTeleportMode ? 0.05 : 1.0;
+        const opFactor = this.isTeleportMode ? CONFIG.TELEPORT_MAP_OPACITY : 1.0;
 
         const shaftGeomBottom = new THREE.BoxGeometry(0.9, 0.425, 0.9);
         const shaftGeomTop = new THREE.BoxGeometry(0.9, 0.425, 0.9);

@@ -4,15 +4,14 @@
 export const CONFIG = {
     MAZE_DEGREE: 8,
     BRAID_FACTOR: 0.10, // Fraction of eligible walls to turn into paths (0.0 to 1.0)
+    TELEPORT_MAP_OPACITY: 0.25, // Opacity of non-teleport meshes when choosing teleport destination
     MOVE_SPEED_FACTOR: 2, // player is 2x faster than hunter speed
     ROT_SPEED: 3.0, // radians per second
     HUNTER_SPEED: 800, // ms per move
     getHunterCount(degree) {
-        let count = 0;
-        if (degree >= this.MAZE_DEGREE) count = 1;
-        if (degree >= this.MAZE_DEGREE * 2) count = 2;
-        if (degree >= this.MAZE_DEGREE * 3) count = 3;
-        return count;
+        if (degree >= 16) return 3;
+        if (degree >= 8) return 2;
+        return 1;
     },
     getTeleportCount(degree) {
         return Math.max(2, Math.floor(degree / 2));
