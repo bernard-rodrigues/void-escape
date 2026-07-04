@@ -80,6 +80,9 @@ export class UIManager {
             this.uiMobileControls.classList.remove('hidden');
         }
         this.updatePathfinderUses(maxUses, maxUses);
+        if (this.uiMobileMap) {
+            this.uiMobileMap.disabled = true;
+        }
     }
 
     /**

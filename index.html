@@ -60,16 +60,16 @@
 
             <div class="control-group">
                 <label for="maze-degree">Maze Degree: <span id="degree-val">8</span></label>
-                <div class="hunter-info">Active Hunters: <span id="hunter-count">1</span></div>
+                <div class="hunter-info">Active Hunters: <span id="hunter-count">2</span></div>
                 <div class="teleport-info-start">Active Teleports: <span id="teleport-count">4</span></div>
                 <div class="helper-info-start">Pathfinder Charges: <span id="helper-count-start">4</span></div>
-                <input type="range" id="maze-degree" min="3" max="16" value="8">
+                <input type="range" id="maze-degree" min="3" max="16" value="8" aria-label="Ajustar Grau do Labirinto">
                 <p class="hint">Controls the grid size. Higher values create larger, more complex mazes.</p>
             </div>
 
             <div class="control-group">
                 <label for="branching-factor">Branching Factor: <span id="branch-val">0.20</span></label>
-                <input type="range" id="branching-factor" min="0" max="1" step="0.05" value="0.2">
+                <input type="range" id="branching-factor" min="0" max="1" step="0.05" value="0.2" aria-label="Fator de Ramificação (Branching Factor)">
                 <p class="hint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
             </div>
 
@@ -162,7 +162,7 @@
         <!-- Mobile Controls Panel -->
         <nav id="mobile-controls" class="hidden">
             <button id="mobile-up" class="mobile-btn" disabled aria-label="Go Up">▲</button>
-            <button id="mobile-map" class="mobile-btn" aria-label="Open Map">MAP</button>
+            <button id="mobile-map" class="mobile-btn" disabled aria-label="Open Map">MAP</button>
             <button id="mobile-down" class="mobile-btn" disabled aria-label="Go Down">▼</button>
         </nav>
         

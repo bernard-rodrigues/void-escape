@@ -69,6 +69,16 @@ export class Engine {
         this.hasSavePoint = false;
         this.lastPlayerCell = null;
 
+        // Static 2D map cache to prevent redundant loops and redrawing
+        this.staticMapCacheCanvas = document.createElement('canvas');
+        this.staticMapCacheCtx = this.staticMapCacheCanvas.getContext('2d');
+        this.staticMapCacheDirty = true;
+
+        // Memory leak cleanup properties for animations and skip handlers
+        this.activeSkipHandler = null;
+        this.activeIntroTimer = null;
+        this.activeContinueTimer = null;
+
         this.raycaster = new THREE.Raycaster();
         this.pointer = new THREE.Vector2();
         
@@ -85,11 +95,26 @@ export class Engine {
         
         window.removeEventListener('keydown', this.handleKeyDownExtra);
         window.removeEventListener('resize', this.handleResize);
+
+        // Clean up temporary skip handlers and timers to prevent memory leaks
+        if (this.activeSkipHandler) {
+            window.removeEventListener('keydown', this.activeSkipHandler);
+            window.removeEventListener('touchstart', this.activeSkipHandler);
+            this.activeSkipHandler = null;
+        }
+        if (this.activeIntroTimer) {
+            clearTimeout(this.activeIntroTimer);
+            this.activeIntroTimer = null;
+        }
+        if (this.activeContinueTimer) {
+            clearTimeout(this.activeContinueTimer);
+            this.activeContinueTimer = null;
+        }
         
         if (this.controls) {
             this.controls.dispose();
         }
-
+ 
         if (this.renderer && this.renderer.domElement) {
             this.renderer.domElement.removeEventListener('click', this.handleCanvasClick);
             this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
@@ -416,7 +441,7 @@ export class Engine {
             ctx.restore();
         }
     }
-    updateRendererSize() {
+    updateRendererSize() {
         if (this.renderer) {
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -429,6 +454,7 @@ export class Engine {
         const size = isPortrait ? window.innerWidth * 0.9 : window.innerHeight * 0.85;
         this.canvas.width = size;
         this.canvas.height = size;
+        this.staticMapCacheDirty = true;
         this.updateRendererSize();
     }
 
@@ -568,12 +594,18 @@ export class Engine {
                     const newGridX = Math.floor(this.player.x);
                     if (newGridX !== oldGridX && this.maze.get(newGridX, oldGridY, this.player.z) === this.mazeGen.TYPES.PATH) {
                         this.maze.set(newGridX, oldGridY, this.player.z, this.mazeGen.TYPES.VISITED);
+                        this.staticMapCacheDirty = true;
                     }
                 }
                 const currentGridIdxX = Math.floor(this.player.x);
                 const nextGridIdxY = Math.floor(nextY);
                 if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && this.maze.get(currentGridIdxX, nextGridIdxY, this.player.z) !== this.mazeGen.TYPES.WALL) {
                     this.player.y = nextY;
+                    const newGridY = Math.floor(this.player.y);
+                    if (newGridY !== oldGridY && this.maze.get(currentGridIdxX, newGridY, this.player.z) === this.mazeGen.TYPES.PATH) {
+                        this.maze.set(currentGridIdxX, newGridY, this.player.z, this.mazeGen.TYPES.VISITED);
+                        this.staticMapCacheDirty = true;
+                    }
                 }
                 const finalGridIdxX = Math.floor(this.player.x), finalGridIdxY = Math.floor(this.player.y);
                 if (this.maze.get(finalGridIdxX, finalGridIdxY, this.player.z) === this.mazeGen.TYPES.EXIT) this.triggerVictory();
@@ -594,6 +626,7 @@ export class Engine {
             if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
                 if (this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.PATH) {
                     this.maze.set(playerIdxX, playerIdxY, playerIdxZ, this.mazeGen.TYPES.VISITED);
+                    this.staticMapCacheDirty = true;
                 } else if (isOnTeleport) {
                     const key = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
                     const wasOnThisTeleport = this.lastPlayerCell &&
@@ -603,6 +636,7 @@ export class Engine {
 
                     if (!wasOnThisTeleport && !isInactive) {
                         this.discoveredTeleports.add(key);
+                        this.staticMapCacheDirty = true;
                         // Reentered or newly found teleport -> auto-save
                         this.triggerSave();
                     }
@@ -611,6 +645,7 @@ export class Engine {
                 const pathKey = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
                 if (this.revealedPathSet.has(pathKey)) {
                     this.revealedPathSet.delete(pathKey);
+                    this.staticMapCacheDirty = true;
                 }
             }
 
@@ -627,7 +662,13 @@ export class Engine {
                 if (this.input.keys['e'] || this.input.keys['pageup']) this.changeFloor(2);
                 if (this.input.keys['q'] || this.input.keys['pagedown']) this.changeFloor(-2);
             }
-
+            const movedCell = !this.lastPlayerCell || 
+                              this.lastPlayerCell.x !== playerIdxX || 
+                              this.lastPlayerCell.y !== playerIdxY || 
+                              this.lastPlayerCell.z !== playerIdxZ;
+            if (movedCell) {
+                this.staticMapCacheDirty = true;
+            }
             this.ui.updateMobileMapButton(isOnTeleport, isInactive, isPortrait);
             this.updateFloorUI();
             this.lastPlayerCell = { x: playerIdxX, y: playerIdxY, z: playerIdxZ };
@@ -639,6 +680,7 @@ export class Engine {
 
             if (this.teleportCooldownTicks > 0) {
                 this.teleportCooldownTicks--;
+                this.staticMapCacheDirty = true;
                 this.ui.updateCooldownTimer(this.teleportCooldownTicks);
                 if (this.teleportCooldownTicks === 0) {
                     this.inactiveTeleportPos = null;
@@ -730,6 +772,7 @@ export class Engine {
                 const shaftZ = currentZ + delta / 2;
                 if (this.maze.get(currentX, currentY, shaftZ) !== this.mazeGen.TYPES.ELEVATOR_VISITED) {
                     this.maze.set(currentX, currentY, shaftZ, this.mazeGen.TYPES.ELEVATOR_VISITED);
+                    this.staticMapCacheDirty = true;
                 }
                 
                 const shaftKey = `${currentX},${currentY},${shaftZ}`;
@@ -744,6 +787,7 @@ export class Engine {
                 this.renderMapToContext(ctxOld, this.player.z);
 
                 this.player.z = nextZ;
+                this.staticMapCacheDirty = true;
 
                 if (this.maze.get(currentX, currentY, nextZ) === this.mazeGen.TYPES.PATH) {
                     this.maze.set(currentX, currentY, nextZ, this.mazeGen.TYPES.VISITED);
@@ -1043,7 +1087,9 @@ export class Engine {
         this.camera.position.set(size, size * this.vScale, size);
         this.controls.target.set(0, 0, 0);
         this.controls.update();
-    }    draw2DMap(dt = 0.016) {
+    }    
+    
+    draw2DMap(dt = 0.016) {
         if (this.floorTransition) {
             this.floorTransition.progress += dt / this.floorTransition.duration;
             if (this.floorTransition.progress >= 1.0) {
@@ -1091,8 +1137,107 @@ export class Engine {
     renderMapToContext(ctx, z) {
         const size = this.mazeGen.size;
         const cellSize = this.canvas.width / size;
-        const { x: px, y: py } = this.player;
+        const px = this.player.x;
+        const py = this.player.y;
+
+        // 1. Update and draw static map cache
+        if (this.staticMapCacheDirty || 
+            this.staticMapCacheCanvas.width !== this.canvas.width || 
+            this.staticMapCacheCanvas.height !== this.canvas.height) {
+            this.updateStaticMapCache(z);
+        }
+        ctx.drawImage(this.staticMapCacheCanvas, 0, 0);
+
+        // 2. Dynamic portal pulsation (drawn only when player stands on active portal)
+        const pCellX = Math.floor(px);
+        const pCellY = Math.floor(py);
+        const val = this.maze.get(pCellX, pCellY, z);
+        const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+        const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${pCellX},${pCellY},${z}`);
+        if (isTeleportDiscovered) {
+            const isInactive = this.inactiveTeleportPos && 
+                               this.inactiveTeleportPos.x === pCellX && 
+                               this.inactiveTeleportPos.y === pCellY && 
+                               this.inactiveTeleportPos.z === z;
+            if (!isInactive) {
+                const portalPulse = 0.85 + 0.15 * Math.sin(Date.now() / 150);
+                ctx.save();
+                ctx.globalAlpha = portalPulse;
+                ctx.fillStyle = CONFIG.COLORS.TELEPORT;
+                ctx.fillRect(pCellX * cellSize, pCellY * cellSize, cellSize, cellSize);
+                ctx.restore();
+            }
+        }
+
+        // 3. Draw Hunters (dynamic, constantly moving)
+        const pulse = Math.sin(Date.now() / 200) * 5 + 10;
+        for (const h of this.hunters) {
+            if (h.history) {
+                h.history.forEach((pos, idx) => {
+                    if (pos.z === z) {
+                        const opacity = idx === 0 && h.history.length === 2 ? 0.25 : 0.55;
+                        ctx.save();
+                        ctx.globalAlpha = opacity;
+                        ctx.fillStyle = CONFIG.COLORS.HUNTER;
+                        ctx.beginPath();
+                        ctx.arc(pos.x * cellSize + cellSize/2, pos.y * cellSize + cellSize/2, cellSize * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                });
+            }
+            if (h.z === z) {
+                ctx.save();
+                ctx.fillStyle = CONFIG.COLORS.HUNTER;
+                ctx.shadowBlur = pulse;
+                ctx.shadowColor = CONFIG.COLORS.HUNTER;
+                ctx.beginPath();
+                ctx.arc(h.x * cellSize + cellSize/2, h.y * cellSize + cellSize/2, cellSize * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 4. Draw Player (dynamic direction line and pulsating node overlay)
+        ctx.save();
+        ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
+        ctx.restore();
+        
+        ctx.fillStyle = CONFIG.COLORS.PLAYER;
+        ctx.beginPath();
+        ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.strokeStyle = CONFIG.COLORS.PLAYER;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px * cellSize, py * cellSize);
+        ctx.lineTo(px * cellSize + Math.cos(this.player.dir) * cellSize * 1, py * cellSize + Math.sin(this.player.dir) * cellSize * 1);
+        ctx.stroke();
+    }
+
+    /**
+     * Re-renders the static elements of the 2D map into a dedicated backbuffer canvas.
+     * Elements include walls, visited floors, known paths, elevator layouts, and portal spots.
+     */
+    updateStaticMapCache(z) {
+        const size = this.mazeGen.size;
+        const cellSize = this.canvas.width / size;
+        
+        if (this.staticMapCacheCanvas.width !== this.canvas.width || 
+            this.staticMapCacheCanvas.height !== this.canvas.height) {
+            this.staticMapCacheCanvas.width = this.canvas.width;
+            this.staticMapCacheCanvas.height = this.canvas.height;
+        }
+        
+        const ctx = this.staticMapCacheCtx;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        const px = this.player.x;
+        const py = this.player.y;
+        
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 const val = this.maze.get(x, y, z);
@@ -1119,17 +1264,8 @@ export class Engine {
                                            this.inactiveTeleportPos.x === x && 
                                            this.inactiveTeleportPos.y === y && 
                                            this.inactiveTeleportPos.z === z;
-                        const isPlayerHere = x === Math.floor(px) && y === Math.floor(py);
-                        if (isPlayerHere && !isInactive) {
-                            const pulse = 0.85 + 0.15 * Math.sin(Date.now() / 150);
-                            ctx.save();
-                            ctx.globalAlpha = pulse;
-                        }
                         ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
                         ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                        if (isPlayerHere && !isInactive) {
-                            ctx.restore();
-                        }
                     } else if (isElevator) {
                         this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
                     } else {
@@ -1150,49 +1286,8 @@ export class Engine {
                 }
             }
         }
-        const pulse = Math.sin(Date.now() / 200) * 5 + 10;
-        for (const h of this.hunters) {
-            // Draw trail first so it renders behind the hunter
-            if (h.history) {
-                h.history.forEach((pos, idx) => {
-                    if (pos.z === z) {
-                        const opacity = idx === 0 && h.history.length === 2 ? 0.25 : 0.55;
-                        ctx.save();
-                        ctx.globalAlpha = opacity;
-                        ctx.fillStyle = CONFIG.COLORS.HUNTER;
-                        ctx.beginPath();
-                        ctx.arc(pos.x * cellSize + cellSize/2, pos.y * cellSize + cellSize/2, cellSize * 0.3, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.restore();
-                    }
-                });
-            }
-            if (h.z === z) {
-                ctx.save();
-                ctx.fillStyle = CONFIG.COLORS.HUNTER;
-                ctx.shadowBlur = pulse;
-                ctx.shadowColor = CONFIG.COLORS.HUNTER;
-                ctx.beginPath();
-                ctx.arc(h.x * cellSize + cellSize/2, h.y * cellSize + cellSize/2, cellSize * 0.4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
-        }
-        ctx.save();
-        ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(Math.floor(px) * cellSize + 2, Math.floor(py) * cellSize + 2, cellSize - 4, cellSize - 4);
-        ctx.restore();
-        ctx.fillStyle = CONFIG.COLORS.PLAYER;
-        ctx.beginPath();
-        ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = CONFIG.COLORS.PLAYER;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(px * cellSize, py * cellSize);
-        ctx.lineTo(px * cellSize + Math.cos(this.player.dir) * cellSize * 1, py * cellSize + Math.sin(this.player.dir) * cellSize * 1);
-        ctx.stroke();
+        
+        this.staticMapCacheDirty = false;
     }
 
     isNearVisited(x, y, z) {
@@ -1315,12 +1410,13 @@ export class Engine {
         this.controls.enablePan = false;
         this.controls.enableRotate = false;
 
-        let continueTimer = null;
-
         const finishContinue = () => {
-            if (continueTimer) { clearTimeout(continueTimer); continueTimer = null; }
-            window.removeEventListener('keydown', skipHandler);
-            window.removeEventListener('touchstart', skipHandler);
+            if (this.activeContinueTimer) { clearTimeout(this.activeContinueTimer); this.activeContinueTimer = null; }
+            if (this.activeSkipHandler) {
+                window.removeEventListener('keydown', this.activeSkipHandler);
+                window.removeEventListener('touchstart', this.activeSkipHandler);
+                this.activeSkipHandler = null;
+            }
 
             this.controls.autoRotate = false;
             this.animateCameraToPlayer(() => {
@@ -1328,12 +1424,12 @@ export class Engine {
             });
         };
 
-        const skipHandler = () => finishContinue();
-        window.addEventListener('keydown', skipHandler, { once: true });
-        window.addEventListener('touchstart', skipHandler, { once: true });
+        this.activeSkipHandler = () => finishContinue();
+        window.addEventListener('keydown', this.activeSkipHandler, { once: true });
+        window.addEventListener('touchstart', this.activeSkipHandler, { once: true });
 
         // Spin for 2.5 seconds before starting zoom and transition
-        continueTimer = setTimeout(finishContinue, 2500);
+        this.activeContinueTimer = setTimeout(finishContinue, 2500);
     }
 
     /**
@@ -1484,17 +1580,22 @@ export class Engine {
         const batchSize = Math.max(1, Math.ceil(totalSteps / TARGET_TICKS));
 
         let stepIndex = 0;
-        let introTimer = null;
+        this.activeIntroTimer = null;
         const revealedMeshes = [];
 
         const finishIntro = () => {
-            if (introTimer) { clearTimeout(introTimer); introTimer = null; }
+            if (this.activeIntroTimer) { clearTimeout(this.activeIntroTimer); this.activeIntroTimer = null; }
+            if (this.activeSkipHandler) {
+                window.removeEventListener('keydown', this.activeSkipHandler);
+                window.removeEventListener('touchstart', this.activeSkipHandler);
+                this.activeSkipHandler = null;
+            }
             this._playGlitchAndTransition(revealedMeshes);
         };
 
-        const skipHandler = () => finishIntro();
-        window.addEventListener('keydown', skipHandler, { once: true });
-        window.addEventListener('touchstart', skipHandler, { once: true });
+        this.activeSkipHandler = () => finishIntro();
+        window.addEventListener('keydown', this.activeSkipHandler, { once: true });
+        window.addEventListener('touchstart', this.activeSkipHandler, { once: true });
 
         const revealNext = () => {
             if (this.isDestroyed) return;
@@ -1514,15 +1615,18 @@ export class Engine {
                 revealedMeshes.push(mesh);
             }
             if (stepIndex < revealOrder.length) {
-                introTimer = setTimeout(revealNext, TICK_MS);
+                this.activeIntroTimer = setTimeout(revealNext, TICK_MS);
             } else {
-                window.removeEventListener('keydown', skipHandler);
-                window.removeEventListener('touchstart', skipHandler);
+                if (this.activeSkipHandler) {
+                    window.removeEventListener('keydown', this.activeSkipHandler);
+                    window.removeEventListener('touchstart', this.activeSkipHandler);
+                    this.activeSkipHandler = null;
+                }
                 this._playGlitchAndTransition(revealedMeshes);
             }
         };
 
-        introTimer = setTimeout(revealNext, TICK_MS);
+        this.activeIntroTimer = setTimeout(revealNext, TICK_MS);
     }
 
     _playGlitchAndTransition(revealedMeshes) {
@@ -1562,6 +1666,10 @@ export class Engine {
             this.ui.uiMap3dContainer.classList.remove('intro-fade-out');
             this.isMap3DActive = false;
             this.isIntroPlaying = false;
+
+            if (this.ui.uiMobileMap) {
+                this.ui.uiMobileMap.disabled = false;
+            }
 
             this.canvas.classList.remove('intro-hidden');
             this.canvas.classList.add('intro-reveal');
@@ -1660,6 +1768,7 @@ export class Engine {
                 const node = this.activePathReveal[this.revealedPathProgress];
                 const key = `${node.x},${node.y},${node.z}`;
                 this.revealedPathSet.add(key);
+                this.staticMapCacheDirty = true;
                 
                 if (this.isMap3DActive && this.gridMeshes) {
                     const size = this.mazeGen.size;
@@ -1686,6 +1795,7 @@ export class Engine {
         this.player.x = x + 0.5;
         this.player.y = y + 0.5;
         this.player.z = z;
+        this.staticMapCacheDirty = true;
         
         this.toggleTeleportMap(false);
         
