@@ -100,12 +100,24 @@ export function aStarPath(start, end, maze, size, wallType = 0) {
 
         const curG = gCost.get(curKey);
 
-        for (const { dx, dy, dz } of DIRS6) {
+        const dirs = [
+            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+            { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 }
+        ];
+
+        for (const { dx, dy, dz } of dirs) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
             
             // 1D Array Access
             if (maze[nx * size * size + ny * size + nz] === wallType) continue;
+
+            // For vertical movement, ensure elevator shaft exists and is passable
+            if (dz !== 0) {
+                const midZ = cur.z + dz / 2;
+                if (maze[cur.x * size * size + cur.y * size + midZ] === wallType) continue;
+            }
 
             const neighborKey = `${nx},${ny},${nz}`;
             const tentativeG = curG + 1;
@@ -178,12 +190,24 @@ export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = In
             return curG;
         }
 
-        for (const { dx, dy, dz } of DIRS6) {
+        const dirs = [
+            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+            { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 }
+        ];
+
+        for (const { dx, dy, dz } of dirs) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
             
             // 1D Array Access
             if (maze[nx * size * size + ny * size + nz] === wallType) continue;
+
+            // For vertical movement, ensure elevator shaft exists and is passable
+            if (dz !== 0) {
+                const midZ = cur.z + dz / 2;
+                if (maze[cur.x * size * size + cur.y * size + midZ] === wallType) continue;
+            }
 
             const neighborKey = `${nx},${ny},${nz}`;
             const tentativeG = curG + 1;
