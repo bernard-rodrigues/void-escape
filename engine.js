@@ -1090,6 +1090,8 @@ export class Engine {
     }    
     
     draw2DMap(dt = 0.016) {
+        // redraw map
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         if (this.floorTransition) {
             this.floorTransition.progress += dt / this.floorTransition.duration;
             if (this.floorTransition.progress >= 1.0) {
