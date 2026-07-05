@@ -9,47 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="./assets/images/wall.png">
-    <script>
-        window.onerror = function(message, source, lineno, colno, error) {
-            const errorDiv = document.createElement('div');
-            errorDiv.style.position = 'fixed';
-            errorDiv.style.top = '0';
-            errorDiv.style.left = '0';
-            errorDiv.style.width = '100vw';
-            errorDiv.style.height = '100vh';
-            errorDiv.style.background = 'rgba(255, 0, 0, 0.95)';
-            errorDiv.style.color = '#fff';
-            errorDiv.style.padding = '30px';
-            errorDiv.style.zIndex = '999999';
-            errorDiv.style.fontFamily = 'monospace';
-            errorDiv.style.fontSize = '16px';
-            errorDiv.style.whiteSpace = 'pre-wrap';
-            errorDiv.style.boxSizing = 'border-box';
-            errorDiv.innerText = 'JS ERROR DETECTED:\n\n' + message + 
-                                 '\n\nAt: ' + source + ' (line ' + lineno + ', col ' + colno + ')' +
-                                 '\n\nStack Trace:\n' + (error ? error.stack : 'N/A');
-            document.body.appendChild(errorDiv);
-            return false;
-        };
-        window.addEventListener('unhandledrejection', function(event) {
-            const errorDiv = document.createElement('div');
-            errorDiv.style.position = 'fixed';
-            errorDiv.style.top = '0';
-            errorDiv.style.left = '0';
-            errorDiv.style.width = '100vw';
-            errorDiv.style.height = '100vh';
-            errorDiv.style.background = 'rgba(255, 0, 0, 0.95)';
-            errorDiv.style.color = '#fff';
-            errorDiv.style.padding = '30px';
-            errorDiv.style.zIndex = '999999';
-            errorDiv.style.fontFamily = 'monospace';
-            errorDiv.style.fontSize = '16px';
-            errorDiv.style.whiteSpace = 'pre-wrap';
-            errorDiv.style.boxSizing = 'border-box';
-            errorDiv.innerText = 'UNHANDLED PROMISE REJECTION:\n\n' + event.reason;
-            document.body.appendChild(errorDiv);
-        });
-    </script>
+    <script src="error_handler.js"></script>
 </head>
 <body>
     <section id="start-menu">
@@ -59,16 +19,16 @@
             </header>
 
             <div class="control-group">
-                <label for="maze-degree">Maze Degree: <span id="degree-val">8</span></label>
-                <div class="hunter-info">Active Hunters: <span id="hunter-count">2</span></div>
-                <div class="teleport-info-start">Active Teleports: <span id="teleport-count">4</span></div>
-                <div class="helper-info-start">Pathfinder Charges: <span id="helper-count-start">7</span></div>
+                <label for="maze-degree">Maze Degree: <span id="degree-val">-</span></label>
+                <div class="hunter-info">Active Hunters: <span id="hunter-count">-</span></div>
+                <div class="teleport-info-start">Active Teleports: <span id="teleport-count">-</span></div>
+                <div class="helper-info-start">Pathfinder Charges: <span id="helper-count-start">-</span></div>
                 <input type="range" id="maze-degree" min="3" max="16" value="8" aria-label="Ajustar Grau do Labirinto">
                 <p class="hint">Controls the grid size. Higher values create larger, more complex mazes.</p>
             </div>
 
             <div class="control-group">
-                <label for="branching-factor">Branching Factor: <span id="branch-val">0.20</span></label>
+                <label for="branching-factor">Branching Factor: <span id="branch-val">-</span></label>
                 <input type="range" id="branching-factor" min="0" max="1" step="0.05" value="0.2" aria-label="Fator de Ramificação (Branching Factor)">
                 <p class="hint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
             </div>

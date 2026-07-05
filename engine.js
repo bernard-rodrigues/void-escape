@@ -30,6 +30,9 @@ export class Engine {
         this.maze = this.mazeGen.generate();
 
         this.wallImage = new Image();
+        this.wallImage.onload = () => {
+            this.staticMapCacheDirty = true;
+        };
         this.wallImage.src = 'assets/images/wall.png';
         
         this.player = {
@@ -1090,8 +1093,6 @@ export class Engine {
     }    
     
     draw2DMap(dt = 0.016) {
-        // redraw map
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         if (this.floorTransition) {
             this.floorTransition.progress += dt / this.floorTransition.duration;
             if (this.floorTransition.progress >= 1.0) {
@@ -1137,6 +1138,8 @@ export class Engine {
     }
 
     renderMapToContext(ctx, z) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
         const size = this.mazeGen.size;
         const cellSize = this.canvas.width / size;
         const px = this.player.x;

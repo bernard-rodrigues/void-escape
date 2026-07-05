@@ -85,6 +85,11 @@ window.onload = () => {
         updateHelperDisplay(parseInt(degreeSlider.value));
     };
     branchSlider.oninput = () => branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
+    
+    // Set initial text display values from sliders on load
+    degreeVal.innerText = degreeSlider.value;
+    branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
+    
     updateHunterDisplay(parseInt(degreeSlider.value));
     updateTeleportDisplay(parseInt(degreeSlider.value));
     updateHelperDisplay(parseInt(degreeSlider.value));
