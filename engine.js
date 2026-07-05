@@ -1194,8 +1194,6 @@ export class Engine {
             if (h.z === z) {
                 ctx.save();
                 ctx.fillStyle = CONFIG.COLORS.HUNTER;
-                ctx.shadowBlur = pulse;
-                ctx.shadowColor = CONFIG.COLORS.HUNTER;
                 ctx.beginPath();
                 ctx.arc(h.x * cellSize + cellSize/2, h.y * cellSize + cellSize/2, cellSize * 0.4, 0, Math.PI * 2);
                 ctx.fill();
