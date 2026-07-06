@@ -7,18 +7,13 @@ export class UIManager {
     constructor() {
         this.uiFloorSpan = document.getElementById('current-floor');
         this.uiMap3dContainer = document.getElementById('map3d-container');
-        this.uiHazardWarning = document.getElementById('hazard-warning');
-        this.uiNearbyWarning = document.getElementById('nearby-warning');
         this.uiMobileControls = document.getElementById('mobile-controls');
         this.uiHelperUses = document.getElementById('helper-uses');
         this.uiHelperMaxUses = document.getElementById('helper-max-uses');
         this.uiProximeterContainer = document.getElementById('proximeter-container');
         this.uiProximeterCells = document.querySelectorAll('.proximeter-cell');
         this.uiProximeterBar = document.querySelector('.proximeter-bar');
-        this.uiCooldownTimer = document.getElementById('teleport-cooldown-timer');
-        this.uiCooldownTicks = document.getElementById('cooldown-ticks');
         this.uiTeleportWarning = document.getElementById('teleport-warning');
-        this.uiTeleportInfo = document.getElementById('teleport-info');
         this.uiVictoryScreen = document.getElementById('victory-screen');
         this.uiGameOverScreen = document.getElementById('game-over-screen');
         this.uiMobileUp = document.getElementById('mobile-up');
@@ -29,7 +24,12 @@ export class UIManager {
         this.savingIndicatorTimeout = null;
 
         this.uiVisitedPercent = document.getElementById('visited-percent');
-        this.teleportInfoTimeout = null;
+        
+        // Hunter status letreiro and unifed info-banner
+        this.uiHunterStatusVal = document.getElementById('hunter-status-val');
+        this.uiInfoBanner = document.getElementById('info-banner');
+        this.uiCanvas = document.getElementById('main-2d-canvas');
+        this.infoBannerTimeout = null;
     }
 
     /**
@@ -62,14 +62,16 @@ export class UIManager {
      */
     hideGameUI() {
         if (this.uiMobileControls) this.uiMobileControls.classList.add('hidden');
-        if (this.uiHazardWarning) this.uiHazardWarning.classList.add('hidden');
-        if (this.uiNearbyWarning) this.uiNearbyWarning.classList.add('hidden');
-        if (this.uiCooldownTimer) this.uiCooldownTimer.classList.add('hidden');
         if (this.uiMap3dContainer) this.uiMap3dContainer.classList.add('hidden');
         if (this.uiTeleportWarning) this.uiTeleportWarning.classList.add('hidden');
         if (this.uiProximeterContainer) this.uiProximeterContainer.classList.add('hidden');
         if (this.uiProximeterBar) this.uiProximeterBar.classList.remove('critical-alert');
         this.uiProximeterCells.forEach(cell => cell.classList.remove('active'));
+
+        // Clear canvas border alert classes
+        if (this.uiCanvas) {
+            this.uiCanvas.classList.remove('hunted-map-effect', 'nearby-map-effect');
+        }
     }
 
     /**
@@ -131,14 +133,14 @@ export class UIManager {
      * Show custom warning banner for a short duration.
      */
     showInfoBanner(message) {
-        if (this.uiTeleportInfo) {
-            this.uiTeleportInfo.innerText = message;
-            this.uiTeleportInfo.classList.remove('hidden');
-            if (this.teleportInfoTimeout) {
-                clearTimeout(this.teleportInfoTimeout);
+        if (this.uiInfoBanner) {
+            this.uiInfoBanner.innerText = message;
+            this.uiInfoBanner.classList.remove('hidden');
+            if (this.infoBannerTimeout) {
+                clearTimeout(this.infoBannerTimeout);
             }
-            this.teleportInfoTimeout = setTimeout(() => {
-                this.uiTeleportInfo.classList.add('hidden');
+            this.infoBannerTimeout = setTimeout(() => {
+                if (this.uiInfoBanner) this.uiInfoBanner.classList.add('hidden');
             }, 3000);
         }
     }
@@ -173,44 +175,53 @@ export class UIManager {
      * Update hazardous warning status (hunters converging or tracking player).
      */
     updateHazardWarning(isTracking, cooldownTicks) {
-        if (!this.uiHazardWarning) return;
+        if (!this.uiHunterStatusVal) return;
 
-        if (isTracking) {
-            this.uiHazardWarning.classList.remove('hidden');
-            if (cooldownTicks > 0) {
-                this.uiHazardWarning.innerText = "TELEPORT SIGNAL ACTIVE - HUNTERS CONVERGING";
+        let statusText = "SCANNING";
+        let statusClass = "status--scanning";
+        let isHunted = false;
+
+        if (cooldownTicks > 0) {
+            statusText = `HUNTERS CONVERGING (${cooldownTicks} Ticks)`;
+            statusClass = "status--converging";
+            isHunted = true;
+        } else if (isTracking) {
+            statusText = "TRACKING MODE";
+            statusClass = "status--tracking";
+            isHunted = true;
+        }
+
+        if (this.uiHunterStatusVal.innerText !== statusText) {
+            this.uiHunterStatusVal.innerText = statusText;
+            this.uiHunterStatusVal.className = "status-marquee-text " + statusClass;
+        }
+
+        if (this.uiCanvas) {
+            if (isHunted) {
+                this.uiCanvas.classList.add('hunted-map-effect');
             } else {
-                this.uiHazardWarning.innerText = "ENEMY IS HUNTING YOU";
+                this.uiCanvas.classList.remove('hunted-map-effect');
             }
-        } else {
-            this.uiHazardWarning.classList.add('hidden');
         }
     }
 
     /**
-     * Toggle hunter nearby warnings.
+     * Toggle hunter nearby warnings (border-color effect).
      */
     setNearbyWarning(visible) {
-        if (this.uiNearbyWarning) {
+        if (this.uiCanvas) {
             if (visible) {
-                this.uiNearbyWarning.classList.remove('hidden');
+                this.uiCanvas.classList.add('nearby-map-effect');
             } else {
-                this.uiNearbyWarning.classList.add('hidden');
+                this.uiCanvas.classList.remove('nearby-map-effect');
             }
         }
     }
 
     /**
-     * Update the teleport cooldown anomaly counter.
+     * Obsolete - Cooldown is unified in updateHazardWarning marquee.
      */
-    updateCooldownTimer(ticks) {
-        if (ticks > 0) {
-            if (this.uiCooldownTimer) this.uiCooldownTimer.classList.remove('hidden');
-            if (this.uiCooldownTicks) this.uiCooldownTicks.innerText = ticks;
-        } else {
-            if (this.uiCooldownTimer) this.uiCooldownTimer.classList.add('hidden');
-        }
-    }
+    updateCooldownTimer(ticks) {}
 
     /**
      * Update proximeter HUD based on distance.
@@ -273,8 +284,8 @@ export class UIManager {
      * Clean up timers on game destroy.
      */
     destroy() {
-        if (this.teleportInfoTimeout) {
-            clearTimeout(this.teleportInfoTimeout);
+        if (this.infoBannerTimeout) {
+            clearTimeout(this.infoBannerTimeout);
         }
         if (this.savingIndicatorTimeout) {
             clearTimeout(this.savingIndicatorTimeout);

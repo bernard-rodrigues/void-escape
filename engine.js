@@ -76,6 +76,10 @@ export class Engine {
         this.staticMapCacheCanvas = document.createElement('canvas');
         this.staticMapCacheCtx = this.staticMapCacheCanvas.getContext('2d');
         this.staticMapCacheDirty = true;
+        this.fullyRevealedCells = new Set();
+        this.revealedCellsAnimation = new Map();
+        this.skipCellAnimations = true;
+        this.populateFullyRevealedCells(this.player.z);
 
         // Memory leak cleanup properties for animations and skip handlers
         this.activeSkipHandler = null;
@@ -235,6 +239,7 @@ export class Engine {
         // Mark that this session was loaded from a save (so Continue remains available
         // until the player reaches a new teleport or dies)
         this.hasSavePoint = true;
+        this.populateFullyRevealedCells(this.player.z);
     }
 
     /**
@@ -359,11 +364,14 @@ export class Engine {
     }
 
     hideCanvasInstant() {
-        this.canvas.style.transition = 'none';
-        this.canvas.classList.remove('intro-reveal');
-        this.canvas.classList.add('intro-hidden');
-        this.canvas.offsetHeight;
-        this.canvas.style.transition = '';
+        const mapArea = document.getElementById('map-area-container');
+        if (mapArea) {
+            mapArea.style.transition = 'none';
+            mapArea.classList.remove('intro-reveal');
+            mapArea.classList.add('intro-hidden');
+            mapArea.offsetHeight;
+            mapArea.style.transition = '';
+        }
     }
 
     drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, isRevealed = false, z = 0) {
@@ -454,7 +462,7 @@ export class Engine {
 
     resize() {
         const isPortrait = window.innerHeight > window.innerWidth;
-        const size = isPortrait ? window.innerWidth * 0.9 : window.innerHeight * 0.85;
+        const size = isPortrait ? window.innerWidth * 0.82 : window.innerHeight * 0.75;
         this.canvas.width = size;
         this.canvas.height = size;
         this.staticMapCacheDirty = true;
@@ -614,6 +622,10 @@ export class Engine {
                 if (this.maze.get(finalGridIdxX, finalGridIdxY, this.player.z) === this.mazeGen.TYPES.EXIT) this.triggerVictory();
             }
 
+            if (moveX !== 0 || moveY !== 0 || this.input.keys['a'] || this.input.keys['arrowleft'] || this.input.keys['d'] || this.input.keys['arrowright']) {
+                this.skipCellAnimations = false;
+            }
+
             // Per-frame collision check: detects when the player walks into a hunter's cell.
             this.checkHunterCollision();
             if (this.isGameOver) return;
@@ -763,6 +775,7 @@ export class Engine {
 
     changeFloor(delta) {
         if (this.isGameOver || this.floorTransition) return;
+        this.skipCellAnimations = true;
         const currentX = Math.floor(this.player.x);
         const currentY = Math.floor(this.player.y);
         const currentZ = this.player.z;
@@ -791,6 +804,7 @@ export class Engine {
 
                 this.player.z = nextZ;
                 this.staticMapCacheDirty = true;
+                this.populateFullyRevealedCells(nextZ);
 
                 if (this.maze.get(currentX, currentY, nextZ) === this.mazeGen.TYPES.PATH) {
                     this.maze.set(currentX, currentY, nextZ, this.mazeGen.TYPES.VISITED);
@@ -1241,6 +1255,40 @@ export class Engine {
         const px = this.player.x;
         const py = this.player.y;
         
+        const now = Date.now();
+        let hasActiveAnimations = false;
+
+        const drawCellWithFade = (x, y, drawFn) => {
+            const key = `${x},${y},${z}`;
+            if (this.skipCellAnimations || this.fullyRevealedCells.has(key)) {
+                drawFn();
+                if (this.skipCellAnimations) {
+                    this.fullyRevealedCells.add(key);
+                }
+            } else {
+                let startTime = this.revealedCellsAnimation.get(key);
+                if (startTime === undefined) {
+                    this.revealedCellsAnimation.set(key, now);
+                    startTime = now;
+                }
+                const elapsed = now - startTime;
+                const duration = 400; // 400ms fade-in
+                const opacity = Math.min(1.0, elapsed / duration);
+                
+                if (opacity < 1.0) {
+                    ctx.save();
+                    ctx.globalAlpha = opacity;
+                    drawFn();
+                    ctx.restore();
+                    hasActiveAnimations = true;
+                } else {
+                    drawFn();
+                    this.revealedCellsAnimation.delete(key);
+                    this.fullyRevealedCells.add(key);
+                }
+            }
+        };
+
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 const val = this.maze.get(x, y, z);
@@ -1255,42 +1303,54 @@ export class Engine {
                 const isElevator = hUp || hDown;
 
                 if (isRevealedPath) {
-                    if (isElevator) {
-                        this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, true, z);
-                    } else {
-                        ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
-                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    }
+                    drawCellWithFade(x, y, () => {
+                        if (isElevator) {
+                            this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, true, z);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                    });
                 } else if (isVisited) {
-                    if (isTeleportDiscovered) {
-                        const isInactive = this.inactiveTeleportPos && 
-                                           this.inactiveTeleportPos.x === x && 
-                                           this.inactiveTeleportPos.y === y && 
-                                           this.inactiveTeleportPos.z === z;
-                        ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
-                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    } else if (isElevator) {
-                        this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
-                    } else {
-                        ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
-                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    }
+                    drawCellWithFade(x, y, () => {
+                        if (isTeleportDiscovered) {
+                            const isInactive = this.inactiveTeleportPos && 
+                                               this.inactiveTeleportPos.x === x && 
+                                               this.inactiveTeleportPos.y === y && 
+                                               this.inactiveTeleportPos.z === z;
+                            ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        } else if (isElevator) {
+                            this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
+                        } else {
+                            ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                    });
                 } else if (isKnown) { 
-                    ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; 
-                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
+                    drawCellWithFade(x, y, () => {
+                        ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; 
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
+                    });
                 }
                 else if (val === 0 && this.isNearVisited(x, y, z)) {
-                    if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
-                        ctx.drawImage(this.wallImage, x * cellSize, y * cellSize, cellSize, cellSize);
-                    } else {
-                        ctx.fillStyle = CONFIG.COLORS.WALL;
-                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    }
+                    drawCellWithFade(x, y, () => {
+                        if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.wallImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.WALL;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                    });
                 }
             }
         }
         
-        this.staticMapCacheDirty = false;
+        if (hasActiveAnimations) {
+            this.staticMapCacheDirty = true;
+        } else {
+            this.staticMapCacheDirty = false;
+        }
     }
 
     isNearVisited(x, y, z) {
@@ -1307,6 +1367,23 @@ export class Engine {
             }
         }
         return false;
+    }
+
+    populateFullyRevealedCells(z) {
+        const size = this.mazeGen.size;
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                const val = this.maze.get(x, y, z);
+                const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
+                const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
+                const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
+                const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
+                if (isVisited || isKnown || isRevealedPath || (val === 0 && this.isNearVisited(x, y, z))) {
+                    this.fullyRevealedCells.add(`${x},${y},${z}`);
+                }
+            }
+        }
     }
 
     // getPathDistance3D and getProximeterDistance have been moved to pathfinder.js
@@ -1674,9 +1751,12 @@ export class Engine {
                 this.ui.uiMobileMap.disabled = false;
             }
 
-            this.canvas.classList.remove('intro-hidden');
-            this.canvas.classList.add('intro-reveal');
-            setTimeout(() => this.canvas.classList.remove('intro-reveal'), 700);
+            const mapArea = document.getElementById('map-area-container');
+            if (mapArea) {
+                mapArea.classList.remove('intro-hidden');
+                mapArea.classList.add('intro-reveal');
+                setTimeout(() => mapArea.classList.remove('intro-reveal'), 700);
+            }
         }, 600);
     }
 
@@ -1795,6 +1875,7 @@ export class Engine {
     }
 
     teleportTo(x, y, z) {
+        this.skipCellAnimations = true;
         this.player.x = x + 0.5;
         this.player.y = y + 0.5;
         this.player.z = z;

@@ -70,16 +70,25 @@
         </div>
     </section>
 
-    <div id="hazard-warning" class="hidden">ENEMY IS HUNTING YOU</div>
-    <div id="nearby-warning" class="hidden">HUNTER IS NEARBY</div>
-    <div id="teleport-warning" class="hidden">CLICK ON A TELEPORT POINT</div>
+    <!-- Temporary Info Alert -->
+    <div id="info-banner" class="hidden"></div>
     <div id="teleport-info" class="hidden">FIND ANOTHER TELEPORT TO ACTIVATE</div>
     <div id="teleport-cooldown-timer" class="hidden">TELEPORT ANOMALY: <span id="cooldown-ticks">0</span> TICKS</div>
     <div id="saving-indicator" class="hidden"><span class="saving-icon">💾</span> SAVING...</div>
 
     <main id="game-container">
-        <!-- Primary 2D Navigation Map -->
-        <canvas id="main-2d-canvas" class="intro-hidden" aria-label="2D Navigation Map"></canvas>
+        <!-- Contêiner do Mapa 2D e seu Letreiro Superior -->
+        <div id="map-area-container" class="intro-hidden">
+            <!-- Hunter Status Letreiro Panel (centralizado acima do mapa 2D) -->
+            <div id="hunter-status-panel">
+                <span class="status-label">HUNTER STATUS:</span>
+                <div class="status-marquee-container">
+                    <span id="hunter-status-val" class="status-marquee-text status--scanning">SCANNING</span>
+                </div>
+            </div>
+            <!-- Primary 2D Navigation Map -->
+            <canvas id="main-2d-canvas" aria-label="2D Navigation Map"></canvas>
+        </div>
         
         <section id="ui-overlay">
             <div id="floor-display" aria-live="polite">Floor: <span id="current-floor">0</span></div>
@@ -129,6 +138,7 @@
         <!-- 3D Holographic Map Container -->
         <div id="map3d-container" class="hidden">
             <div id="map3d-instructions">Drag to rotate | Scroll to zoom | M to return</div>
+            <div id="teleport-warning" class="hidden">CLICK ON A TELEPORT POINT</div>
         </div>
     </main>
 
