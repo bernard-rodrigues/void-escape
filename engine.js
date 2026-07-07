@@ -26,7 +26,8 @@ export class Engine {
         this.canvas = document.getElementById('main-2d-canvas');
         this.ctx = this.canvas.getContext('2d');
         
-        this.mazeGen = new Maze3D(degree, branchingFactor);
+        this.seed = savedState ? savedState.seed : (CONFIG.SEED !== null && CONFIG.SEED !== undefined ? CONFIG.SEED : Date.now());
+        this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
         this.maze = this.mazeGen.generate();
 
         this.wallImage = new Image();
@@ -209,6 +210,9 @@ export class Engine {
      * @param {object} snapshot - Snapshot returned by loadSave()
      */
     restoreFromSave(snapshot) {
+        // Restore seed
+        this.seed = snapshot.seed;
+
         // Restore the maze matrix (visited cells, teleport positions, etc.)
         restoreMatrix(this.mazeGen, snapshot.matrix);
 

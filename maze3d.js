@@ -4,14 +4,40 @@ import { CONFIG } from './config.js';
  * 3D Maze Logic Handler - Represents the maze using a 1D contiguously allocated Int8Array
  */
 export class Maze3D {
-    constructor(degree, branchingFactor) {
+    constructor(degree, branchingFactor, seed = null) {
         this.n = Math.max(3, Math.min(16, degree));
         this.branchingFactor = Math.max(0, Math.min(1, branchingFactor));
         this.size = 2 * this.n + 1;
+
+        if (seed !== null && seed !== undefined) {
+            this.seed = seed;
+            this.random = this.createSeededRandom(seed);
+        } else {
+            this.seed = null;
+            this.random = Math.random;
+        }
+
         this.matrix = this.initMatrix();
         
         this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6 };
         this.startPos = { x: 0.5, y: 1.5, z: 0 };
+    }
+
+    createSeededRandom(seed) {
+        let h = 0;
+        if (typeof seed === 'string') {
+            for (let i = 0; i < seed.length; i++) {
+                h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+            }
+        } else {
+            h = seed | 0;
+        }
+        return function() {
+            let t = h += 0x6D2B79F5;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
     }
 
     initMatrix() {
@@ -24,20 +50,20 @@ export class Maze3D {
 
     generate() {
         const cells = [];
-        const startX = 1 + 2 * Math.floor(Math.random() * this.n);
-        const startY = 1 + 2 * Math.floor(Math.random() * this.n);
-        const startZ = 1 + 2 * Math.floor(Math.random() * this.n);
+        const startX = 1 + 2 * Math.floor(this.random() * this.n);
+        const startY = 1 + 2 * Math.floor(this.random() * this.n);
+        const startZ = 1 + 2 * Math.floor(this.random() * this.n);
 
         this.matrix[this._idx(startX, startY, startZ)] = this.TYPES.PATH;
         cells.push({ x: startX, y: startY, z: startZ });
 
         while (cells.length > 0) {
-            let index = Math.random() > this.branchingFactor ? cells.length - 1 : Math.floor(Math.random() * cells.length);
+            let index = this.random() > this.branchingFactor ? cells.length - 1 : Math.floor(this.random() * cells.length);
             const cell = cells[index];
             const neighbors = this.getUnvisitedNeighbors(cell.x, cell.y, cell.z);
 
             if (neighbors.length > 0) {
-                const neighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+                const neighbor = neighbors[Math.floor(this.random() * neighbors.length)];
                 this.matrix[this._idx(neighbor.x, neighbor.y, neighbor.z)] = this.TYPES.PATH;
                 this.matrix[this._idx((cell.x + neighbor.x) / 2, (cell.y + neighbor.y) / 2, (cell.z + neighbor.z) / 2)] = this.TYPES.PATH;
                 cells.push(neighbor);
@@ -81,12 +107,12 @@ export class Maze3D {
     }
 
     setEntryAndExit() {
-        const entryZ = 1 + 2 * Math.floor(Math.random() * this.n);
+        const entryZ = 1 + 2 * Math.floor(this.random() * this.n);
         this.matrix[this._idx(1, 1, entryZ)] = this.TYPES.PATH;
         this.matrix[this._idx(0, 1, entryZ)] = this.TYPES.START;
         this.startPos = { x: 0.5, y: 1.5, z: entryZ };
 
-        const exitZ = 1 + 2 * Math.floor(Math.random() * this.n);
+        const exitZ = 1 + 2 * Math.floor(this.random() * this.n);
         const lastCell = 2 * this.n - 1;
         this.matrix[this._idx(lastCell, lastCell, exitZ)] = this.TYPES.PATH;
         this.matrix[this._idx(2 * this.n, lastCell, exitZ)] = this.TYPES.EXIT;
@@ -240,7 +266,7 @@ export class Maze3D {
 
         // 2. Shuffle candidates uniformly (Fisher-Yates)
         for (let i = candidates.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(this.random() * (i + 1));
             const temp = candidates[i];
             candidates[i] = candidates[j];
             candidates[j] = temp;

@@ -2,6 +2,8 @@
  * Configuration Constants for the Maze Engine
  */
 export const CONFIG = {
+    SEED: null, // Defina um número ou string (ex: "void-escape-1") para fixar o mapa, ou null para aleatório
+    
     MAZE_DEGREE: 8,
     BRAID_FACTOR: 0.10, // Fraction of eligible walls to turn into paths (0.0 to 1.0)
     TELEPORT_MAP_OPACITY: 0.25, // Opacity of non-teleport meshes when choosing teleport destination
