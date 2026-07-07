@@ -2,7 +2,7 @@
  * Configuration Constants for the Maze Engine
  */
 export const CONFIG = {
-    SEED: null, // Defina um número ou string (ex: "void-escape-1") para fixar o mapa, ou null para aleatório
+    SEED: null, // Define a number or string (e.g. "void-escape-1") to lock the map generator, or null for random
     
     MAZE_DEGREE: 8,
     BRAID_FACTOR: 0.10, // Fraction of eligible walls to turn into paths (0.0 to 1.0)
