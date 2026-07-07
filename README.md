@@ -1,41 +1,54 @@
 # VOID ESCAPE
 
-Um simulador de exploração de labirinto 3D com temática cyberpunk, desafios de navegação vertical e entidades hostis.
+A 3D maze exploration simulator with a cyberpunk theme, vertical navigation challenges, and hostile entities.
 
-## 🚀 Sobre o Projeto
+## 🚀 About the Project
 
-**Void Escape** é uma experiência interativa onde o jogador deve navegar por um labirinto gerado proceduralmente em três dimensões. O jogo combina a simplicidade da visualização 2D com a profundidade estratégica de um mapa holográfico 3D para superar os "Caçadores do Vazio".
+**Void Escape** is an interactive experience where the player must navigate a procedurally generated 3D maze. The game combines the simplicity of a tactical 2D view with the spatial depth of an interactive 3D holographic map to outsmart the "Void Hunters".
 
-### Principais Funcionalidades
+### Key Features
 
-- **Geração Procedural:** Configure o tamanho (`Maze Degree`) e a complexidade (`Branching Factor`) do labirinto.
-- **Múltiplos Inimigos:** Caçadores que escalam com a dificuldade e rastreiam seus passos assim que encontram seu rastro.
-- **Sistema de Mapas Dual:**
-  - **Mapa 2D:** Navegação tática andar por andar.
-  - **Holograma 3D:** Visão espacial completa com indicação de elevadores e corredores conhecidos.
-- **Física de Movimento:** Suporte a controles "Tanque" (clássico) e "Direto" (moderno), com sistema de deslizamento por paredes.
-- **Alertas de Risco:** Interface dinâmica que sinaliza quando você está sendo caçado.
+- **Procedural Generation:** Configure the maze size (`Maze Degree`) and complexity (`Branching Factor`).
+- **Deterministic Maps (Seeds):** Define a custom seed value in the configuration file to generate the exact same maze structure across playthroughs.
+- **Multiple Enemies:** Hunters that scale with difficulty and track your footsteps once they cross your heat trail.
+- **Dual Map System:**
+  - **2D Map:** Tactical navigation, floor by floor, featuring a real-time hunter status marquee and proximity detector.
+  - **3D Hologram:** Complete orbital spatial view showing elevator connections and known teleports.
+- **Movement Physics:** Support for both "Tank" (classic) and "Direct" (modern) controls with slide-along-wall physics.
+- **Dynamic Warning Feeds:** Integrated visual alerts on the 2D canvas borders when being chased or when an enemy is nearby.
 
-## 🎮 Como Jogar
+## 🎮 How to Play
 
-1.  **Configuração:** No menu inicial, escolha o tamanho do mapa e o modo de controle.
-2.  **Objetivo:** Encontre o **bloco verde** (Saída) enquanto evita os **pontos roxos** (Inimigos).
-3.  **Exploração:** Use os elevadores (▲/▼) para transitar entre os andares do labirinto.
+1.  **Configuration:** In the main menu, set your preferred grid size, branching complexity, and movement style.
+2.  **Objective:** Reach the **green block** (Exit) while avoiding the **purple dots** (Enemies).
+3.  **Exploration:** Use elevators (▲/▼) to transit between floors or activate teleports to create restore checkpoints.
 
-### Controles
-- **WASD / Setas:** Mover e Girar.
-- **Q / E ou PgUp / PgDn:** Subir ou Descer andares.
-- **M:** Ativar/Desativar Mapa Holográfico 3D.
+### Controls
+- **WASD / Arrow Keys:** Move and Rotate.
+- **Q / E or PgUp / PgDn:** Go Up or Down floors / Use Teleports.
+- **M:** Toggle 3D Holographic Map.
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Technologies Used
 
-- **JavaScript (ES6+):** Lógica de jogo e IA.
-- **Three.js:** Renderização do mapa holográfico 3D.
-- **HTML5 Canvas:** Motor de renderização do mapa 2D.
-- **CSS3:** Interface futurista com efeitos de *glassmorphism* e neon.
+- **JavaScript (ES6+):** Game loops, custom pathfinding algorithms (A* with MinHeap and 0-1 BFS), and hunter AI.
+- **Three.js:** Render engine for the orbital 3D holographic overview.
+- **HTML5 Canvas:** Tactical 2D navigation view rendering.
+- **CSS3:** Futuristic interface styling with glassmorphism, responsive controls, and alert screens.
 
-## 📐 Estrutura de Arquivos
+## 📐 Project Structure
 
-- `index.html`: Estrutura da UI e containers de renderização.
-- `style.css`: Estilização cyberpunk e animações de alerta.
-- `script.js`: Engine principal, gerador de labirinto e lógica dos Caçadores.
+- [index.html](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/index.html): UI layout, HUD overlays, and rendering containers.
+- [style.css](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/style.css): Cyberpunk style sheet and keyframe border warning effects.
+- [error_handler.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/error_handler.js): Global error monitoring and synchronous boot error overlay.
+- [script.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/script.js): Game launcher, menu sliders setup, and instance orchestration.
+- [config.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/config.js): Centralized configuration parameters (speeds, colors, seed parameter).
+- [engine.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/engine.js): Core engine handling physics ticks, collisions, 2D render steps, and 3D map sync.
+- [maze3d.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/maze3d.js): Procedural 3D maze generator incorporating a seeded Mulberry32 PRNG.
+- [pathfinder.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/pathfinder.js): Custom pathfinding utility containing A* routing, MinHeap queue, and BFS algorithms.
+- [hunter.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/hunter.js): Enemy AI state machine managing wandering, tracking, and teleport interception modes.
+- [input.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/input.js): Input coordinator mapping keyboard listeners and mobile swipe gestures.
+- [ui.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/ui.js): HUD manager updating labels, progress bars, and the threat marquee.
+- [save.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/save.js): LocalStorage coordinator encoding the maze matrix (in Base64) and runtime states.
+
+---
+Developed as a high-fidelity prototype for procedural exploration systems.
