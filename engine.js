@@ -1256,11 +1256,13 @@ export class Engine {
                     }
                 });
             }
-            if (Math.round(h.visualZ) === z) {
+            const distZ = Math.abs(h.visualZ - z);
+            const scaleFactor = Math.max(0, 1 - distZ);
+            if (scaleFactor > 0) {
                 ctx.save();
                 ctx.fillStyle = CONFIG.COLORS.HUNTER;
                 ctx.beginPath();
-                ctx.arc(h.visualX * cellSize + cellSize/2, h.visualY * cellSize + cellSize/2, cellSize * 0.4, 0, Math.PI * 2);
+                ctx.arc(h.visualX * cellSize + cellSize/2, h.visualY * cellSize + cellSize/2, cellSize * 0.4 * scaleFactor, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             }
