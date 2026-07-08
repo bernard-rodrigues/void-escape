@@ -70,6 +70,7 @@ export function saveGame(engine) {
             degree: engine.degree,
             branchingFactor: engine.branchingFactor,
             isSafeMode: engine.isSafeMode,
+            seed: engine.seed,
             mazeSize: engine.mazeGen.size,
             mazeStartPos: { ...engine.mazeGen.startPos },
             // The live matrix (cells already visited, teleports discovered, etc.)

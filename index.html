@@ -28,7 +28,7 @@
 
             <div class="control-group">
                 <label for="branching-factor">Branching Factor: <span id="branch-val">-</span></label>
-                <input type="range" id="branching-factor" min="0" max="1" step="0.05" value="0.2" aria-label="Fator de Ramificação (Branching Factor)">
+                <input type="range" id="branching-factor" min="0" max="1" step="0.05" value="0.2" aria-label="Branching Factor">
                 <p class="hint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
             </div>
 
@@ -77,9 +77,9 @@
     <div id="saving-indicator" class="hidden"><span class="saving-icon">💾</span> SAVING...</div>
 
     <main id="game-container">
-        <!-- Contêiner do Mapa 2D e seu Letreiro Superior -->
+        <!-- 2D Map Container and its Top Marquee -->
         <div id="map-area-container" class="intro-hidden">
-            <!-- Hunter Status Letreiro Panel (centralizado acima do mapa 2D) -->
+            <!-- Hunter Status Marquee Panel (centered above the 2D map) -->
             <div id="hunter-status-panel">
                 <span class="status-label">HUNTER STATUS:</span>
                 <div class="status-marquee-container">

@@ -34,7 +34,8 @@ export class Engine {
         this.canvas = document.getElementById('main-2d-canvas');
         this.ctx = this.canvas.getContext('2d');
         
-        this.mazeGen = new Maze3D(degree, branchingFactor);
+        this.seed = savedState ? savedState.seed : (CONFIG.SEED !== null && CONFIG.SEED !== undefined ? CONFIG.SEED : Date.now());
+        this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
         this.maze = this.mazeGen.generate();
 
         this.wallImage = new Image();
@@ -220,6 +221,9 @@ export class Engine {
      * @param {object} snapshot - Snapshot returned by loadSave()
      */
     restoreFromSave(snapshot) {
+        // Restore seed
+        this.seed = snapshot.seed;
+
         // Restore the maze matrix (visited cells, teleport positions, etc.)
         restoreMatrix(this.mazeGen, snapshot.matrix);
 
@@ -403,7 +407,7 @@ export class Engine {
         const upVisited = hUp && (this.maze.get(x, y, z + 1) === this.mazeGen.TYPES.ELEVATOR_VISITED);
         const downVisited = hDown && (this.maze.get(x, y, z - 1) === this.mazeGen.TYPES.ELEVATOR_VISITED);
 
-        // 1. Desenha o fundo do bloco
+        // 1. Draw block background
         if (isRevealed) {
             ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
@@ -422,7 +426,7 @@ export class Engine {
             }
         }
 
-        // 2. Desenha as setas vetoriais (triângulos pretos)
+        // 2. Draw vector arrows (black triangles)
         const cx = x * cellSize + cellSize / 2;
         const cy = y * cellSize + cellSize / 2;
         ctx.fillStyle = '#000000';
@@ -432,7 +436,7 @@ export class Engine {
             const cyTop = cy - cellSize / 5;
             const cyBottom = cy + cellSize / 5;
 
-            // Seta para cima
+            // Up arrow
             ctx.beginPath();
             ctx.moveTo(cx, cyTop - arrowSize / 2);
             ctx.lineTo(cx - arrowSize * 0.6, cyTop + arrowSize / 2);
@@ -440,7 +444,7 @@ export class Engine {
             ctx.closePath();
             ctx.fill();
 
-            // Seta para baixo
+            // Down arrow
             ctx.beginPath();
             ctx.moveTo(cx, cyBottom + arrowSize / 2);
             ctx.lineTo(cx - arrowSize * 0.6, cyBottom - arrowSize / 2);
@@ -1060,9 +1064,9 @@ export class Engine {
                                 meshBottom.position.set(x - size/2, (z - size/2) * this.vScale - 0.2125, y - size/2);
                                 meshTop.position.set(   x - size/2, (z - size/2) * this.vScale + 0.2125, y - size/2);
                                 this.scene.add(meshBottom);
-                                this.scene.add(meshTop);
+                                 this.scene.add(meshTop);
                                 this.gridMeshes[(x * size * size) + (y * size) + z] = meshTop; // Reference to one of them is enough
-                                continue; // Mesh já adicionado, pula o mesh padrão abaixo
+                                continue; // Mesh already added, skip the default mesh below
                             } else {
                                 const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
                                 material = new THREE.MeshPhongMaterial({ color: elevatorColor, transparent: true, opacity: 0.9 * opFactor, emissive: elevatorColor, emissiveIntensity: 0.4 * opFactor });
@@ -1161,7 +1165,7 @@ export class Engine {
                 scaleNew = 0.8 + 0.2 * t;
             }
 
-            // Desenha andar antigo
+            // Draw old floor
             this.ctx.save();
             this.ctx.globalAlpha = 1 - t;
             this.ctx.translate(cx, cy);
@@ -1169,7 +1173,7 @@ export class Engine {
             this.ctx.drawImage(this.floorTransition.canvasOld, -cx, -cy);
             this.ctx.restore();
 
-            // Desenha andar novo
+            // Draw new floor
             this.ctx.save();
             this.ctx.globalAlpha = t;
             this.ctx.translate(cx, cy);
