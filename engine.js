@@ -8,6 +8,13 @@ import { UIManager } from './ui.js';
 import { InputHandler } from './input.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
+function moveTowards(current, target, maxDelta) {
+    if (Math.abs(target - current) <= maxDelta) {
+        return target;
+    }
+    return current + Math.sign(target - current) * maxDelta;
+}
+
 /**
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
@@ -544,13 +551,23 @@ export class Engine {
 
     update(dt) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        // Update hunter visual positions toward their target grid positions
+        const speed = 1000 / CONFIG.HUNTER_SPEED;
+        const maxDelta = speed * dt;
+        for (const hunter of this.hunters) {
+            hunter.visualX = moveTowards(hunter.visualX, hunter.x, maxDelta);
+            hunter.visualY = moveTowards(hunter.visualY, hunter.y, maxDelta);
+            hunter.visualZ = moveTowards(hunter.visualZ, hunter.z, maxDelta * 2);
+        }
+
         if (this.isMap3DActive) {
             this.controls.update();
             const size = this.mazeGen.size;
             for (const hm of this.hunterMeshes) {
                 const h = hm.hunter;
                 const mesh = hm.mesh;
-                mesh.position.set(h.x - size/2, (h.z - size/2) * this.vScale, h.y - size/2);
+                mesh.position.set(h.visualX - size/2, (h.visualZ - size/2) * this.vScale, h.visualY - size/2);
                 
                 if (h.history && h.history.length > 0) {
                     if (h.history.length === 2) {
@@ -1239,11 +1256,13 @@ export class Engine {
                     }
                 });
             }
-            if (h.z === z) {
+            const distZ = Math.abs(h.visualZ - z);
+            const scaleFactor = Math.max(0, 1 - distZ);
+            if (scaleFactor > 0) {
                 ctx.save();
                 ctx.fillStyle = CONFIG.COLORS.HUNTER;
                 ctx.beginPath();
-                ctx.arc(h.x * cellSize + cellSize/2, h.y * cellSize + cellSize/2, cellSize * 0.4, 0, Math.PI * 2);
+                ctx.arc(h.visualX * cellSize + cellSize/2, h.visualY * cellSize + cellSize/2, cellSize * 0.4 * scaleFactor, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             }
