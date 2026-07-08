@@ -88,27 +88,28 @@
             </div>
             <!-- Primary 2D Navigation Map -->
             <canvas id="main-2d-canvas" aria-label="2D Navigation Map"></canvas>
-        </div>
-        
-        <section id="ui-overlay">
-            <div id="floor-display" aria-live="polite">Floor: <span id="current-floor">0</span></div>
-            <div id="visited-display" aria-live="polite">Visited: <span id="visited-percent">0</span>%</div>
-            <div id="proximeter-container" class="hidden">
-                <div class="proximeter-label">PROXIMITY DETECTOR</div>
-                <div class="proximeter-bar">
-                    <span class="proximeter-cell" data-index="1"></span>
-                    <span class="proximeter-cell" data-index="2"></span>
-                    <span class="proximeter-cell" data-index="3"></span>
-                    <span class="proximeter-cell" data-index="4"></span>
-                    <span class="proximeter-cell" data-index="5"></span>
-                    <span class="proximeter-cell" data-index="6"></span>
-                    <span class="proximeter-cell" data-index="7"></span>
-                    <span class="proximeter-cell" data-index="8"></span>
-                    <span class="proximeter-cell" data-index="9"></span>
-                    <span class="proximeter-cell" data-index="10"></span>
+            
+            <!-- Bottom HUD Container (Flex on Desktop, Stacked on Mobile) -->
+            <div id="bottom-hud-container">
+                <div id="floor-display" aria-live="polite">Floor: <span id="current-floor">0</span></div>
+                <div id="visited-display" aria-live="polite">Visited: <span id="visited-percent">0</span>%</div>
+                <div id="proximeter-container" class="hidden">
+                    <div class="proximeter-label">PROXIMITY DETECTOR</div>
+                    <div class="proximeter-bar">
+                        <span class="proximeter-cell" data-index="1"></span>
+                        <span class="proximeter-cell" data-index="2"></span>
+                        <span class="proximeter-cell" data-index="3"></span>
+                        <span class="proximeter-cell" data-index="4"></span>
+                        <span class="proximeter-cell" data-index="5"></span>
+                        <span class="proximeter-cell" data-index="6"></span>
+                        <span class="proximeter-cell" data-index="7"></span>
+                        <span class="proximeter-cell" data-index="8"></span>
+                        <span class="proximeter-cell" data-index="9"></span>
+                        <span class="proximeter-cell" data-index="10"></span>
+                    </div>
                 </div>
             </div>
-        </section>
+        </div>
 
         <aside id="controls-hint">
             Arrows or WASD: Move/Rotate<br>
