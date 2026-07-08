@@ -109,15 +109,7 @@ body {
     font-weight: 700;
 }
 
-.helper-info-start {
-    font-size: calc(var(--h-unit) * 1.8);
-    font-size: calc(var(--d-h-unit) * 1.8);
-    color: var(--clr-pathfinder);
-    margin-bottom: var(--h-unit);
-    margin-bottom: var(--d-h-unit);
-    text-transform: uppercase;
-    font-weight: 700;
-}
+
 
 .control-group input[type="range"] {
     width: 100%;
@@ -386,14 +378,6 @@ body {
     margin-top: calc(var(--d-h-unit) * 1);
 }
 
-#helper-display {
-    font-size: calc(var(--h-unit) * 2);
-    font-size: calc(var(--d-h-unit) * 2);
-    font-weight: 500;
-    color: var(--clr-pathfinder);
-    margin-top: calc(var(--h-unit) * 1);
-    margin-top: calc(var(--d-h-unit) * 1);
-}
 
 #proximeter-container {
     margin-top: calc(var(--h-unit) * 1.5);

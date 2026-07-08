@@ -69,20 +69,10 @@ window.onload = () => {
         }
     };
 
-    const updateHelperDisplay = (degree) => {
-        const hunters = CONFIG.getHunterCount(degree);
-        const charges = CONFIG.getPathfinderCharges(hunters);
-        const helperCountStart = document.getElementById('helper-count-start');
-        if (helperCountStart) {
-            helperCountStart.innerText = charges;
-        }
-    };
-
     degreeSlider.oninput = () => { 
         degreeVal.innerText = degreeSlider.value; 
         updateHunterDisplay(parseInt(degreeSlider.value)); 
         updateTeleportDisplay(parseInt(degreeSlider.value)); 
-        updateHelperDisplay(parseInt(degreeSlider.value));
     };
     branchSlider.oninput = () => branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
     
@@ -92,7 +82,6 @@ window.onload = () => {
     
     updateHunterDisplay(parseInt(degreeSlider.value));
     updateTeleportDisplay(parseInt(degreeSlider.value));
-    updateHelperDisplay(parseInt(degreeSlider.value));
 
     // Show / hide menu Continue button on first load
     const continueBtnMenu = document.getElementById('continue-btn-menu');

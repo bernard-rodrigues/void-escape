@@ -84,9 +84,6 @@ export function saveGame(engine) {
                 ? { ...engine.inactiveTeleportPos }
                 : null,
             teleportCooldownTicks: engine.teleportCooldownTicks,
-            // Pathfinder
-            helperUsesLeft: engine.helperUsesLeft,
-            maxHelperUses: engine.maxHelperUses,
             // Revealed path (fades over time but save its current state)
             revealedPathSet: Array.from(engine.revealedPathSet),
         };

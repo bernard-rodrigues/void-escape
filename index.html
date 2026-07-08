@@ -22,7 +22,6 @@
                 <label for="maze-degree">Maze Degree: <span id="degree-val">-</span></label>
                 <div class="hunter-info">Active Hunters: <span id="hunter-count">-</span></div>
                 <div class="teleport-info-start">Active Teleports: <span id="teleport-count">-</span></div>
-                <div class="helper-info-start">Pathfinder Charges: <span id="helper-count-start">-</span></div>
                 <input type="range" id="maze-degree" min="3" max="16" value="8" aria-label="Ajustar Grau do Labirinto">
                 <p class="hint">Controls the grid size. Higher values create larger, more complex mazes.</p>
             </div>
@@ -93,7 +92,6 @@
         <section id="ui-overlay">
             <div id="floor-display" aria-live="polite">Floor: <span id="current-floor">0</span></div>
             <div id="visited-display" aria-live="polite">Visited: <span id="visited-percent">0</span>%</div>
-            <div id="helper-display" aria-live="polite">Pathfinder: <span id="helper-uses">0</span>/<span id="helper-max-uses">0</span></div>
             <div id="proximeter-container" class="hidden">
                 <div class="proximeter-label">PROXIMITY DETECTOR</div>
                 <div class="proximeter-bar">

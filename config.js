@@ -16,9 +16,6 @@ export const CONFIG = {
     getTeleportCount(degree) {
         return Math.max(2, Math.floor(degree / 2));
     },
-    getPathfinderCharges(hunterCount) {
-        return hunterCount * 3 + 1;
-    },
     COLORS: {
         // 2D & Global
         WALL: '#444',

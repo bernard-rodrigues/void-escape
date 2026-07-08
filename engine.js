@@ -45,8 +45,6 @@ export class Engine {
         this.hunters = [];
         this.initHunters(degree);
 
-        this.maxHelperUses = CONFIG.getPathfinderCharges(this.hunters.length);
-        this.helperUsesLeft = this.maxHelperUses;
         this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
         this.activePathReveal = [];
@@ -55,7 +53,7 @@ export class Engine {
         this.gridMeshes = null;
         this.pathRevealInterval = null;
 
-        this.ui.initGameUI(this.maxHelperUses);
+        this.ui.initGameUI();
 
         this.isMap3DActive = false;
         this.isGameOver = false;
@@ -233,10 +231,7 @@ export class Engine {
         this.inactiveTeleportPos = snapshot.inactiveTeleportPos;
         this.teleportCooldownTicks = snapshot.teleportCooldownTicks;
 
-        // Restore pathfinder
-        this.helperUsesLeft = snapshot.helperUsesLeft;
-        this.maxHelperUses = snapshot.maxHelperUses;
-        this.ui.updatePathfinderUses(this.helperUsesLeft, this.maxHelperUses);
+
 
         // Restore revealed paths
         this.revealedPathSet = new Set(snapshot.revealedPathSet);
@@ -1861,13 +1856,7 @@ export class Engine {
                 const hitMesh = intersects[0].object;
                 const { gridX, gridY, gridZ } = hitMesh.userData;
                 
-                if (this.helperUsesLeft > 0) {
-                    this.helperUsesLeft--;
-                    this.ui.updatePathfinderUses(this.helperUsesLeft, this.maxHelperUses);
-                    this.triggerPathReveal(gridX, gridY, gridZ);
-                } else {
-                    this.ui.showInfoBanner("NO PATHFINDER CHARGES REMAINING");
-                }
+                this.triggerPathReveal(gridX, gridY, gridZ);
             }
         }
     }

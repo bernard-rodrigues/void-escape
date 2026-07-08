@@ -8,8 +8,6 @@ export class UIManager {
         this.uiFloorSpan = document.getElementById('current-floor');
         this.uiMap3dContainer = document.getElementById('map3d-container');
         this.uiMobileControls = document.getElementById('mobile-controls');
-        this.uiHelperUses = document.getElementById('helper-uses');
-        this.uiHelperMaxUses = document.getElementById('helper-max-uses');
         this.uiProximeterContainer = document.getElementById('proximeter-container');
         this.uiProximeterCells = document.querySelectorAll('.proximeter-cell');
         this.uiProximeterBar = document.querySelector('.proximeter-bar');
@@ -77,22 +75,13 @@ export class UIManager {
     /**
      * Setup initial state of HUD when game starts.
      */
-    initGameUI(maxUses) {
+    initGameUI() {
         if (this.uiMobileControls) {
             this.uiMobileControls.classList.remove('hidden');
         }
-        this.updatePathfinderUses(maxUses, maxUses);
         if (this.uiMobileMap) {
             this.uiMobileMap.disabled = true;
         }
-    }
-
-    /**
-     * Update pathfinder charges display.
-     */
-    updatePathfinderUses(left, max) {
-        if (this.uiHelperUses) this.uiHelperUses.innerText = left;
-        if (this.uiHelperMaxUses) this.uiHelperMaxUses.innerText = max;
     }
 
     /**
