@@ -7,13 +7,13 @@ let currentGame = null;
 /**
  * Start a brand-new game with the given parameters.
  */
-const startNewGame = (degree, branching, movementMode) => {
+const startNewGame = (degree, branching) => {
     if (currentGame) currentGame.destroy();
     clearSave(); // Clear old saves when a fresh game is started
     document.getElementById('start-menu').classList.add('hidden');
     document.getElementById('victory-screen').classList.add('hidden');
     document.getElementById('game-over-screen').classList.add('hidden');
-    currentGame = new Engine(degree, branching, movementMode);
+    currentGame = new Engine(degree, branching);
 };
 
 /**
@@ -31,7 +31,7 @@ const continueGame = () => {
 
     // Build engine with saved config so maze dimensions match stored matrix, passing the snapshot
     // to trigger the state restoration and specialized continue transition animation.
-    currentGame = new Engine(snapshot.degree, snapshot.branchingFactor, snapshot.movementMode, snapshot);
+    currentGame = new Engine(snapshot.degree, snapshot.branchingFactor, snapshot);
 };
 
 const returnToMenu = () => {
@@ -91,13 +91,13 @@ window.onload = () => {
     }
 
     document.getElementById('start-btn').onclick = () => {
-        startNewGame(parseInt(degreeSlider.value), parseFloat(branchSlider.value), document.getElementById('movement-mode').value);
+        startNewGame(parseInt(degreeSlider.value), parseFloat(branchSlider.value));
     };
 
     // End-game button logic
     ['restart-btn-victory', 'retry-btn-death'].forEach(id => {
         document.getElementById(id).onclick = () => {
-            startNewGame(currentGame.degree, currentGame.branchingFactor, currentGame.movementMode);
+            startNewGame(currentGame.degree, currentGame.branchingFactor);
         };
     });
 

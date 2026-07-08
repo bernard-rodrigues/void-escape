@@ -12,10 +12,9 @@ import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
 export class Engine {
-    constructor(degree, branchingFactor, movementMode, savedState = null) {
+    constructor(degree, branchingFactor, savedState = null) {
         this.degree = degree;
         this.branchingFactor = branchingFactor;
-        this.movementMode = movementMode;
         this.vScale = 2.0;
 
         // Initialize UI and Input handlers
@@ -565,41 +564,26 @@ export class Engine {
 
         if (!this.isMap3DActive) {
             let moveX = 0, moveY = 0;
-            const isPortrait = window.innerHeight > window.innerWidth;
 
             const hunterSpeedSec = 1000 / CONFIG.HUNTER_SPEED;
             const playerSpeedSec = hunterSpeedSec * CONFIG.MOVE_SPEED_FACTOR;
             const moveDist = playerSpeedSec * dt;
-            const rotDist = CONFIG.ROT_SPEED * dt;
 
-            if (!isPortrait && this.movementMode === 'tank') {
-                if (this.input.keys['a'] || this.input.keys['arrowleft']) this.player.dir -= rotDist;
-                if (this.input.keys['d'] || this.input.keys['arrowright']) this.player.dir += rotDist;
-                if (this.input.keys['w'] || this.input.keys['arrowup']) {
-                    moveX = Math.cos(this.player.dir) * moveDist;
-                    moveY = Math.sin(this.player.dir) * moveDist;
-                }
-                if (this.input.keys['s'] || this.input.keys['arrowdown']) {
-                    moveX = -Math.cos(this.player.dir) * moveDist;
-                    moveY = -Math.sin(this.player.dir) * moveDist;
-                }
+            let dx = 0, dy = 0;
+            if (this.input.touchMoveVector) {
+                dx = this.input.touchMoveVector.x;
+                dy = this.input.touchMoveVector.y;
             } else {
-                let dx = 0, dy = 0;
-                if (this.input.touchMoveVector) {
-                    dx = this.input.touchMoveVector.x;
-                    dy = this.input.touchMoveVector.y;
-                } else {
-                    if (this.input.keys['w'] || this.input.keys['arrowup']) dy -= 1;
-                    if (this.input.keys['s'] || this.input.keys['arrowdown']) dy += 1;
-                    if (this.input.keys['a'] || this.input.keys['arrowleft']) dx -= 1;
-                    if (this.input.keys['d'] || this.input.keys['arrowright']) dx += 1;
-                }
-                if (dx !== 0 || dy !== 0) {
-                    const mag = Math.sqrt(dx * dx + dy * dy);
-                    moveX = (dx / mag) * moveDist;
-                    moveY = (dy / mag) * moveDist;
-                    this.player.dir = Math.atan2(moveY, moveX);
-                }
+                if (this.input.keys['w'] || this.input.keys['arrowup']) dy -= 1;
+                if (this.input.keys['s'] || this.input.keys['arrowdown']) dy += 1;
+                if (this.input.keys['a'] || this.input.keys['arrowleft']) dx -= 1;
+                if (this.input.keys['d'] || this.input.keys['arrowright']) dx += 1;
+            }
+            if (dx !== 0 || dy !== 0) {
+                const mag = Math.sqrt(dx * dx + dy * dy);
+                moveX = (dx / mag) * moveDist;
+                moveY = (dy / mag) * moveDist;
+                this.player.dir = Math.atan2(moveY, moveX);
             }
 
             if (moveX !== 0 || moveY !== 0) {
@@ -631,7 +615,7 @@ export class Engine {
                 if (this.maze.get(finalGridIdxX, finalGridIdxY, this.player.z) === this.mazeGen.TYPES.EXIT) this.triggerVictory();
             }
 
-            if (moveX !== 0 || moveY !== 0 || this.input.keys['a'] || this.input.keys['arrowleft'] || this.input.keys['d'] || this.input.keys['arrowright']) {
+            if (moveX !== 0 || moveY !== 0) {
                 this.skipCellAnimations = false;
             }
 
@@ -693,6 +677,7 @@ export class Engine {
             if (movedCell) {
                 this.staticMapCacheDirty = true;
             }
+            const isPortrait = window.innerHeight > window.innerWidth;
             this.ui.updateMobileMapButton(isOnTeleport, isInactive, isPortrait);
             this.updateFloorUI();
             this.lastPlayerCell = { x: playerIdxX, y: playerIdxY, z: playerIdxZ };
