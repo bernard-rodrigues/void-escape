@@ -64,6 +64,11 @@ export class Engine {
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
+        const startGridX = Math.floor(this.player.x);
+        const startGridY = Math.floor(this.player.y);
+        const startGridZ = this.player.z;
+        this.discoveredTeleports.add(`${startGridX},${startGridY},${startGridZ}`);
+
         this.teleportMeshes = [];
         this.isTeleportMode = false;
         this.teleportCooldownTicks = 0;
@@ -251,6 +256,15 @@ export class Engine {
         const px = Math.floor(this.player.x);
         const py = Math.floor(this.player.y);
         const pz = this.player.z;
+
+        // Ignora colisão se o jogador estiver no ponto seguro de partida
+        const startGridX = Math.floor(this.mazeGen.startPos.x);
+        const startGridY = Math.floor(this.mazeGen.startPos.y);
+        const startGridZ = this.mazeGen.startPos.z;
+        if (px === startGridX && py === startGridY && pz === startGridZ) {
+            return;
+        }
+
         for (const hunter of this.hunters) {
             if (hunter.x === px && hunter.y === py && hunter.z === pz) {
                 this.triggerDeath();
@@ -729,7 +743,8 @@ export class Engine {
                         { x: hunter.x, y: hunter.y, z: hunter.z },
                         { x: Math.floor(this.player.x), y: Math.floor(this.player.y), z: this.player.z },
                         this.maze, this.mazeGen.size, this.mazeGen.TYPES.WALL,
-                        threshold
+                        threshold,
+                        this.mazeGen.startPos
                     );
                     if (dist <= threshold) {
                         isNear = true;
@@ -938,6 +953,32 @@ export class Engine {
                     const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
 
                     if (isTeleportDiscovered) {
+                        const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) &&
+                                                y === Math.floor(this.mazeGen.startPos.y) &&
+                                                z === this.mazeGen.startPos.z;
+
+                        if (isStartTeleport) {
+                            const emissiveInt = this.isTeleportMode ? 2.5 : 0.5;
+                            const material = new THREE.MeshPhongMaterial({
+                                color: CONFIG.COLORS.THREE_START,
+                                emissive: CONFIG.COLORS.THREE_START,
+                                emissiveIntensity: emissiveInt * opFactor,
+                                transparent: true,
+                                opacity: this.isTeleportMode ? 0.95 : (0.8 * opFactor)
+                            });
+                            const mesh = new THREE.Mesh(geometry, material);
+                            mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
+                            
+                            if (this.isTeleportMode) {
+                                mesh.scale.set(1.4, 1.4, 1.4);
+                            }
+                            
+                            mesh.userData = { isTeleport: true, gridX: x, gridY: y, gridZ: z };
+                            this.scene.add(mesh);
+                            this.teleportMeshes.push(mesh);
+                            continue;
+                        }
+
                         const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
                         const isInactive = this.inactiveTeleportPos && 
                                            this.inactiveTeleportPos.x === x && 
@@ -1255,6 +1296,10 @@ export class Engine {
         const px = this.player.x;
         const py = this.player.y;
         
+        const startGridX = Math.floor(this.mazeGen.startPos.x);
+        const startGridY = Math.floor(this.mazeGen.startPos.y);
+        const startGridZ = this.mazeGen.startPos.z;
+        
         const now = Date.now();
         let hasActiveAnimations = false;
 
@@ -1314,11 +1359,16 @@ export class Engine {
                 } else if (isVisited) {
                     drawCellWithFade(x, y, () => {
                         if (isTeleportDiscovered) {
-                            const isInactive = this.inactiveTeleportPos && 
-                                               this.inactiveTeleportPos.x === x && 
-                                               this.inactiveTeleportPos.y === y && 
-                                               this.inactiveTeleportPos.z === z;
-                            ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                            const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
+                            if (isStartTeleport) {
+                                ctx.fillStyle = CONFIG.COLORS.START;
+                            } else {
+                                const isInactive = this.inactiveTeleportPos && 
+                                                   this.inactiveTeleportPos.x === x && 
+                                                   this.inactiveTeleportPos.y === y && 
+                                                   this.inactiveTeleportPos.z === z;
+                                ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                            }
                             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                         } else if (isElevator) {
                             this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);

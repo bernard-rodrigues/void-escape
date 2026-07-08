@@ -90,7 +90,8 @@ export class Hunter {
             targetPos,
             matrix,
             matrix.size,
-            types.WALL
+            types.WALL,
+            this.maze.startPos
         );
         return path;
     }
@@ -117,6 +118,14 @@ export class Hunter {
         for (const d of dirs) {
             const nx = cx + d.dx, ny = cy + d.dy, nz = cz + d.dz;
             if (nx >= 0 && nx < matrix.size && ny >= 0 && ny < matrix.size && nz >= 0 && nz < matrix.size) {
+                // Caçadores não podem entrar na célula de partida segura
+                const startX = Math.floor(this.maze.startPos.x);
+                const startY = Math.floor(this.maze.startPos.y);
+                const startZ = this.maze.startPos.z;
+                if (nx === startX && ny === startY && nz === startZ) {
+                    continue;
+                }
+
                 const cellVal = matrix.get(nx, ny, nz);
                 if (cellVal !== types.WALL) {
                     if (d.dz !== 0) {

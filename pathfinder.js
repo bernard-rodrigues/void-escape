@@ -75,7 +75,7 @@ function heuristic(ax, ay, az, bx, by, bz) {
  * @param {number}       [wallType=0] - cell value considered a wall
  * @returns {{x:number,y:number,z:number}[]|null} path from start (exclusive) to end (inclusive), or null
  */
-export function aStarPath(start, end, maze, size, wallType = 0) {
+export function aStarPath(start, end, maze, size, wallType = 0, startPosToAvoid = null) {
     if (start.x === end.x && start.y === end.y && start.z === end.z) return [];
 
     const cameFrom = new Map();
@@ -110,6 +110,9 @@ export function aStarPath(start, end, maze, size, wallType = 0) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
             
+            // Avoid safe start position if requested (for hunters)
+            if (startPosToAvoid && nx === startPosToAvoid.x && ny === startPosToAvoid.y && nz === startPosToAvoid.z) continue;
+
             // 1D Array Access
             if (maze[nx * size * size + ny * size + nz] === wallType) continue;
 
@@ -166,7 +169,7 @@ function _reconstructPath(cameFrom, endKey) {
  * @param {number}       [maxDist=Infinity]
  * @returns {number} distance, or Infinity if unreachable / beyond maxDist
  */
-export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = Infinity) {
+export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = Infinity, startPosToAvoid = null) {
     if (start.x === end.x && start.y === end.y && start.z === end.z) return 0;
 
     const gCost = new Map();
@@ -200,6 +203,9 @@ export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = In
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
             
+            // Avoid safe start position if requested (for hunters)
+            if (startPosToAvoid && nx === startPosToAvoid.x && ny === startPosToAvoid.y && nz === startPosToAvoid.z) continue;
+
             // 1D Array Access
             if (maze[nx * size * size + ny * size + nz] === wallType) continue;
 

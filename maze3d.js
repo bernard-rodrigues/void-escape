@@ -83,7 +83,7 @@ export class Maze3D {
     setEntryAndExit() {
         const entryZ = 1 + 2 * Math.floor(Math.random() * this.n);
         this.matrix[this._idx(1, 1, entryZ)] = this.TYPES.PATH;
-        this.matrix[this._idx(0, 1, entryZ)] = this.TYPES.START;
+        this.matrix[this._idx(0, 1, entryZ)] = this.TYPES.TELEPORT;
         this.startPos = { x: 0.5, y: 1.5, z: entryZ };
 
         const exitZ = 1 + 2 * Math.floor(Math.random() * this.n);
