@@ -1010,8 +1010,6 @@ body {
 
 .checkbox-label input[type="checkbox"]:checked {
     background: var(--clr-neon);
-    box-shadow: 0 0 calc(var(--h-unit) * 1.5) var(--clr-neon);
-    box-shadow: 0 0 calc(var(--d-h-unit) * 1.5) var(--clr-neon);
 }
 
 .checkbox-label input[type="checkbox"]:checked::after {
