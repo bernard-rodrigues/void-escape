@@ -9,6 +9,9 @@ export class Hunter {
         this.x = startPos.x;
         this.y = startPos.y;
         this.z = startPos.z;
+        this.visualX = startPos.x;
+        this.visualY = startPos.y;
+        this.visualZ = startPos.z;
         this.id = id;
         this.state = 'WANDERING'; // WANDERING, TRACKING or TELEPORT_TRACKING
         this.lastPos = { x: this.x, y: this.y, z: this.z };

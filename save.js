@@ -138,6 +138,9 @@ export function restoreHunter(hunter, data) {
     hunter.x = data.x;
     hunter.y = data.y;
     hunter.z = data.z;
+    hunter.visualX = data.x;
+    hunter.visualY = data.y;
+    hunter.visualZ = data.z;
     hunter.state = data.state;
     hunter.lastPos = { ...data.lastPos };
     hunter.history = data.history.map(p => ({ ...p }));
