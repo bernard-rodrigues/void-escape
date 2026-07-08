@@ -69,6 +69,7 @@ export function saveGame(engine) {
             // Maze configuration — needed to reconstruct Maze3D with the same seed shape
             degree: engine.degree,
             branchingFactor: engine.branchingFactor,
+            isSafeMode: engine.isSafeMode,
             mazeSize: engine.mazeGen.size,
             mazeStartPos: { ...engine.mazeGen.startPos },
             // The live matrix (cells already visited, teleports discovered, etc.)

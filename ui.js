@@ -25,6 +25,9 @@ export class UIManager {
         
         // Hunter status letreiro and unifed info-banner
         this.uiHunterStatusVal = document.getElementById('hunter-status-val');
+        this.uiStatusLabel = document.querySelector('#hunter-status-panel .status-label');
+        this.uiMarqueeContainer = document.querySelector('.status-marquee-container');
+        this.uiLegendHunter = document.getElementById('legend-hunter');
         this.uiInfoBanner = document.getElementById('info-banner');
         this.uiCanvas = document.getElementById('main-2d-canvas');
         this.infoBannerTimeout = null;
@@ -75,12 +78,25 @@ export class UIManager {
     /**
      * Setup initial state of HUD when game starts.
      */
-    initGameUI() {
+    initGameUI(isSafeMode = false) {
         if (this.uiMobileControls) {
             this.uiMobileControls.classList.remove('hidden');
         }
         if (this.uiMobileMap) {
             this.uiMobileMap.disabled = true;
+        }
+
+        // Toggle Safe Mode UI text and layout visibility
+        if (isSafeMode) {
+            if (this.uiStatusLabel) this.uiStatusLabel.innerText = "SAFE MODE:";
+            if (this.uiHunterStatusVal) {
+                this.uiHunterStatusVal.innerText = "ACTIVE";
+                this.uiHunterStatusVal.className = "status-marquee-text status--scanning";
+            }
+            if (this.uiLegendHunter) this.uiLegendHunter.classList.add('hidden');
+        } else {
+            if (this.uiStatusLabel) this.uiStatusLabel.innerText = "HUNTER STATUS:";
+            if (this.uiLegendHunter) this.uiLegendHunter.classList.remove('hidden');
         }
     }
 
@@ -163,14 +179,17 @@ export class UIManager {
     /**
      * Update hazardous warning status (hunters converging or tracking player).
      */
-    updateHazardWarning(isTracking, cooldownTicks) {
+    updateHazardWarning(isTracking, cooldownTicks, isSafeMode = false) {
         if (!this.uiHunterStatusVal) return;
 
         let statusText = "SCANNING";
         let statusClass = "status--scanning";
         let isHunted = false;
 
-        if (cooldownTicks > 0) {
+        if (isSafeMode) {
+            statusText = "ACTIVE";
+            statusClass = "status--scanning";
+        } else if (cooldownTicks > 0) {
             statusText = `HUNTERS CONVERGING (${cooldownTicks} Ticks)`;
             statusClass = "status--converging";
             isHunted = true;

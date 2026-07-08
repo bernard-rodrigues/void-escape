@@ -56,11 +56,20 @@ window.onload = () => {
     const hunterCount = document.getElementById('hunter-count');
     const teleportCount = document.getElementById('teleport-count');
 
+    const safeModeCheckbox = document.getElementById('safe-mode');
+
     const updateHunterDisplay = (degree) => {
-        const count = CONFIG.getHunterCount(degree);
+        const isSafe = safeModeCheckbox && safeModeCheckbox.checked;
+        const count = isSafe ? 0 : CONFIG.getHunterCount(degree);
         hunterCount.innerText = count;
-        hunterCount.style.color = count > 0 ? '#f00' : '#a0f';
+        hunterCount.style.color = count > 0 ? '#f00' : '#88ccff';
     };
+
+    if (safeModeCheckbox) {
+        safeModeCheckbox.onchange = () => {
+            updateHunterDisplay(parseInt(degreeSlider.value));
+        };
+    }
 
     const updateTeleportDisplay = (degree) => {
         const count = CONFIG.getTeleportCount(degree);

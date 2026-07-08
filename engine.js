@@ -15,6 +15,15 @@ export class Engine {
     constructor(degree, branchingFactor, savedState = null) {
         this.degree = degree;
         this.branchingFactor = branchingFactor;
+        
+        // Restore or initialize Safe Mode status
+        if (savedState) {
+            this.isSafeMode = savedState.isSafeMode ?? false;
+        } else {
+            const safeModeCheckbox = document.getElementById('safe-mode');
+            this.isSafeMode = safeModeCheckbox ? safeModeCheckbox.checked : false;
+        }
+
         this.vScale = 2.0;
 
         // Initialize UI and Input handlers
@@ -52,7 +61,7 @@ export class Engine {
         this.gridMeshes = null;
         this.pathRevealInterval = null;
 
-        this.ui.initGameUI();
+        this.ui.initGameUI(this.isSafeMode);
 
         this.isMap3DActive = false;
         this.isGameOver = false;
@@ -144,7 +153,7 @@ export class Engine {
     }
 
     initHunters(degree) {
-        const count = CONFIG.getHunterCount(degree);
+        const count = this.isSafeMode ? 0 : CONFIG.getHunterCount(degree);
         if (count === 0) return;
         const size = this.mazeGen.size;
         const mid = Math.floor(size / 2);
@@ -739,7 +748,7 @@ export class Engine {
             }
 
             const isTracking = trackingCount > 0;
-            this.ui.updateHazardWarning(isTracking, this.teleportCooldownTicks);
+            this.ui.updateHazardWarning(isTracking, this.teleportCooldownTicks, this.isSafeMode);
             if (isTracking) {
                 this.canvas.classList.add('hunted-map-effect');
             } else {

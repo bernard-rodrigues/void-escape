@@ -32,6 +32,14 @@
                 <p class="hint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
             </div>
 
+            <div class="control-group checkbox-group">
+                <label for="safe-mode" class="checkbox-label">
+                    <input type="checkbox" id="safe-mode" aria-label="Safe Mode">
+                    <span>Safe Mode</span>
+                </label>
+                <p class="hint">When active, no hunters will spawn in the maze.</p>
+            </div>
+
 
 
             <button id="start-btn">GENERATE MAZE</button>
@@ -114,7 +122,7 @@
             <div class="legend-item"><span class="color-box color-box--known"></span> Known Path</div>
             <div class="legend-item"><span class="color-box color-box--start"></span> Starting Point</div>
             <div class="legend-item"><span class="color-box color-box--exit"></span> Maze Exit</div>
-            <div class="legend-item"><span class="color-box color-box--hunter"></span> Void Hunter</div>
+            <div id="legend-hunter" class="legend-item"><span class="color-box color-box--hunter"></span> Void Hunter</div>
             <div class="legend-item"><span class="color-box color-box--teleport"></span> Teleport</div>
             <div class="legend-item"><span class="symbol-box">▲▼</span> Elevator</div>
         </aside>
