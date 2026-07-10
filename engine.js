@@ -51,6 +51,12 @@ export class Engine {
         };
         this.wallImage.src = 'assets/images/wall.png';
         
+        this.floorImage = new Image();
+        this.floorImage.onload = () => {
+            this.staticMapCacheDirty = true;
+        };
+        this.floorImage.src = 'assets/images/floor.png';
+        
         this.player = {
             x: this.mazeGen.startPos.x,
             y: this.mazeGen.startPos.y,
@@ -480,6 +486,40 @@ export class Engine {
             ctx.restore();
         }
     }
+
+    /**
+     * Draws wall-projected shadows on a 2D cell based on adjacent wall positions.
+     */
+    drawCellShadow2D(ctx, x, y, cellSize, size, val, z) {
+        if (val === 4) return; // Exclude exit cell
+
+        const hasWallBelow = (y + 1 < size) && (this.maze.get(x, y + 1, z) === 0);
+        const hasWallRight = (x + 1 < size) && (this.maze.get(x + 1, y, z) === 0);
+        const hasWallDiagonal = (x + 1 < size) && (y + 1 < size) && (this.maze.get(x + 1, y + 1, z) === 0);
+
+        if (hasWallBelow || hasWallRight || hasWallDiagonal) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Sombra com 40% de opacidade
+            const shadowSize = cellSize * CONFIG.SHADOW_SIZE_FACTOR;
+            
+            if (hasWallBelow) {
+                // Faixa na parte de baixo (largura total)
+                ctx.fillRect(x * cellSize, (y + 1) * cellSize - shadowSize, cellSize, shadowSize);
+            }
+            if (hasWallRight) {
+                // Se houver parede abaixo, reduz a altura para evitar sobreposição na quina
+                const rightShadowHeight = hasWallBelow ? (cellSize - shadowSize) : cellSize;
+                // Faixa na parte da direita
+                ctx.fillRect((x + 1) * cellSize - shadowSize, y * cellSize, shadowSize, rightShadowHeight);
+            }
+            
+            // Se não tem parede direta abaixo nem na direita, mas tem na diagonal
+            if (!hasWallBelow && !hasWallRight && hasWallDiagonal) {
+                // Desenha um quadradinho no canto inferior direito
+                ctx.fillRect((x + 1) * cellSize - shadowSize, (y + 1) * cellSize - shadowSize, shadowSize, shadowSize);
+            }
+        }
+    }
+
     updateRendererSize() {
         if (this.renderer) {
             this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1385,15 +1425,37 @@ export class Engine {
                         } else if (isElevator) {
                             this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
                         } else {
-                            ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
-                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            if (val === 2 && this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                                ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                            } else {
+                                ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
+                                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            }
                         }
+
+                        // Desenha sombra projetada das paredes adjacentes (Luz de baixo e da direita)
+                        this.drawCellShadow2D(ctx, x, y, cellSize, size, val, z);
                     });
                 } else if (isKnown) { 
                     drawCellWithFade(x, y, () => {
-                        ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; 
-                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
+                        if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                            ctx.save();
+                            ctx.globalAlpha = 0.35; // Transparência elevada para a textura do chão
+                            ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                            ctx.restore();
+                            
+                            // Brilho extra pulsante com a cor do caminho conhecido (azul translúcido)
+                            // A opacidade oscila suavemente entre 0.10 e 0.34
+                            const pulseOpacity = 0.22 + 0.12 * Math.sin(Date.now() / 250);
+                            ctx.fillStyle = `rgba(136, 204, 255, ${pulseOpacity})`;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.PATH_KNOWN; 
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); 
+                        }
                     });
+                    // Força a atualização do cache estático do mapa a cada frame para animar o pulso
+                    hasActiveAnimations = true;
                 }
                 else if (val === 0 && this.isNearVisited(x, y, z)) {
                     drawCellWithFade(x, y, () => {
