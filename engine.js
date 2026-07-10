@@ -1123,6 +1123,12 @@ export class Engine {
                                 this.scene.add(meshBottom);
                                  this.scene.add(meshTop);
                                 this.gridMeshes[(x * size * size) + (y * size) + z] = meshTop; // Reference to one of them is enough
+                                if (isKnown && !isRevealedPath) {
+                                    meshBottom.userData = { gridX: x, gridY: y, gridZ: z };
+                                    meshTop.userData = { gridX: x, gridY: y, gridZ: z };
+                                    this.knownMeshes.push(meshBottom);
+                                    this.knownMeshes.push(meshTop);
+                                }
                                 continue; // Mesh already added, skip the default mesh below
                             } else {
                                 const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
@@ -1950,12 +1956,20 @@ export class Engine {
             this.pathRevealInterval = null;
         }
 
+        let targetZ = tz;
+        if (tz % 2 === 0) {
+            // Se o destino for um poço de elevador (par), redireciona para o andar jogável (ímpar) mais próximo do player
+            targetZ = Math.abs((tz - 1) - this.player.z) < Math.abs((tz + 1) - this.player.z) ? (tz - 1) : (tz + 1);
+            if (targetZ < 0) targetZ = 1;
+            if (targetZ >= this.mazeGen.size) targetZ = this.mazeGen.size - 1;
+        }
+
         const start = {
             x: Math.floor(this.player.x),
             y: Math.floor(this.player.y),
             z: this.player.z
         };
-        const end = { x: tx, y: ty, z: tz };
+        const end = { x: tx, y: ty, z: targetZ };
         const path = this.findShortestPath(start, end);
 
         if (!path || path.length === 0) return;
@@ -1969,6 +1983,31 @@ export class Engine {
                 const node = this.activePathReveal[this.revealedPathProgress];
                 const key = `${node.x},${node.y},${node.z}`;
                 this.revealedPathSet.add(key);
+                
+                // Se houve salto vertical no caminho, revela o poço de elevador intermediário (par)
+                if (this.revealedPathProgress > 0) {
+                    const prevNode = this.activePathReveal[this.revealedPathProgress - 1];
+                    if (Math.abs(node.z - prevNode.z) === 2) {
+                        const midZ = (node.z + prevNode.z) / 2;
+                        const shaftKey = `${node.x},${node.y},${midZ}`;
+                        this.revealedPathSet.add(shaftKey);
+
+                        if (this.isMap3DActive && this.gridMeshes) {
+                            const size = this.mazeGen.size;
+                            const mesh = this.gridMeshes[(node.x * size * size) + (node.y * size) + midZ];
+                            if (mesh) {
+                                mesh.material = new THREE.MeshPhongMaterial({
+                                    color: 0xffffff,
+                                    emissive: 0xffffff,
+                                    emissiveIntensity: 2.0,
+                                    transparent: true,
+                                    opacity: 0.95 * (this.isTeleportMode ? 0.2 : 1.0)
+                                });
+                            }
+                        }
+                    }
+                }
+
                 this.staticMapCacheDirty = true;
                 
                 if (this.isMap3DActive && this.gridMeshes) {
