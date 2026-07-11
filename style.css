@@ -723,6 +723,12 @@ body {
     100% { opacity: 0.4; transform: translateX(-50%) scale(0.98); }
 }
 
+@keyframes pulse-orange {
+    0% { opacity: 0.4; transform: translateX(-50%) scale(0.98); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.02); }
+    100% { opacity: 0.4; transform: translateX(-50%) scale(0.98); }
+}
+
 @media (orientation: portrait) {
     #nearby-warning {
         top: calc(var(--h-unit) * 6);
@@ -739,32 +745,16 @@ body {
     left: 50%;
     transform: translateX(-50%);
     color: var(--clr-teleport);
-    font-size: calc(var(--h-unit) * 3);
-    font-size: calc(var(--d-h-unit) * 3);
+    font-size: calc(var(--h-unit) * 2.5);
+    font-size: calc(var(--d-h-unit) * 2.5);
     font-weight: bold;
     text-transform: uppercase;
-    letter-spacing: calc(var(--h-unit) * 0.4);
-    letter-spacing: calc(var(--d-h-unit) * 0.4);
+    letter-spacing: 0.1em;
+    font-family: monospace;
     z-index: 1005;
     animation: pulse-orange 1s infinite;
     pointer-events: none;
     text-align: center;
-}
-
-/* --- Unified Info Banner (bottom-left) & Teleport Warning --- */
-#teleport-warning {
-    position: absolute;
-    bottom: calc(var(--h-unit) * 6);
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--clr-teleport);
-    font-size: calc(var(--h-unit) * 2.2);
-    font-weight: bold;
-    letter-spacing: 0.1em;
-    font-family: monospace;
-    pointer-events: none;
-    text-align: center;
-    z-index: 10;
 }
 
 #info-banner {
@@ -905,10 +895,6 @@ body {
         margin-bottom: calc(var(--d-h-unit) * 2.5);
         letter-spacing: calc(var(--h-unit) * 0.4);
         letter-spacing: calc(var(--d-h-unit) * 0.4);
-    }
-    #teleport-warning {
-        bottom: calc(var(--h-unit) * 12);
-        font-size: calc(var(--h-unit) * 1.8);
     }
     #info-banner {
         bottom: calc(var(--h-unit) * 18);

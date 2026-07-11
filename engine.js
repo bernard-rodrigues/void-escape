@@ -1519,45 +1519,6 @@ export class Engine {
     // getPathDistance3D and getProximeterDistance have been moved to pathfinder.js
     // as aStarDistance() and proximeterDistance() respectively.
 
-    updateProximeterUI(minDistance) {
-        if (!this.uiProximeterContainer) return;
-        
-        // Show proximeter container if there is at least one hunter and the game is active
-        if (this.hunters.length > 0 && !this.isGameOver) {
-            this.uiProximeterContainer.classList.remove('hidden');
-        } else {
-            this.uiProximeterContainer.classList.add('hidden');
-            return;
-        }
-
-        // Distance 10 -> 1 active cell
-        // Distance 9 -> 2 active cells
-        // ...
-        // Distance 1 -> 10 active cells
-        // Distance > 10 -> 0 active cells
-        let activeCellsCount = 0;
-        if (minDistance <= 10) {
-            activeCellsCount = 11 - minDistance;
-        }
-
-        this.uiProximeterCells.forEach((cell) => {
-            const index = parseInt(cell.getAttribute('data-index'));
-            if (index <= activeCellsCount) {
-                cell.classList.add('active');
-            } else {
-                cell.classList.remove('active');
-            }
-        });
-
-        // Trigger critical alert pulse animation if the closest hunter is at 1 case
-        if (this.uiProximeterBar) {
-            if (activeCellsCount === 10) {
-                this.uiProximeterBar.classList.add('critical-alert');
-            } else {
-                this.uiProximeterBar.classList.remove('critical-alert');
-            }
-        }
-    }
 
     updatePulse() {
         if (!this.isMap3DActive || this.pulsatingMaterials.length === 0) return;
