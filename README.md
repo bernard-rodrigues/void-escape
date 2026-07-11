@@ -34,6 +34,17 @@ A 3D maze exploration simulator with a cyberpunk theme, vertical navigation chal
 - **Three.js:** Render engine for the orbital 3D holographic overview.
 - **HTML5 Canvas:** Tactical 2D navigation view rendering.
 - **CSS3:** Futuristic interface styling with glassmorphism, responsive controls, and alert screens.
+- **Node.js (v18+):** Native test runner for core game algorithms (zero external dependencies).
+
+## 🧪 Automated Testing
+
+To ensure the integrity of pathfinding algorithms, maze generation constraints, hunter behavior, and save data conversions, an automated test suite is provided.
+
+### Running Tests
+Execute the following command in the project root:
+```bash
+npm test
+```
 
 ## 📐 Project Structure
 
