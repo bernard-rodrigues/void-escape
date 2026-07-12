@@ -17,7 +17,11 @@ export const CONFIG = {
         return 1;
     },
     getTeleportCount(degree) {
-        return Math.max(2, Math.floor(degree / 2));
+        if (degree <= 8) {
+            return Math.max(2, Math.floor(degree / 2));
+        }
+        const diff = degree - 8;
+        return Math.floor(0.125 * diff * diff + 0.5 * diff + 4);
     },
     COLORS: {
         // 2D & Global
