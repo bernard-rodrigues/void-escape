@@ -72,9 +72,9 @@ export class Maze3D {
             }
         }
 
-        this.applyBraid();
         this.setEntryAndExit();
         this.placeTeleports();
+        this.applyBraid();
 
         // Enrich the TypedArray with convenience O(1) coordinate mapping methods
         const size = this.size;
@@ -154,7 +154,7 @@ export class Maze3D {
                 }
             }
         }
-        const paths = deadEnds.length >= count ? deadEnds : [...deadEnds, ...normalPaths];
+        const paths = deadEnds;
 
         const start = { x: 0, y: 1, z: this.startPos.z };
         let exit = { x: 2 * this.n, y: 2 * this.n - 1, z: this.startPos.z };
@@ -244,19 +244,31 @@ export class Maze3D {
                         const isWallZ = (z % 2 === 0) && (x % 2 !== 0) && (y % 2 !== 0);
 
                         if (isWallX) {
-                            if (this.matrix[this._idx(x - 1, y, z)] !== this.TYPES.WALL && 
-                                this.matrix[this._idx(x + 1, y, z)] !== this.TYPES.WALL) {
-                                candidates.push({ x, y, z, type: 'X' });
+                            const c1 = this.matrix[this._idx(x - 1, y, z)];
+                            const c2 = this.matrix[this._idx(x + 1, y, z)];
+                            if (c1 !== this.TYPES.WALL && c2 !== this.TYPES.WALL) {
+                                if (c1 !== this.TYPES.TELEPORT && c2 !== this.TYPES.TELEPORT &&
+                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT) {
+                                    candidates.push({ x, y, z, type: 'X' });
+                                }
                             }
                         } else if (isWallY) {
-                            if (this.matrix[this._idx(x, y - 1, z)] !== this.TYPES.WALL && 
-                                this.matrix[this._idx(x, y + 1, z)] !== this.TYPES.WALL) {
-                                candidates.push({ x, y, z, type: 'Y' });
+                            const c1 = this.matrix[this._idx(x, y - 1, z)];
+                            const c2 = this.matrix[this._idx(x, y + 1, z)];
+                            if (c1 !== this.TYPES.WALL && c2 !== this.TYPES.WALL) {
+                                if (c1 !== this.TYPES.TELEPORT && c2 !== this.TYPES.TELEPORT &&
+                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT) {
+                                    candidates.push({ x, y, z, type: 'Y' });
+                                }
                             }
                         } else if (isWallZ) {
-                            if (this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL && 
-                                this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL) {
-                                candidates.push({ x, y, z, type: 'Z' });
+                            const c1 = this.matrix[this._idx(x, y, z - 1)];
+                            const c2 = this.matrix[this._idx(x, y, z + 1)];
+                            if (c1 !== this.TYPES.WALL && c2 !== this.TYPES.WALL) {
+                                if (c1 !== this.TYPES.TELEPORT && c2 !== this.TYPES.TELEPORT &&
+                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT) {
+                                    candidates.push({ x, y, z, type: 'Z' });
+                                }
                             }
                         }
                     }
