@@ -181,13 +181,138 @@ export class Engine {
     initHunters(degree) {
         const count = this.isSafeMode ? 0 : CONFIG.getHunterCount(degree);
         if (count === 0) return;
-        const size = this.mazeGen.size;
-        const mid = Math.floor(size / 2);
         
-        if (count >= 1) this.hunters.push(new Hunter(this.mazeGen, this.getExitPos(), 1));
-        if (count >= 2) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(size - 2, 1, mid), 2));
-        if (count >= 3) this.hunters.push(new Hunter(this.mazeGen, this.findNearestValid(1, size - 2, mid), 3));
+        for (let i = 1; i <= count; i++) {
+            this.hunters.push(new Hunter(this.mazeGen, null, i));
+        }
         this.lastHunterMove = performance.now();
+    }
+
+    wakeHunters() {
+        const size = this.mazeGen.size;
+        const candidates = [];
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+
+        // Gather all unvisited path cells (TYPES.PATH)
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH) {
+                        candidates.push({ x, y, z });
+                    }
+                }
+            }
+        }
+
+        if (candidates.length === 0) {
+            // Fallback: if no unvisited path cells exist, use visited ones that are not the player cell
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    for (let z = 0; z < size; z++) {
+                        const val = this.maze.get(x, y, z);
+                        if (val !== this.mazeGen.TYPES.WALL && (x !== px || y !== py || z !== pz)) {
+                            candidates.push({ x, y, z });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Shuffle candidates using Math.random for runtime gameplay variance
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = candidates[i];
+            candidates[i] = candidates[j];
+            candidates[j] = temp;
+        }
+
+        const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
+
+        // Find a valid position for each sleeping hunter
+        const spawnedPos = [];
+        const sleepingHunters = this.hunters.filter(h => h.state === 'SLEEP');
+
+        let minPlayerDist = Math.max(3, Math.floor(size * 0.45));
+        let minInterHunterDist = 4;
+
+        while (spawnedPos.length < sleepingHunters.length && minPlayerDist > 0) {
+            spawnedPos.length = 0;
+
+            const filteredCandidates = candidates.filter(c => {
+                const distToPlayer = getDist(c, { x: px, y: py, z: pz });
+                return distToPlayer >= minPlayerDist;
+            });
+
+            for (let i = 0; i < sleepingHunters.length; i++) {
+                let bestCand = null;
+                for (const c of filteredCandidates) {
+                    if (spawnedPos.some(s => s.x === c.x && s.y === c.y && s.z === c.z)) continue;
+
+                    let validInterHunter = true;
+                    for (const s of spawnedPos) {
+                        if (getDist(c, s) < minInterHunterDist) {
+                            validInterHunter = false;
+                            break;
+                        }
+                    }
+
+                    if (validInterHunter) {
+                        bestCand = c;
+                        break; // Since list is already shuffled, take the first valid one
+                    }
+                }
+
+                if (bestCand) {
+                    spawnedPos.push(bestCand);
+                } else {
+                    break;
+                }
+            }
+
+            if (spawnedPos.length < sleepingHunters.length) {
+                if (minInterHunterDist > 1) {
+                    minInterHunterDist--;
+                } else {
+                    minPlayerDist--;
+                }
+            }
+        }
+
+        // If even then we don't have enough, just assign whatever candidates we have
+        if (spawnedPos.length < sleepingHunters.length) {
+            for (const c of candidates) {
+                if (spawnedPos.length >= sleepingHunters.length) break;
+                if (!spawnedPos.some(s => s.x === c.x && s.y === c.y && s.z === c.z)) {
+                    spawnedPos.push(c);
+                }
+            }
+        }
+
+        // Apply coordinates and change state to WANDERING
+        for (let i = 0; i < sleepingHunters.length && i < spawnedPos.length; i++) {
+            const hunter = sleepingHunters[i];
+            const pos = spawnedPos[i];
+            
+            hunter.x = pos.x;
+            hunter.y = pos.y;
+            hunter.z = pos.z;
+            hunter.visualX = pos.x;
+            hunter.visualY = pos.y;
+            hunter.visualZ = pos.z;
+            hunter.lastPos = { x: pos.x, y: pos.y, z: pos.z };
+            hunter.state = 'WANDERING';
+            hunter.visitedNodes.clear();
+            hunter.visitedNodes.add(`${pos.x},${pos.y},${pos.z}`);
+            hunter.history = [];
+        }
+
+        this.ui.showInfoBanner("WARNING: VOID HUNTERS DETECTED");
+        this.staticMapCacheDirty = true;
+        if (this.isMap3DActive) {
+            this.build3DMap();
+        }
     }
 
     getExitPos() {
@@ -328,6 +453,7 @@ export class Engine {
         }
 
         for (const hunter of this.hunters) {
+            if (hunter.state === 'SLEEP') continue;
             if (hunter.x === px && hunter.y === py && hunter.z === pz) {
                 this.triggerDeath();
                 return;
@@ -442,6 +568,7 @@ export class Engine {
     hideCanvasInstant() {
         const mapArea = document.getElementById('map-area-container');
         const leftHud = document.getElementById('left-hud-panel');
+        const rightHud = document.getElementById('right-hud-panel');
         if (mapArea) {
             mapArea.style.transition = 'none';
             mapArea.classList.remove('intro-reveal');
@@ -455,6 +582,13 @@ export class Engine {
             leftHud.classList.add('intro-hidden');
             leftHud.offsetHeight;
             leftHud.style.transition = '';
+        }
+        if (rightHud) {
+            rightHud.style.transition = 'none';
+            rightHud.classList.remove('intro-reveal');
+            rightHud.classList.add('intro-hidden');
+            rightHud.offsetHeight;
+            rightHud.style.transition = '';
         }
     }
 
@@ -641,6 +775,13 @@ export class Engine {
 
     update(dt) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        if (this.hunters.some(h => h.state === 'SLEEP')) {
+            const percent = this.getMapVisitedPercentage();
+            if (percent >= 10) {
+                this.wakeHunters();
+            }
+        }
 
         // Update hunter visual positions toward their target grid positions
         const speed = 1000 / CONFIG.HUNTER_SPEED;
@@ -851,7 +992,10 @@ export class Engine {
 
             let trackingCount = 0;
             let nearbyCount = 0;
+            const isSleeping = this.hunters.some(h => h.state === 'SLEEP');
+
             for (const hunter of this.hunters) {
+                if (hunter.state === 'SLEEP') continue;
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
                 if (hunter.state === 'TRACKING' || hunter.state === 'TELEPORT_TRACKING') trackingCount++;
                 const sameFloor = hunter.z === this.player.z;
@@ -874,13 +1018,12 @@ export class Engine {
                 if (isNear) {
                     nearbyCount++;
                 }
-                // Per-tick collision check: detects when a hunter walks into the player's cell.
                 this.checkHunterCollision();
                 if (this.isGameOver) return;
             }
 
             const isTracking = trackingCount > 0;
-            this.ui.updateHazardWarning(isTracking, this.teleportCooldownTicks, this.isSafeMode);
+            this.ui.updateHazardWarning(isTracking, this.teleportCooldownTicks, this.isSafeMode, isSleeping);
             if (isTracking) {
                 this.canvas.classList.add('hunted-map-effect');
             } else {
@@ -894,7 +1037,8 @@ export class Engine {
             const py = Math.floor(this.player.y);
             const pz = this.player.z;
             
-            for (const hunter of this.hunters) {
+            const activeHunters = this.hunters.filter(h => h.state !== 'SLEEP');
+            for (const hunter of activeHunters) {
                 const dist = proximeterDistance(
                     { x: hunter.x, y: hunter.y, z: hunter.z },
                     { x: px, y: py, z: pz },
@@ -905,7 +1049,7 @@ export class Engine {
                 }
             }
 
-            this.ui.updateProximeter(minDistance, this.hunters.length, this.isGameOver);
+            this.ui.updateProximeter(minDistance, activeHunters.length, this.isGameOver);
         }
     }
 
@@ -1284,6 +1428,7 @@ export class Engine {
 
         for (let i = 0; i < this.hunters.length; i++) {
             const h = this.hunters[i];
+            if (h.state === 'SLEEP') continue;
             
             // Create trail meshes
             const tMesh2 = new THREE.Mesh(trailGeom, trailMat2); // Oldest
@@ -1397,6 +1542,7 @@ export class Engine {
         // 3. Draw Hunters (dynamic, constantly moving)
         const pulse = Math.sin(Date.now() / 200) * 5 + 10;
         for (const h of this.hunters) {
+            if (h.state === 'SLEEP') continue;
             if (h.history) {
                 h.history.forEach((pos, idx) => {
                     if (pos.z === z) {
@@ -1995,6 +2141,7 @@ export class Engine {
 
             const mapArea = document.getElementById('map-area-container');
             const leftHud = document.getElementById('left-hud-panel');
+            const rightHud = document.getElementById('right-hud-panel');
             if (mapArea) {
                 mapArea.classList.remove('intro-hidden');
                 mapArea.classList.add('intro-reveal');
@@ -2004,6 +2151,11 @@ export class Engine {
                 leftHud.classList.remove('intro-hidden');
                 leftHud.classList.add('intro-reveal');
                 setTimeout(() => leftHud.classList.remove('intro-reveal'), 700);
+            }
+            if (rightHud) {
+                rightHud.classList.remove('intro-hidden');
+                rightHud.classList.add('intro-reveal');
+                setTimeout(() => rightHud.classList.remove('intro-reveal'), 700);
             }
         }, 600);
     }

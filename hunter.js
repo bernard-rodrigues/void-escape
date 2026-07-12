@@ -6,22 +6,35 @@ import { aStarPath, bfsNearestUnvisited } from './pathfinder.js';
 export class Hunter {
     constructor(maze, startPos, id) {
         this.maze = maze;
-        this.x = startPos.x;
-        this.y = startPos.y;
-        this.z = startPos.z;
-        this.visualX = startPos.x;
-        this.visualY = startPos.y;
-        this.visualZ = startPos.z;
         this.id = id;
-        this.state = 'WANDERING'; // WANDERING, TRACKING or TELEPORT_TRACKING
-        this.lastPos = { x: this.x, y: this.y, z: this.z };
-        this.history = []; // Keep track of the last 2 positions for the trail
+        this.history = [];
         this.visitedNodes = new Set();
-        this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
         this.pathToTarget = [];
+
+        if (startPos) {
+            this.x = startPos.x;
+            this.y = startPos.y;
+            this.z = startPos.z;
+            this.visualX = startPos.x;
+            this.visualY = startPos.y;
+            this.visualZ = startPos.z;
+            this.state = 'WANDERING';
+            this.lastPos = { x: this.x, y: this.y, z: this.z };
+            this.visitedNodes.add(`${this.x},${this.y},${this.z}`);
+        } else {
+            this.x = null;
+            this.y = null;
+            this.z = null;
+            this.visualX = null;
+            this.visualY = null;
+            this.visualZ = null;
+            this.state = 'SLEEP';
+            this.lastPos = null;
+        }
     }
 
     move(playerPos, matrix, types) {
+        if (this.state === 'SLEEP') return;
         const neighbors = this.getValidNeighbors(matrix, types);
         if (neighbors.length === 0) return;
 

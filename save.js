@@ -50,7 +50,7 @@ function serialiseHunter(h) {
         z: h.z,
         id: h.id,
         state: h.state,
-        lastPos: { ...h.lastPos },
+        lastPos: h.lastPos ? { ...h.lastPos } : null,
         history: h.history.map(p => ({ ...p })),
         visitedNodes: Array.from(h.visitedNodes),
         pathToTarget: h.pathToTarget.map(p => ({ ...p })),
@@ -145,7 +145,7 @@ export function restoreHunter(hunter, data) {
     hunter.visualY = data.y;
     hunter.visualZ = data.z;
     hunter.state = data.state;
-    hunter.lastPos = { ...data.lastPos };
+    hunter.lastPos = data.lastPos ? { ...data.lastPos } : null;
     hunter.history = data.history.map(p => ({ ...p }));
     hunter.visitedNodes = new Set(data.visitedNodes);
     hunter.pathToTarget = data.pathToTarget.map(p => ({ ...p }));

@@ -123,22 +123,25 @@
             </div>
         </div>
 
-        <aside id="controls-hint">
-            Arrows or WASD: Move/Rotate<br>
-            PgUp/PgDn or Q/E: Move Up/Down<br>
-            <strong>M: 3D Holographic Map</strong>
-        </aside>
+        <!-- Right HUD Panel (Legend & Controls) -->
+        <div id="right-hud-panel" class="intro-hidden">
+            <aside id="map-legend">
+                <h3>MAP LEGEND</h3>
+                <div class="legend-item"><span class="color-box color-box--visited"></span> Visited Path</div>
+                <div class="legend-item"><span class="color-box color-box--known"></span> Known Path</div>
+                <div class="legend-item"><span class="color-box color-box--start"></span> Starting Point</div>
+                <div class="legend-item"><span class="color-box color-box--exit"></span> Maze Exit</div>
+                <div id="legend-hunter" class="legend-item"><span class="color-box color-box--hunter"></span> Void Hunter</div>
+                <div class="legend-item"><span class="color-box color-box--teleport"></span> Teleport</div>
+                <div class="legend-item"><span class="symbol-box">▲▼</span> Elevator</div>
+            </aside>
 
-        <aside id="map-legend">
-            <h3>MAP LEGEND</h3>
-            <div class="legend-item"><span class="color-box color-box--visited"></span> Visited Path</div>
-            <div class="legend-item"><span class="color-box color-box--known"></span> Known Path</div>
-            <div class="legend-item"><span class="color-box color-box--start"></span> Starting Point</div>
-            <div class="legend-item"><span class="color-box color-box--exit"></span> Maze Exit</div>
-            <div id="legend-hunter" class="legend-item"><span class="color-box color-box--hunter"></span> Void Hunter</div>
-            <div class="legend-item"><span class="color-box color-box--teleport"></span> Teleport</div>
-            <div class="legend-item"><span class="symbol-box">▲▼</span> Elevator</div>
-        </aside>
+            <aside id="controls-hint">
+                Arrows or WASD: Move/Rotate<br>
+                PgUp/PgDn or Q/E: Move Up/Down<br>
+                <strong>M: 3D Holographic Map</strong>
+            </aside>
+        </div>
         
         <!-- Mobile Controls Panel -->
         <nav id="mobile-controls" class="hidden">

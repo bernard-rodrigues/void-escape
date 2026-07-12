@@ -204,7 +204,7 @@ export class UIManager {
     /**
      * Update hazardous warning status (hunters converging or tracking player).
      */
-    updateHazardWarning(isTracking, cooldownTicks, isSafeMode = false) {
+    updateHazardWarning(isTracking, cooldownTicks, isSafeMode = false, isSleeping = false) {
         if (!this.uiHunterStatusVal) return;
 
         let statusText = "SCANNING";
@@ -214,6 +214,9 @@ export class UIManager {
         if (isSafeMode) {
             statusText = "ACTIVE";
             statusClass = "status--scanning";
+        } else if (isSleeping) {
+            statusText = "SLEEPING";
+            statusClass = "status--sleeping";
         } else if (cooldownTicks > 0) {
             statusText = `HUNTERS CONVERGING (${cooldownTicks} Ticks)`;
             statusClass = "status--converging";
