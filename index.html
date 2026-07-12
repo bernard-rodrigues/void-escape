@@ -22,6 +22,7 @@
                 <label for="maze-degree">Maze Degree: <span id="degree-val">-</span></label>
                 <div class="hunter-info">Active Hunters: <span id="hunter-count">-</span></div>
                 <div class="teleport-info-start">Active Teleports: <span id="teleport-count">-</span></div>
+                <div class="keys-info-start">Active Keys: <span id="keys-count">-</span></div>
                 <input type="range" id="maze-degree" min="3" max="16" value="8" aria-label="Ajustar Grau do Labirinto">
                 <p class="hint">Controls the grid size. Higher values create larger, more complex mazes.</p>
             </div>
@@ -77,6 +78,17 @@
     <div id="saving-indicator" class="hidden"><span class="saving-icon">💾</span> SAVING...</div>
 
     <main id="game-container">
+        <!-- Left HUD Panel (Keys Counter) -->
+        <div id="left-hud-panel" class="intro-hidden">
+            <div class="keys-title">KEYS</div>
+            <div class="keys-counter">
+                <span id="keys-collected-count">0</span> / <span id="keys-total-count">0</span>
+            </div>
+            <div id="keys-list-container">
+                <!-- Dynamically populated key indicator dots -->
+            </div>
+        </div>
+
         <!-- 2D Map Container and its Top Marquee -->
         <div id="map-area-container" class="intro-hidden">
             <!-- Hunter Status Marquee Panel (centered above the 2D map) -->

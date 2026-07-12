@@ -31,6 +31,11 @@ export class UIManager {
         this.uiInfoBanner = document.getElementById('info-banner');
         this.uiCanvas = document.getElementById('main-2d-canvas');
         this.infoBannerTimeout = null;
+
+        // Keys HUD DOM bindings
+        this.uiKeysCollected = document.getElementById('keys-collected-count');
+        this.uiKeysTotal = document.getElementById('keys-total-count');
+        this.uiKeysList = document.getElementById('keys-list-container');
     }
 
     /**
@@ -118,6 +123,26 @@ export class UIManager {
         }
         if (this.uiMobileUp) this.uiMobileUp.disabled = !hasUp;
         if (this.uiMobileDown) this.uiMobileDown.disabled = !hasDown;
+    }
+
+    /**
+     * Update the keys HUD elements (collected count, total count, list indicators).
+     */
+    updateKeysHUD(collected, total) {
+        if (this.uiKeysCollected) this.uiKeysCollected.innerText = collected;
+        if (this.uiKeysTotal) this.uiKeysTotal.innerText = total;
+
+        if (this.uiKeysList) {
+            this.uiKeysList.innerHTML = '';
+            for (let i = 0; i < total; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'key-indicator-dot';
+                if (i < collected) {
+                    dot.classList.add('collected');
+                }
+                this.uiKeysList.appendChild(dot);
+            }
+        }
     }
 
     /**

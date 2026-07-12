@@ -87,6 +87,9 @@ export function saveGame(engine) {
             teleportCooldownTicks: engine.teleportCooldownTicks,
             // Revealed path (fades over time but save its current state)
             revealedPathSet: Array.from(engine.revealedPathSet),
+            // Key collection state
+            keysCollected: engine.keysCollected,
+            totalKeys: engine.totalKeys
         };
 
         localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));

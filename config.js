@@ -51,6 +51,7 @@ export const CONFIG = {
         THREE_ELEVATOR_UP: 0x00ffff,
         THREE_ELEVATOR_DOWN: 0xff00ff,
         THREE_TELEPORT: 0xff8c00,
+        THREE_KEY: 0xffd700,
         // Vertical shaft rendered between floors the player connected via elevator.
         // Visually split: bottom half = DOWN color (magenta), top half = UP color (cyan).
         THREE_ELEVATOR_SHAFT: { bottom: 0xff00ff, top: 0x00ffff }

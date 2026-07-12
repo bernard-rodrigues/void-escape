@@ -56,6 +56,12 @@ export class Engine {
             this.staticMapCacheDirty = true;
         };
         this.floorImage.src = 'assets/images/floor.png';
+
+        this.keyImage = new Image();
+        this.keyImage.onload = () => {
+            this.staticMapCacheDirty = true;
+        };
+        this.keyImage.src = 'assets/images/key.svg';
         
         this.player = {
             x: this.mazeGen.startPos.x,
@@ -67,6 +73,11 @@ export class Engine {
         this.hunters = [];
         this.initHunters(degree);
 
+        this.keyMeshes = [];
+        this.exitMesh = null;
+        this.keysCollected = 0;
+        this.totalKeys = CONFIG.getHunterCount(degree) * 2;
+
         this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
         this.activePathReveal = [];
@@ -76,6 +87,7 @@ export class Engine {
         this.pathRevealInterval = null;
 
         this.ui.initGameUI(this.isSafeMode);
+        this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
 
         this.isMap3DActive = false;
         this.isGameOver = false;
@@ -226,6 +238,36 @@ export class Engine {
         this.ui.showDeath(this.hasSavePoint);
     }
 
+    collectKey(x, y, z) {
+        this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
+        this.keysCollected++;
+        this.staticMapCacheDirty = true;
+        this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
+        this.ui.showInfoBanner(`KEY SECURED (${this.keysCollected}/${this.totalKeys})`);
+        
+        if (this.keysCollected === this.totalKeys) {
+            this.ui.showInfoBanner("EXIT UNLOCKED! SECURE THE EXTRACTION POINT");
+            if (this.exitMesh) {
+                this.exitMesh.material.color.setHex(CONFIG.COLORS.THREE_EXIT);
+                this.exitMesh.material.emissive.setHex(CONFIG.COLORS.THREE_EXIT);
+                this.exitMesh.material.emissiveIntensity = 0.5;
+                const cage = this.exitMesh.children[0];
+                if (cage) {
+                    this.exitMesh.remove(cage);
+                }
+            }
+        }
+    }
+
+    triggerLockedExitWarning() {
+        const now = Date.now();
+        if (!this.lastLockedWarningTime || now - this.lastLockedWarningTime > 1500) {
+            this.lastLockedWarningTime = now;
+            const missing = this.totalKeys - this.keysCollected;
+            this.ui.showInfoBanner(`ACCESS DENIED: NEED ${missing} MORE KEY${missing > 1 ? 'S' : ''}`);
+        }
+    }
+
     /**
      * Patches the engine's live state from a previously serialised snapshot.
      * Called by script.js immediately after construction when the player chooses
@@ -255,9 +297,9 @@ export class Engine {
         this.discoveredTeleports = new Set(snapshot.discoveredTeleports);
         this.inactiveTeleportPos = snapshot.inactiveTeleportPos;
         this.teleportCooldownTicks = snapshot.teleportCooldownTicks;
-
-
-
+        this.keysCollected = snapshot.keysCollected !== undefined ? snapshot.keysCollected : 0;
+        this.totalKeys = snapshot.totalKeys !== undefined ? snapshot.totalKeys : (CONFIG.getHunterCount(this.degree) * 2);
+        this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
         // Restore revealed paths
         this.revealedPathSet = new Set(snapshot.revealedPathSet);
 
@@ -399,12 +441,20 @@ export class Engine {
 
     hideCanvasInstant() {
         const mapArea = document.getElementById('map-area-container');
+        const leftHud = document.getElementById('left-hud-panel');
         if (mapArea) {
             mapArea.style.transition = 'none';
             mapArea.classList.remove('intro-reveal');
             mapArea.classList.add('intro-hidden');
             mapArea.offsetHeight;
             mapArea.style.transition = '';
+        }
+        if (leftHud) {
+            leftHud.style.transition = 'none';
+            leftHud.classList.remove('intro-reveal');
+            leftHud.classList.add('intro-hidden');
+            leftHud.offsetHeight;
+            leftHud.style.transition = '';
         }
     }
 
@@ -630,6 +680,12 @@ export class Engine {
                     hm.trail2.visible = false;
                 }
             }
+            if (this.keyMeshes) {
+                for (const km of this.keyMeshes) {
+                    km.rotation.y += 1.5 * dt;
+                    km.rotation.x += 0.5 * dt;
+                }
+            }
         }
 
         if (!this.isMap3DActive) {
@@ -661,28 +717,43 @@ export class Engine {
                 const oldGridY = Math.floor(this.player.y);
                 const nextX = this.player.x + moveX;
                 const nextY = this.player.y + moveY;
+                
+                const isPassable = (gx, gy, gz) => {
+                    const val = this.maze.get(gx, gy, gz);
+                    if (val === this.mazeGen.TYPES.WALL) return false;
+                    if (val === this.mazeGen.TYPES.EXIT && this.keysCollected < this.totalKeys) {
+                        this.triggerLockedExitWarning();
+                        return false;
+                    }
+                    return true;
+                };
+
                 const gridIdxX = Math.floor(nextX);
                 const gridIdxY = Math.floor(this.player.y);
-                if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && this.maze.get(gridIdxX, gridIdxY, this.player.z) !== this.mazeGen.TYPES.WALL) {
+                if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && isPassable(gridIdxX, gridIdxY, this.player.z)) {
                     this.player.x = nextX;
-                    const newGridX = Math.floor(this.player.x);
-                    if (newGridX !== oldGridX && this.maze.get(newGridX, oldGridY, this.player.z) === this.mazeGen.TYPES.PATH) {
-                        this.maze.set(newGridX, oldGridY, this.player.z, this.mazeGen.TYPES.VISITED);
-                        this.staticMapCacheDirty = true;
-                    }
                 }
                 const currentGridIdxX = Math.floor(this.player.x);
                 const nextGridIdxY = Math.floor(nextY);
-                if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && this.maze.get(currentGridIdxX, nextGridIdxY, this.player.z) !== this.mazeGen.TYPES.WALL) {
+                if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && isPassable(currentGridIdxX, nextGridIdxY, this.player.z)) {
                     this.player.y = nextY;
-                    const newGridY = Math.floor(this.player.y);
-                    if (newGridY !== oldGridY && this.maze.get(currentGridIdxX, newGridY, this.player.z) === this.mazeGen.TYPES.PATH) {
-                        this.maze.set(currentGridIdxX, newGridY, this.player.z, this.mazeGen.TYPES.VISITED);
-                        this.staticMapCacheDirty = true;
-                    }
                 }
-                const finalGridIdxX = Math.floor(this.player.x), finalGridIdxY = Math.floor(this.player.y);
-                if (this.maze.get(finalGridIdxX, finalGridIdxY, this.player.z) === this.mazeGen.TYPES.EXIT) this.triggerVictory();
+                
+                const finalGridIdxX = Math.floor(this.player.x);
+                const finalGridIdxY = Math.floor(this.player.y);
+                const finalVal = this.maze.get(finalGridIdxX, finalGridIdxY, this.player.z);
+                if (finalVal === this.mazeGen.TYPES.PATH || finalVal === this.mazeGen.TYPES.KEY) {
+                    if (finalVal === this.mazeGen.TYPES.KEY) {
+                        this.collectKey(finalGridIdxX, finalGridIdxY, this.player.z);
+                    } else {
+                        this.maze.set(finalGridIdxX, finalGridIdxY, this.player.z, this.mazeGen.TYPES.VISITED);
+                    }
+                    this.staticMapCacheDirty = true;
+                }
+                
+                if (finalVal === this.mazeGen.TYPES.EXIT) {
+                    this.triggerVictory();
+                }
             }
 
             if (moveX !== 0 || moveY !== 0) {
@@ -920,6 +991,8 @@ export class Engine {
         this.hunterMeshes = []; // Reset the array
         this.teleportMeshes = []; // Reset the array
         this.knownMeshes = []; // Reset the array
+        this.keyMeshes = [];
+        this.exitMesh = null;
         const size = this.mazeGen.size;
         const isFloorVisited = (fx, fy, fz) => {
             if (fz < 0 || fz >= size) return false;
@@ -1068,6 +1141,24 @@ export class Engine {
                         continue;
                     }
 
+                    const isKey = val === this.mazeGen.TYPES.KEY;
+                    if (isKey) {
+                        const keyGeom = new THREE.OctahedronGeometry(0.3, 0);
+                        const keyMat = new THREE.MeshPhongMaterial({
+                            color: CONFIG.COLORS.THREE_KEY,
+                            emissive: CONFIG.COLORS.THREE_KEY,
+                            emissiveIntensity: 0.6 * opFactor,
+                            shininess: 100
+                        });
+                        const mesh = new THREE.Mesh(keyGeom, keyMat);
+                        mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
+                        mesh.userData = { isKey: true, gridX: x, gridY: y, gridZ: z };
+                        this.scene.add(mesh);
+                        this.keyMeshes.push(mesh);
+                        this.pulsatingMaterials.push(keyMat);
+                        continue;
+                    }
+
                     const key = `${x},${y},${z}`;
                     const isRevealedPath = this.revealedPathSet.has(key);
 
@@ -1091,8 +1182,12 @@ export class Engine {
                             });
                         } else if (isVisited || isIntro) {
                             color = CONFIG.COLORS.THREE_VISITED;
-                            if (val === 3) color = CONFIG.COLORS.THREE_START;
-                            else if (val === 4) color = CONFIG.COLORS.THREE_EXIT;
+                            if (val === 3) {
+                                color = CONFIG.COLORS.THREE_START;
+                            } else if (val === 4) {
+                                const isUnlocked = this.keysCollected === this.totalKeys;
+                                color = isUnlocked ? CONFIG.COLORS.THREE_EXIT : 0xff3300;
+                            }
                             material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: isIntro ? 0.72 : (0.8 * opFactor) });
                         } else if (isKnown) {
                             material = new THREE.MeshPhongMaterial({ 
@@ -1149,6 +1244,20 @@ export class Engine {
 
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
+                        
+                        if (val === 4) {
+                            this.exitMesh = mesh;
+                            if (this.keysCollected < this.totalKeys) {
+                                const cageGeom = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+                                const cageMat = new THREE.MeshBasicMaterial({
+                                    color: 0xff0000,
+                                    wireframe: true
+                                });
+                                const cageMesh = new THREE.Mesh(cageGeom, cageMat);
+                                mesh.add(cageMesh);
+                            }
+                        }
+                        
                         this.scene.add(mesh);
                         this.gridMeshes[(x * size * size) + (y * size) + z] = mesh;
                         if (isKnown && !isRevealedPath) {
@@ -1398,6 +1507,7 @@ export class Engine {
                 const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
+                const isKey = val === this.mazeGen.TYPES.KEY;
                 const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
                 const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
 
@@ -1434,14 +1544,55 @@ export class Engine {
                             if (val === 2 && this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
                                 ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
                             } else {
-                                ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : (val === 3 ? CONFIG.COLORS.START : CONFIG.COLORS.EXIT);
-                                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                if (val === this.mazeGen.TYPES.EXIT) {
+                                    ctx.fillStyle = CONFIG.COLORS.EXIT;
+                                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                    
+                                    if (this.keysCollected < this.totalKeys) {
+                                        ctx.strokeStyle = '#ff3300';
+                                        ctx.lineWidth = Math.max(2, cellSize * 0.08);
+                                        const cx = x * cellSize + cellSize / 2;
+                                        const cy = y * cellSize + cellSize / 2;
+                                        const r = cellSize * 0.2;
+                                        
+                                        ctx.beginPath();
+                                        ctx.arc(cx, cy - r * 0.2, r * 0.6, Math.PI, 0);
+                                        ctx.stroke();
+                                        
+                                        ctx.fillStyle = '#111';
+                                        ctx.fillRect(cx - r, cy - r * 0.1, r * 2, r * 1.5);
+                                        ctx.strokeRect(cx - r, cy - r * 0.1, r * 2, r * 1.5);
+                                        
+                                        ctx.fillStyle = '#ff3300';
+                                        ctx.font = `bold ${Math.max(10, cellSize * 0.35)}px sans-serif`;
+                                        ctx.textAlign = 'center';
+                                        ctx.textBaseline = 'middle';
+                                        ctx.fillText(this.totalKeys - this.keysCollected, cx, cy + r * 0.6);
+                                    }
+                                } else {
+                                    ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : CONFIG.COLORS.START;
+                                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                }
                             }
                         }
 
                         // Desenha sombra projetada das paredes adjacentes (Luz de baixo e da direita)
                         this.drawCellShadow2D(ctx, x, y, cellSize, size, val, z);
                     });
+                } else if (isKey) {
+                    drawCellWithFade(x, y, () => {
+                        const bobbingOffset = cellSize * 0.05 * Math.sin(Date.now() / 300);
+                        if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.keyImage, x * cellSize + cellSize * 0.15, y * cellSize + cellSize * 0.15 + bobbingOffset, cellSize * 0.7, cellSize * 0.7);
+                        } else {
+                            ctx.beginPath();
+                            ctx.arc(x * cellSize + cellSize/2, y * cellSize + cellSize/2 + bobbingOffset, cellSize * 0.25, 0, 2*Math.PI);
+                            ctx.fillStyle = '#ffd700';
+                            ctx.fill();
+                        }
+                        this.drawCellShadow2D(ctx, x, y, cellSize, size, val, z);
+                    });
+                    hasActiveAnimations = true;
                 } else if (isKnown) { 
                     drawCellWithFade(x, y, () => {
                         if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
@@ -1843,10 +1994,16 @@ export class Engine {
             }
 
             const mapArea = document.getElementById('map-area-container');
+            const leftHud = document.getElementById('left-hud-panel');
             if (mapArea) {
                 mapArea.classList.remove('intro-hidden');
                 mapArea.classList.add('intro-reveal');
                 setTimeout(() => mapArea.classList.remove('intro-reveal'), 700);
+            }
+            if (leftHud) {
+                leftHud.classList.remove('intro-hidden');
+                leftHud.classList.add('intro-reveal');
+                setTimeout(() => leftHud.classList.remove('intro-reveal'), 700);
             }
         }, 600);
     }

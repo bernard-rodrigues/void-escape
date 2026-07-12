@@ -19,7 +19,7 @@ export class Maze3D {
 
         this.matrix = this.initMatrix();
         
-        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6 };
+        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6, KEY: 7 };
         this.startPos = { x: 0.5, y: 1.5, z: 0 };
     }
 
@@ -74,6 +74,7 @@ export class Maze3D {
 
         this.setEntryAndExit();
         this.placeTeleports();
+        this.placeKeys();
         this.applyBraid();
 
         // Enrich the TypedArray with convenience O(1) coordinate mapping methods
@@ -220,8 +221,216 @@ export class Maze3D {
             }
         }
 
+        if (teleports.length < count) {
+            let minDistanceToStartExit = 4;
+            let minDistanceToOthers = 4;
+            while (teleports.length < count && minDistanceToStartExit > 0) {
+                const candidates = normalPaths.filter(p => {
+                    const ds = getDist(p, start);
+                    const de = getDist(p, exit);
+                    return ds >= minDistanceToStartExit && de >= minDistanceToStartExit;
+                });
+
+                for (let i = teleports.length; i < count; i++) {
+                    let bestCand = null;
+                    let maxMinDist = -1;
+
+                    for (const c of candidates) {
+                        if (teleports.some(t => t.x === c.x && t.y === c.y && t.z === c.z)) continue;
+
+                        let minDistToOthers = Infinity;
+                        for (const t of teleports) {
+                            const d = getDist(c, t);
+                            if (d < minDistToOthers) minDistToOthers = d;
+                        }
+
+                        if (minDistToOthers >= minDistanceToOthers) {
+                            const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
+                            if (minD > maxMinDist) {
+                                maxMinDist = minD;
+                                bestCand = c;
+                            }
+                        }
+                    }
+
+                    if (bestCand) {
+                        teleports.push(bestCand);
+                    } else {
+                        break;
+                    }
+                }
+
+                if (teleports.length < count) {
+                    if (minDistanceToOthers > 1) {
+                        minDistanceToOthers--;
+                    } else {
+                        minDistanceToStartExit--;
+                    }
+                }
+            }
+        }
+
         for (const t of teleports) {
             this.matrix[this._idx(t.x, t.y, t.z)] = this.TYPES.TELEPORT;
+        }
+    }
+
+    placeKeys() {
+        const count = CONFIG.getHunterCount(this.n) * 2;
+        
+        const deadEnds = [];
+        const normalPaths = [];
+        for (let x = 1; x < this.size - 1; x++) {
+            for (let y = 1; y < this.size - 1; y++) {
+                for (let z = 1; z < this.size - 1; z++) {
+                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.PATH) {
+                        const hUp = z + 1 < this.size && this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL;
+                        const hDown = z - 1 >= 0 && this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL;
+                        if (!hUp && !hDown) {
+                            let openCount = 0;
+                            const dirs = [
+                                { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+                                { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+                                { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
+                            ];
+                            for (const d of dirs) {
+                                const nx = x + d.dx, ny = y + d.dy, nz = z + d.dz;
+                                if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && nz >= 0 && nz < this.size) {
+                                    if (this.matrix[this._idx(nx, ny, nz)] !== this.TYPES.WALL) {
+                                        openCount++;
+                                    }
+                                }
+                            }
+                            if (openCount === 1) {
+                                deadEnds.push({ x, y, z });
+                            } else {
+                                normalPaths.push({ x, y, z });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        const paths = deadEnds;
+        
+        const start = { x: 0, y: 1, z: this.startPos.z };
+        let exit = { x: 2 * this.n, y: 2 * this.n - 1, z: this.startPos.z };
+        for (let x = 0; x < this.size; x++) {
+            for (let y = 0; y < this.size; y++) {
+                for (let z = 0; z < this.size; z++) {
+                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.EXIT) {
+                        exit = { x, y, z };
+                    }
+                }
+            }
+        }
+        
+        const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
+        
+        const keys = [];
+        let minDistanceToStartExit = 4;
+        let minDistanceToOthers = 4;
+        
+        while (keys.length < count && minDistanceToStartExit > 0) {
+            keys.length = 0;
+            const candidates = paths.filter(p => {
+                const ds = getDist(p, start);
+                const de = getDist(p, exit);
+                const currentVal = this.matrix[this._idx(p.x, p.y, p.z)];
+                return ds >= minDistanceToStartExit && de >= minDistanceToStartExit && currentVal !== this.TYPES.TELEPORT;
+            });
+            
+            for (let i = 0; i < count; i++) {
+                let bestCand = null;
+                let maxMinDist = -1;
+                
+                for (const c of candidates) {
+                    if (keys.some(k => k.x === c.x && k.y === c.y && k.z === c.z)) continue;
+                    
+                    let minDistToOthers = Infinity;
+                    for (const k of keys) {
+                        const d = getDist(c, k);
+                        if (d < minDistToOthers) minDistToOthers = d;
+                    }
+                    
+                    if (minDistToOthers >= minDistanceToOthers) {
+                        const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
+                        if (minD > maxMinDist) {
+                            maxMinDist = minD;
+                            bestCand = c;
+                        }
+                    }
+                }
+                
+                if (bestCand) {
+                    keys.push(bestCand);
+                } else {
+                    break;
+                }
+            }
+            
+            if (keys.length < count) {
+                if (minDistanceToOthers > 1) {
+                    minDistanceToOthers--;
+                } else {
+                    minDistanceToStartExit--;
+                }
+            }
+        }
+
+        if (keys.length < count) {
+            let minDistanceToStartExit = 4;
+            let minDistanceToOthers = 4;
+            while (keys.length < count && minDistanceToStartExit > 0) {
+                const candidates = normalPaths.filter(p => {
+                    const ds = getDist(p, start);
+                    const de = getDist(p, exit);
+                    const currentVal = this.matrix[this._idx(p.x, p.y, p.z)];
+                    return ds >= minDistanceToStartExit && de >= minDistanceToStartExit && currentVal !== this.TYPES.TELEPORT;
+                });
+
+                for (let i = keys.length; i < count; i++) {
+                    let bestCand = null;
+                    let maxMinDist = -1;
+
+                    for (const c of candidates) {
+                        if (keys.some(k => k.x === c.x && k.y === c.y && k.z === c.z)) continue;
+
+                        let minDistToOthers = Infinity;
+                        for (const k of keys) {
+                            const d = getDist(c, k);
+                            if (d < minDistToOthers) minDistToOthers = d;
+                        }
+
+                        if (minDistToOthers >= minDistanceToOthers) {
+                            const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
+                            if (minD > maxMinDist) {
+                                maxMinDist = minD;
+                                bestCand = c;
+                            }
+                        }
+                    }
+
+                    if (bestCand) {
+                        keys.push(bestCand);
+                    } else {
+                        break;
+                    }
+                }
+
+                if (keys.length < count) {
+                    if (minDistanceToOthers > 1) {
+                        minDistanceToOthers--;
+                    } else {
+                        minDistanceToStartExit--;
+                    }
+                }
+            }
+        }
+
+        for (const k of keys) {
+            this.matrix[this._idx(k.x, k.y, k.z)] = this.TYPES.KEY;
         }
     }
 
@@ -248,7 +457,8 @@ export class Maze3D {
                             const c2 = this.matrix[this._idx(x + 1, y, z)];
                             if (c1 !== this.TYPES.WALL && c2 !== this.TYPES.WALL) {
                                 if (c1 !== this.TYPES.TELEPORT && c2 !== this.TYPES.TELEPORT &&
-                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT) {
+                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT &&
+                                    c1 !== this.TYPES.KEY && c2 !== this.TYPES.KEY) {
                                     candidates.push({ x, y, z, type: 'X' });
                                 }
                             }
@@ -257,7 +467,8 @@ export class Maze3D {
                             const c2 = this.matrix[this._idx(x, y + 1, z)];
                             if (c1 !== this.TYPES.WALL && c2 !== this.TYPES.WALL) {
                                 if (c1 !== this.TYPES.TELEPORT && c2 !== this.TYPES.TELEPORT &&
-                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT) {
+                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT &&
+                                    c1 !== this.TYPES.KEY && c2 !== this.TYPES.KEY) {
                                     candidates.push({ x, y, z, type: 'Y' });
                                 }
                             }
@@ -266,7 +477,8 @@ export class Maze3D {
                             const c2 = this.matrix[this._idx(x, y, z + 1)];
                             if (c1 !== this.TYPES.WALL && c2 !== this.TYPES.WALL) {
                                 if (c1 !== this.TYPES.TELEPORT && c2 !== this.TYPES.TELEPORT &&
-                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT) {
+                                    c1 !== this.TYPES.EXIT && c2 !== this.TYPES.EXIT &&
+                                    c1 !== this.TYPES.KEY && c2 !== this.TYPES.KEY) {
                                     candidates.push({ x, y, z, type: 'Z' });
                                 }
                             }
