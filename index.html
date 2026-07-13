@@ -99,7 +99,24 @@
                 </div>
             </div>
             <!-- Primary 2D Navigation Map -->
-            <canvas id="main-2d-canvas" aria-label="2D Navigation Map"></canvas>
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 90vw; margin-bottom: calc(var(--h-unit) * 2); margin-bottom: calc(var(--d-h-unit) * 2);">
+                <canvas id="main-2d-canvas" aria-label="2D Navigation Map" style="margin-bottom: 0;"></canvas>
+                <button id="mobile-zoom-btn" aria-label="Toggle Zoom">
+                    <!-- SVG Zoom Out (Lente com -) -->
+                    <svg id="zoom-out-icon" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
+                        <circle cx="11" cy="11" r="6"></circle>
+                        <line x1="21" y1="21" x2="15.5" y2="15.5"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                    <!-- SVG Zoom In (Lente com +) -->
+                    <svg id="zoom-in-icon" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;" class="hidden">
+                        <circle cx="11" cy="11" r="6"></circle>
+                        <line x1="21" y1="21" x2="15.5" y2="15.5"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                </button>
+            </div>
             
             <!-- Bottom HUD Container (Flex on Desktop, Stacked on Mobile) -->
             <div id="bottom-hud-container">
@@ -133,13 +150,24 @@
                 <div class="legend-item"><span class="color-box color-box--exit"></span> Maze Exit</div>
                 <div id="legend-hunter" class="legend-item"><span class="color-box color-box--hunter"></span> Void Hunter</div>
                 <div class="legend-item"><span class="color-box color-box--teleport"></span> Teleport</div>
-                <div class="legend-item"><span class="symbol-box">▲▼</span> Elevator</div>
+                <div class="legend-item">
+                    <span class="symbol-box">
+                        <svg viewBox="0 0 24 24" fill="none" style="width: 100%; height: 100%;">
+                            <!-- Up Arrow (Neon Cyan) -->
+                            <path d="M12 2L5 9H9V11H15V9H19L12 2Z" fill="#00ffff" />
+                            <!-- Down Arrow (Neon Magenta) -->
+                            <path d="M12 22L19 15H15V13H9V15H5L12 22Z" fill="#ff00ff" />
+                        </svg>
+                    </span>
+                    Elevator
+                </div>
             </aside>
 
             <aside id="controls-hint">
                 Arrows or WASD: Move/Rotate<br>
                 PgUp/PgDn or Q/E: Move Up/Down<br>
-                <strong>M: 3D Holographic Map</strong>
+                <strong>M: 3D Holographic Map</strong><br>
+                <span id="control-hint-zoom"><strong>Z: Minimap Zoom</strong></span>
             </aside>
         </div>
         
