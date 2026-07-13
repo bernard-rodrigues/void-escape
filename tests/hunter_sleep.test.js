@@ -66,7 +66,7 @@ test('Hunter Sleep - Spawning / Wake-up placement algorithm simulation', () => {
     for (let x = 0; x < size; x++) {
         for (let y = 0; y < size; y++) {
             for (let z = 0; z < size; z++) {
-                if (matrix.get(x, y, z) === mazeGen.TYPES.PATH) {
+                if (matrix.get(x, y, z) === mazeGen.TYPES.PATH && z % 2 !== 0) {
                     candidates.push({ x, y, z });
                 }
             }
@@ -145,6 +145,8 @@ test('Hunter Sleep - Spawning / Wake-up placement algorithm simulation', () => {
         // Check player distance threshold
         const dist = getDist(h, { x: px, y: py, z: pz });
         assert.ok(dist >= minPlayerDist, `Spawning position should be at least ${minPlayerDist} steps from player`);
+        // Garante que o caçador foi spawnado em um andar jogável (ímpar)
+        assert.ok(h.z % 2 !== 0, 'Spawning floor Z index must be odd (playable floor)');
     }
 });
 

@@ -195,11 +195,11 @@ export class Engine {
         const py = Math.floor(this.player.y);
         const pz = this.player.z;
 
-        // Gather all unvisited path cells (TYPES.PATH)
+        // Gather all unvisited path cells (TYPES.PATH) on playable floors (odd z indices)
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
-                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH) {
+                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH && z % 2 !== 0) {
                         candidates.push({ x, y, z });
                     }
                 }
@@ -207,12 +207,12 @@ export class Engine {
         }
 
         if (candidates.length === 0) {
-            // Fallback: if no unvisited path cells exist, use visited ones that are not the player cell
+            // Fallback: if no unvisited path cells exist, use visited ones that are not the player cell and are on playable floors
             for (let x = 0; x < size; x++) {
                 for (let y = 0; y < size; y++) {
                     for (let z = 0; z < size; z++) {
                         const val = this.maze.get(x, y, z);
-                        if (val !== this.mazeGen.TYPES.WALL && (x !== px || y !== py || z !== pz)) {
+                        if (val !== this.mazeGen.TYPES.WALL && z % 2 !== 0 && (x !== px || y !== py || z !== pz)) {
                             candidates.push({ x, y, z });
                         }
                     }
