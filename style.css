@@ -620,12 +620,14 @@ body {
 }
 
 .symbol-box {
-    width: calc(var(--h-unit) * 1.5);
-    width: calc(var(--d-h-unit) * 1.5);
-    font-size: calc(var(--h-unit) * 2);
-    font-size: calc(var(--d-h-unit) * 2);
-    text-align: center;
-    color: var(--clr-neon);
+    width: calc(var(--h-unit) * 1.7);
+    width: calc(var(--d-h-unit) * 1.7);
+    height: calc(var(--h-unit) * 1.7);
+    height: calc(var(--d-h-unit) * 1.7);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 #map3d-container {
