@@ -105,9 +105,12 @@ export class Engine {
         this.isTeleportMode = false;
         this.teleportCooldownTicks = 0;
         this.inactiveTeleportPos = null;
+        this.floorTransition = null;
         this.hasSavePoint = false;
         this.lastPlayerCell = null;
         this.exitPathfinderUnlocked = false;
+        this.isZoomActive = true;
+        this.zoomVisibleCells = 11;
 
         // Static 2D map cache to prevent redundant loops and redrawing
         this.staticMapCacheCanvas = document.createElement('canvas');
@@ -490,11 +493,22 @@ export class Engine {
                     this.toggleMap3D();
                 }
             }
+            if (key === 'z') {
+                this.toggleZoom();
+            }
         };
         this.handleResize = () => this.resize();
 
         window.addEventListener('keydown', this.handleKeyDownExtra);
         window.addEventListener('resize', this.handleResize);
+
+        const zoomBtn = document.getElementById('mobile-zoom-btn');
+        if (zoomBtn) {
+            zoomBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.toggleZoom();
+            };
+        }
 
         if (this.ui.uiMobileUp) this.ui.uiMobileUp.onclick = () => this.changeFloor(2);
         if (this.ui.uiMobileDown) this.ui.uiMobileDown.onclick = () => this.changeFloor(-2);
@@ -565,6 +579,18 @@ export class Engine {
             this.playContinueAnimation();
         } else {
             this.playIntroAnimation();
+        }
+
+        // Hides zoom controls if the maze size <= 11 (degree <= 5)
+        const size = this.mazeGen.size;
+        const mobileZoomBtn = document.getElementById('mobile-zoom-btn');
+        const zoomHint = document.getElementById('control-hint-zoom');
+        if (size <= 11) {
+            if (mobileZoomBtn) mobileZoomBtn.classList.add('hidden');
+            if (zoomHint) zoomHint.classList.add('hidden');
+        } else {
+            if (mobileZoomBtn) mobileZoomBtn.classList.remove('hidden');
+            if (zoomHint) zoomHint.classList.remove('hidden');
         }
     }
 
@@ -1474,6 +1500,18 @@ export class Engine {
             }
         }
 
+        // Interpolação suave do número de células visíveis na tela
+        const size = this.mazeGen.size;
+        const targetVisible = this.isZoomActive ? 11 : size;
+        if (this.zoomVisibleCells === undefined) {
+            this.zoomVisibleCells = targetVisible;
+        } else {
+            this.zoomVisibleCells += (targetVisible - this.zoomVisibleCells) * (1 - Math.exp(-12 * dt));
+            if (Math.abs(this.zoomVisibleCells - targetVisible) < 0.01) {
+                this.zoomVisibleCells = targetVisible;
+            }
+        }
+
         if (this.floorTransition) {
             const t = this.floorTransition.progress;
             const cx = this.canvas.width / 2;
@@ -1515,14 +1553,37 @@ export class Engine {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         const size = this.mazeGen.size;
-        const cellSize = this.canvas.width / size;
+        const useZoom = size > 11;
+        const cellSize = useZoom ? ctx.canvas.width / 11 : ctx.canvas.width / size;
         const px = this.player.x;
         const py = this.player.y;
 
+        if (useZoom) {
+            ctx.save();
+            const scaleTransition = 11 / this.zoomVisibleCells;
+            const half = this.zoomVisibleCells / 2;
+
+            let camX = px;
+            let camY = py;
+            if (camX < half) camX = half;
+            if (camX > size - half) camX = size - half;
+            if (camY < half) camY = half;
+            if (camY > size - half) camY = size - half;
+
+            const centerX = ctx.canvas.width / 2;
+            const centerY = ctx.canvas.height / 2;
+            
+            ctx.translate(centerX, centerY);
+            ctx.scale(scaleTransition, scaleTransition);
+            ctx.translate(-camX * cellSize, -camY * cellSize);
+        }
+
         // 1. Update and draw static map cache
+        const expectedCacheWidth = useZoom ? size * cellSize : this.canvas.width;
+        const expectedCacheHeight = useZoom ? size * cellSize : this.canvas.height;
         if (this.staticMapCacheDirty || 
-            this.staticMapCacheCanvas.width !== this.canvas.width || 
-            this.staticMapCacheCanvas.height !== this.canvas.height) {
+            this.staticMapCacheCanvas.width !== expectedCacheWidth || 
+            this.staticMapCacheCanvas.height !== expectedCacheHeight) {
             this.updateStaticMapCache(z);
         }
         ctx.drawImage(this.staticMapCacheCanvas, 0, 0);
@@ -1596,6 +1657,10 @@ export class Engine {
         ctx.moveTo(px * cellSize, py * cellSize);
         ctx.lineTo(px * cellSize + Math.cos(this.player.dir) * cellSize * 1, py * cellSize + Math.sin(this.player.dir) * cellSize * 1);
         ctx.stroke();
+
+        if (useZoom) {
+            ctx.restore();
+        }
     }
 
     /**
@@ -1604,12 +1669,16 @@ export class Engine {
      */
     updateStaticMapCache(z) {
         const size = this.mazeGen.size;
-        const cellSize = this.canvas.width / size;
+        const useZoom = size > 11; // O cache estático é gerado no tamanho ampliado para suportar transição suave
+        const cellSize = useZoom ? this.canvas.width / 11 : this.canvas.width / size;
         
-        if (this.staticMapCacheCanvas.width !== this.canvas.width || 
-            this.staticMapCacheCanvas.height !== this.canvas.height) {
-            this.staticMapCacheCanvas.width = this.canvas.width;
-            this.staticMapCacheCanvas.height = this.canvas.height;
+        const cacheWidth = useZoom ? size * cellSize : this.canvas.width;
+        const cacheHeight = useZoom ? size * cellSize : this.canvas.height;
+        
+        if (this.staticMapCacheCanvas.width !== cacheWidth || 
+            this.staticMapCacheCanvas.height !== cacheHeight) {
+            this.staticMapCacheCanvas.width = cacheWidth;
+            this.staticMapCacheCanvas.height = cacheHeight;
         }
         
         const ctx = this.staticMapCacheCtx;
@@ -2221,6 +2290,24 @@ export class Engine {
                 const { gridX, gridY, gridZ } = hitMesh.userData;
                 
                 this.triggerPathReveal(gridX, gridY, gridZ);
+            }
+        }
+    }
+
+    toggleZoom() {
+        if (this.mazeGen.size <= 11) return;
+        this.isZoomActive = !this.isZoomActive;
+        this.staticMapCacheDirty = true;
+        
+        const zoomOutIcon = document.getElementById('zoom-out-icon');
+        const zoomInIcon = document.getElementById('zoom-in-icon');
+        if (zoomOutIcon && zoomInIcon) {
+            if (this.isZoomActive) {
+                zoomOutIcon.classList.remove('hidden');
+                zoomInIcon.classList.add('hidden');
+            } else {
+                zoomOutIcon.classList.add('hidden');
+                zoomInIcon.classList.remove('hidden');
             }
         }
     }

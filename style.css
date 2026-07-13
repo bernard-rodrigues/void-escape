@@ -593,6 +593,7 @@ body {
     align-items: center;
     gap: var(--h-unit);
     gap: var(--d-h-unit);
+    line-height: 1.5;
 }
 
 .color-box {
@@ -604,6 +605,7 @@ body {
     border: calc(var(--d-h-unit) * 0.1) solid #fff;
     border-radius: calc(var(--h-unit) * 0.3);
     border-radius: calc(var(--d-h-unit) * 0.3);
+    flex-shrink: 0;
 }
 
 /* Legend color swatches — modifier classes replace all inline style="background:..." */
@@ -612,7 +614,10 @@ body {
 .color-box--start    { background: #ff0; }
 .color-box--exit     { background: var(--clr-victory); }
 .color-box--hunter   { background: var(--clr-hunter); }
-.color-box--teleport { background: var(--clr-teleport); }
+.color-box--teleport {
+    background: var(--clr-teleport);
+    border-radius: 50%;
+}
 
 .symbol-box {
     width: calc(var(--h-unit) * 1.5);
@@ -1138,4 +1143,34 @@ body {
 .checkbox-label input[type="checkbox"]:checked::after {
     content: '✓';
     color: var(--clr-bg);
+}
+
+/* --- Minimap Floating Zoom Button for Mobile --- */
+#mobile-zoom-btn {
+    position: absolute;
+    bottom: calc(var(--h-unit) * -6.5); /* Posiciona-o totalmente abaixo do canvas */
+    bottom: calc(var(--d-h-unit) * -6.5);
+    right: 0; /* Alinhado à direita do canvas */
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    width: calc(var(--h-unit) * 5.5);
+    width: calc(var(--d-h-unit) * 5.5);
+    height: calc(var(--h-unit) * 5.5);
+    height: calc(var(--d-h-unit) * 5.5);
+    cursor: pointer;
+    z-index: 100;
+    display: none;
+    transition: transform 0.1s;
+    padding: 0;
+}
+
+#mobile-zoom-btn:active {
+    transform: scale(0.9);
+}
+
+@media (orientation: portrait) {
+    #mobile-zoom-btn {
+        display: block;
+    }
 }
