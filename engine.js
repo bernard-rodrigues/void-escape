@@ -105,9 +105,9 @@ export class Engine {
         this.isTeleportMode = false;
         this.teleportCooldownTicks = 0;
         this.inactiveTeleportPos = null;
-        this.floorTransition = null;
         this.hasSavePoint = false;
         this.lastPlayerCell = null;
+        this.exitPathfinderUnlocked = false;
 
         // Static 2D map cache to prevent redundant loops and redrawing
         this.staticMapCacheCanvas = document.createElement('canvas');
@@ -126,6 +126,8 @@ export class Engine {
         this.raycaster = new THREE.Raycaster();
         this.pointer = new THREE.Vector2();
         
+        this.exitPathfinderUnlocked = this.checkExitNeighborVisited();
+
         this.initThree();
         this.init(savedState);
     }
@@ -432,6 +434,7 @@ export class Engine {
         // until the player reaches a new teleport or dies)
         this.hasSavePoint = true;
         this.populateFullyRevealedCells(this.player.z);
+        this.exitPathfinderUnlocked = this.checkExitNeighborVisited();
     }
 
     /**
@@ -890,6 +893,12 @@ export class Engine {
                         this.maze.set(finalGridIdxX, finalGridIdxY, this.player.z, this.mazeGen.TYPES.VISITED);
                     }
                     this.staticMapCacheDirty = true;
+                }
+                
+                // Desbloqueia o pathfinder da saída se visitou o vizinho dela
+                if (!this.exitPathfinderUnlocked && this.checkExitNeighborVisited()) {
+                    this.exitPathfinderUnlocked = true;
+                    this.ui.showInfoBanner("EXIT FOUND");
                 }
                 
                 if (finalVal === this.mazeGen.TYPES.EXIT) {
@@ -1404,7 +1413,7 @@ export class Engine {
                         
                         this.scene.add(mesh);
                         this.gridMeshes[(x * size * size) + (y * size) + z] = mesh;
-                        if (isKnown && !isRevealedPath) {
+                        if ((isKnown || val === this.mazeGen.TYPES.EXIT) && !isRevealedPath) {
                             mesh.userData = { gridX: x, gridY: y, gridZ: z };
                             this.knownMeshes.push(mesh);
                         }
@@ -2216,7 +2225,63 @@ export class Engine {
         }
     }
 
-    findShortestPath(start, end) {
+    checkExitNeighborVisited() {
+        const exitPos = this.getExitPos();
+        const dirs = [
+            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+            { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 }
+        ];
+        for (const d of dirs) {
+            const nx = exitPos.x + d.dx;
+            const ny = exitPos.y + d.dy;
+            const nz = exitPos.z + d.dz;
+            if (nx >= 0 && nx < this.mazeGen.size && ny >= 0 && ny < this.mazeGen.size && nz >= 0 && nz < this.mazeGen.size) {
+                const val = this.maze.get(nx, ny, nz);
+                if (val !== this.mazeGen.TYPES.WALL) {
+                    const isVisited = val === this.mazeGen.TYPES.VISITED || 
+                                      val === this.mazeGen.TYPES.START || 
+                                      val === this.mazeGen.TYPES.ELEVATOR_VISITED;
+                    if (isVisited) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    findShortestPath(start, end, restrictToVisited = false) {
+        if (restrictToVisited) {
+            const size = this.mazeGen.size;
+            const tempMaze = new Int8Array(size * size * size);
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    for (let z = 0; z < size; z++) {
+                        const idx = x * size * size + y * size + z;
+                        const val = this.maze.get(x, y, z);
+                        
+                        const isPlayerStart = x === start.x && y === start.y && z === start.z;
+                        const isTargetEnd = x === end.x && y === end.y && z === end.z;
+                        
+                        const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                        const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
+                        
+                        const isVisited = val === this.mazeGen.TYPES.VISITED || 
+                                          val === this.mazeGen.TYPES.START || 
+                                          val === this.mazeGen.TYPES.ELEVATOR_VISITED || 
+                                          isTeleportDiscovered;
+                        
+                        if (isVisited || isPlayerStart || isTargetEnd) {
+                            tempMaze[idx] = 1; // passável
+                        } else {
+                            tempMaze[idx] = 0; // parede
+                        }
+                    }
+                }
+            }
+            return aStarPath(start, end, tempMaze, size, 0) ?? [];
+        }
         return aStarPath(start, end, this.maze, this.mazeGen.size, this.mazeGen.TYPES.WALL) ?? [];
     }
 
@@ -2224,6 +2289,14 @@ export class Engine {
         if (this.pathRevealInterval) {
             clearInterval(this.pathRevealInterval);
             this.pathRevealInterval = null;
+        }
+
+        const isExitClicked = this.maze.get(tx, ty, tz) === this.mazeGen.TYPES.EXIT;
+        if (isExitClicked) {
+            if (!this.exitPathfinderUnlocked) {
+                this.ui.showInfoBanner("EXIT NOT FOUND YET");
+                return;
+            }
         }
 
         let targetZ = tz;
@@ -2240,7 +2313,7 @@ export class Engine {
             z: this.player.z
         };
         const end = { x: tx, y: ty, z: targetZ };
-        const path = this.findShortestPath(start, end);
+        const path = this.findShortestPath(start, end, isExitClicked);
 
         if (!path || path.length === 0) return;
 
