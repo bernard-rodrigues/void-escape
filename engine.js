@@ -1682,7 +1682,7 @@ export class Engine {
         }
         
         const ctx = this.staticMapCacheCtx;
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.clearRect(0, 0, cacheWidth, cacheHeight);
         
         const px = this.player.x;
         const py = this.player.y;
