@@ -635,8 +635,35 @@ export class Engine {
 
         // 1. Draw block background
         if (isRevealed) {
-            ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
-            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            if (hUp && hDown) {
+                let routeUsesUp = false;
+                let routeUsesDown = false;
+                if (this.activePathReveal) {
+                    const idx = this.activePathReveal.findIndex(node => node.x === x && node.y === y && node.z === z);
+                    if (idx !== -1 && idx < this.activePathReveal.length - 1) {
+                        const nextNode = this.activePathReveal[idx + 1];
+                        if (nextNode.z > z) routeUsesUp = true;
+                        if (nextNode.z < z) routeUsesDown = true;
+                    }
+                }
+                if (!routeUsesUp && !routeUsesDown) {
+                    routeUsesUp = this.revealedPathSet.has(`${x},${y},${z + 1}`) || this.revealedPathSet.has(`${x},${y},${z + 2}`);
+                    routeUsesDown = this.revealedPathSet.has(`${x},${y},${z - 1}`) || this.revealedPathSet.has(`${x},${y},${z - 2}`);
+                }
+
+                // Se nenhuma direção for detectada na rota (fallback), ambas acendem em branco
+                const paintUpWhite = routeUsesUp || (!routeUsesUp && !routeUsesDown);
+                const paintDownWhite = routeUsesDown || (!routeUsesUp && !routeUsesDown);
+
+                ctx.fillStyle = paintUpWhite ? CONFIG.COLORS.REVEALED_PATH : (upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED);
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize / 2);
+                
+                ctx.fillStyle = paintDownWhite ? CONFIG.COLORS.REVEALED_PATH : (downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED);
+                ctx.fillRect(x * cellSize, y * cellSize + cellSize / 2, cellSize, cellSize / 2);
+            } else {
+                ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            }
         } else {
             if (hUp && hDown) {
                 ctx.fillStyle = upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED;
@@ -967,9 +994,31 @@ export class Engine {
                     }
                 }
 
-                const pathKey = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
-                if (this.revealedPathSet.has(pathKey)) {
-                    this.revealedPathSet.delete(pathKey);
+                const hUp = playerIdxZ < this.mazeGen.size - 1 && this.maze.get(playerIdxX, playerIdxY, playerIdxZ + 1) !== this.mazeGen.TYPES.WALL;
+                const hDown = playerIdxZ > 0 && this.maze.get(playerIdxX, playerIdxY, playerIdxZ - 1) !== this.mazeGen.TYPES.WALL;
+                const isCurrentElevator = hUp || hDown;
+
+                if (this.lastPlayerCell) {
+                    const lastX = this.lastPlayerCell.x;
+                    const lastY = this.lastPlayerCell.y;
+                    const lastZ = this.lastPlayerCell.z;
+                    const lastHUp = lastZ < this.mazeGen.size - 1 && this.maze.get(lastX, lastY, lastZ + 1) !== this.mazeGen.TYPES.WALL;
+                    const lastHDown = lastZ > 0 && this.maze.get(lastX, lastY, lastZ - 1) !== this.mazeGen.TYPES.WALL;
+                    const isLastElevator = lastHUp || lastHDown;
+                    const hasMoved = lastX !== playerIdxX || lastY !== playerIdxY || lastZ !== playerIdxZ;
+
+                    if (isLastElevator && hasMoved) {
+                        const lastPathKey = `${lastX},${lastY},${lastZ}`;
+                        if (this.revealedPathSet.has(lastPathKey)) {
+                            this.revealedPathSet.delete(lastPathKey);
+                            this.staticMapCacheDirty = true;
+                        }
+                    }
+                }
+
+                const currentPathKey = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
+                if (!isCurrentElevator && this.revealedPathSet.has(currentPathKey)) {
+                    this.revealedPathSet.delete(currentPathKey);
                     this.staticMapCacheDirty = true;
                 }
             }
@@ -1107,9 +1156,10 @@ export class Engine {
                 }
                 
                 const shaftKey = `${currentX},${currentY},${shaftZ}`;
-                const destKey = `${currentX},${currentY},${nextZ}`;
                 this.revealedPathSet.delete(shaftKey);
-                this.revealedPathSet.delete(destKey);
+                // destKey (célula de destino do elevador) não é deletada aqui; 
+                // ela permanece no revealedPathSet para manter a direção ativa acesa
+                // e será deletada pelo movePlayer assim que o jogador de fato sair dela.
                 
                 const canvasOld = document.createElement('canvas');
                 canvasOld.width = this.canvas.width;
@@ -1387,15 +1437,47 @@ export class Engine {
                             if (index > -1) this.pulsatingMaterials.splice(index, 1);
 
                             if (hUp && hDown) {
-                                // Split bicolor: dois meshes empilhados (cores invertidas verticalmente)
-                                const matBottom = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_UP,   transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_UP,   emissiveIntensity: 0.4 * opFactor });
-                                const matTop    = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_ELEVATOR_DOWN, transparent: true, opacity: 0.9 * opFactor, emissive: CONFIG.COLORS.THREE_ELEVATOR_DOWN, emissiveIntensity: 0.4 * opFactor });
+                                let routeUsesUp = false;
+                                let routeUsesDown = false;
+                                if (isRevealedPath) {
+                                    if (this.activePathReveal) {
+                                        const idx = this.activePathReveal.findIndex(node => node.x === x && node.y === y && node.z === z);
+                                        if (idx !== -1 && idx < this.activePathReveal.length - 1) {
+                                            const nextNode = this.activePathReveal[idx + 1];
+                                            if (nextNode.z > z) routeUsesUp = true;
+                                            if (nextNode.z < z) routeUsesDown = true;
+                                        }
+                                    }
+                                    if (!routeUsesUp && !routeUsesDown) {
+                                        routeUsesUp = this.revealedPathSet.has(`${x},${y},${z + 1}`) || this.revealedPathSet.has(`${x},${y},${z + 2}`);
+                                        routeUsesDown = this.revealedPathSet.has(`${x},${y},${z - 1}`) || this.revealedPathSet.has(`${x},${y},${z - 2}`);
+                                    }
+                                }
+
+                                const paintUpWhite = isRevealedPath && (routeUsesUp || (!routeUsesUp && !routeUsesDown));
+                                const paintDownWhite = isRevealedPath && (routeUsesDown || (!routeUsesUp && !routeUsesDown));
+
+                                const matBottom = new THREE.MeshPhongMaterial({
+                                    color: paintDownWhite ? 0xffffff : CONFIG.COLORS.THREE_ELEVATOR_DOWN,
+                                    transparent: true,
+                                    opacity: 0.9 * opFactor,
+                                    emissive: paintDownWhite ? 0xffffff : CONFIG.COLORS.THREE_ELEVATOR_DOWN,
+                                    emissiveIntensity: (paintDownWhite ? 2.0 : 0.4) * opFactor
+                                });
+                                const matTop = new THREE.MeshPhongMaterial({
+                                    color: paintUpWhite ? 0xffffff : CONFIG.COLORS.THREE_ELEVATOR_UP,
+                                    transparent: true,
+                                    opacity: 0.9 * opFactor,
+                                    emissive: paintUpWhite ? 0xffffff : CONFIG.COLORS.THREE_ELEVATOR_UP,
+                                    emissiveIntensity: (paintUpWhite ? 2.0 : 0.4) * opFactor
+                                });
+
                                 const meshBottom = new THREE.Mesh(shaftGeomBottom, matBottom);
                                 const meshTop    = new THREE.Mesh(shaftGeomTop,    matTop);
                                 meshBottom.position.set(x - size/2, (z - size/2) * this.vScale - 0.2125, y - size/2);
                                 meshTop.position.set(   x - size/2, (z - size/2) * this.vScale + 0.2125, y - size/2);
                                 this.scene.add(meshBottom);
-                                 this.scene.add(meshTop);
+                                this.scene.add(meshTop);
                                 this.gridMeshes[(x * size * size) + (y * size) + z] = meshTop; // Reference to one of them is enough
                                 if (isKnown && !isRevealedPath) {
                                     meshBottom.userData = { gridX: x, gridY: y, gridZ: z };
@@ -1403,10 +1485,17 @@ export class Engine {
                                     this.knownMeshes.push(meshBottom);
                                     this.knownMeshes.push(meshTop);
                                 }
-                                continue; // Mesh already added, skip the default mesh below
+                                continue;
                             } else {
-                                const elevatorColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
-                                material = new THREE.MeshPhongMaterial({ color: elevatorColor, transparent: true, opacity: 0.9 * opFactor, emissive: elevatorColor, emissiveIntensity: 0.4 * opFactor });
+                                const elevatorColor = isRevealedPath ? 0xffffff : (hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN);
+                                const intensity = isRevealedPath ? 2.0 : 0.4;
+                                material = new THREE.MeshPhongMaterial({
+                                    color: elevatorColor,
+                                    transparent: true,
+                                    opacity: 0.9 * opFactor,
+                                    emissive: elevatorColor,
+                                    emissiveIntensity: intensity * opFactor
+                                });
                             }
                         }
 
@@ -2339,37 +2428,45 @@ export class Engine {
     }
 
     findShortestPath(start, end, restrictToVisited = false) {
-        if (restrictToVisited) {
-            const size = this.mazeGen.size;
-            const tempMaze = new Int8Array(size * size * size);
-            for (let x = 0; x < size; x++) {
-                for (let y = 0; y < size; y++) {
-                    for (let z = 0; z < size; z++) {
-                        const idx = x * size * size + y * size + z;
-                        const val = this.maze.get(x, y, z);
-                        
-                        const isPlayerStart = x === start.x && y === start.y && z === start.z;
-                        const isTargetEnd = x === end.x && y === end.y && z === end.z;
-                        
-                        const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
-                        const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
-                        
-                        const isVisited = val === this.mazeGen.TYPES.VISITED || 
-                                          val === this.mazeGen.TYPES.START || 
-                                          val === this.mazeGen.TYPES.ELEVATOR_VISITED || 
-                                          isTeleportDiscovered;
-                        
-                        if (isVisited || isPlayerStart || isTargetEnd) {
-                            tempMaze[idx] = 1; // passável
-                        } else {
-                            tempMaze[idx] = 0; // parede
-                        }
+        const size = this.mazeGen.size;
+        const tempMaze = new Int8Array(size * size * size);
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const idx = x * size * size + y * size + z;
+                    const val = this.maze.get(x, y, z);
+                    
+                    const isPlayerStart = x === start.x && y === start.y && z === start.z;
+                    const isTargetEnd = x === end.x && y === end.y && z === end.z;
+                    
+                    const isWall = val === this.mazeGen.TYPES.WALL;
+                    if (isWall) {
+                        tempMaze[idx] = 0; // parede é sempre intransitável
+                        continue;
                     }
+
+                    const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                    const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
+                    
+                    const isVisited = val === this.mazeGen.TYPES.VISITED || 
+                                      val === this.mazeGen.TYPES.START || 
+                                      val === this.mazeGen.TYPES.ELEVATOR_VISITED || 
+                                      isTeleportDiscovered;
+                    
+                    const isKnown = (val === this.mazeGen.TYPES.PATH || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
+
+                    let isPassable = false;
+                    if (restrictToVisited) {
+                        isPassable = isVisited || isPlayerStart || isTargetEnd;
+                    } else {
+                        isPassable = isVisited || isKnown || isPlayerStart || isTargetEnd;
+                    }
+
+                    tempMaze[idx] = isPassable ? 1 : 0;
                 }
             }
-            return aStarPath(start, end, tempMaze, size, 0) ?? [];
         }
-        return aStarPath(start, end, this.maze, this.mazeGen.size, this.mazeGen.TYPES.WALL) ?? [];
+        return aStarPath(start, end, tempMaze, size, 0) ?? [];
     }
 
     triggerPathReveal(tx, ty, tz) {
