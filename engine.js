@@ -829,8 +829,219 @@ export class Engine {
         this.ui.updateVisitedPercent(percent);
     }
 
+    getTeleportCandidates() {
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+        return Array.from(this.discoveredTeleports).map(str => {
+            const [x, y, z] = str.split(',').map(Number);
+            return { x, y, z };
+        }).filter(pos => {
+            if (pos.x === px && pos.y === py && pos.z === pz) return false;
+            if (this.inactiveTeleportPos && 
+                this.inactiveTeleportPos.x === pos.x && 
+                this.inactiveTeleportPos.y === pos.y && 
+                this.inactiveTeleportPos.z === pos.z) return false;
+            return true;
+        });
+    }
+
+    updateGamepad(dt) {
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const gp = gamepads[0] || gamepads.find(g => g !== null);
+        if (!gp) return;
+
+        // 1. Movement axes (Left Analog / D-pad)
+        const axisX = gp.axes[0];
+        const axisY = gp.axes[1];
+        
+        const deadzone = 0.25;
+        let left = axisX < -deadzone;
+        let right = axisX > deadzone;
+        let up = axisY < -deadzone;
+        let down = axisY > deadzone;
+
+        if (gp.buttons[12] && gp.buttons[12].pressed) up = true;
+        if (gp.buttons[13] && gp.buttons[13].pressed) down = true;
+        if (gp.buttons[14] && gp.buttons[14].pressed) left = true;
+        if (gp.buttons[15] && gp.buttons[15].pressed) right = true;
+
+        this.input.keys['arrowleft'] = left;
+        this.input.keys['arrowright'] = right;
+        this.input.keys['arrowup'] = up;
+        this.input.keys['arrowdown'] = down;
+
+        // 2. Buttons (Edge triggered)
+        if (!this.prevGamepadButtons) {
+            this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+            return;
+        }
+
+        const wasPressed = (btnIdx) => this.prevGamepadButtons[btnIdx];
+        const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
+        const justPressed = (btnIdx) => isPressed(btnIdx) && !wasPressed(btnIdx);
+
+        // A Button (Button 0): Descend floor / Confirm teleport
+        if (justPressed(0)) {
+            if (this.isTeleportMode) {
+                const candidates = this.getTeleportCandidates();
+                const selected = candidates[this.gamepadTeleportSelectedIndex];
+                if (selected) {
+                    this.teleportTo(selected.x, selected.y, selected.z);
+                }
+            } else if (!this.isMap3DActive) {
+                const px = Math.floor(this.player.x);
+                const py = Math.floor(this.player.y);
+                const pz = this.player.z;
+                const hDown = pz > 0 && this.maze.get(px, py, pz - 1) !== 0;
+                const val = this.maze.get(px, py, pz);
+                const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                const isInactive = this.inactiveTeleportPos && 
+                                   this.inactiveTeleportPos.x === px && 
+                                   this.inactiveTeleportPos.y === py && 
+                                   this.inactiveTeleportPos.z === pz;
+                const isOnTeleport = isTeleport && this.discoveredTeleports.has(`${px},${py},${pz}`);
+
+                if (!isOnTeleport || isInactive) {
+                    if (hDown) this.changeFloor(-2);
+                }
+            }
+        }
+
+        // B Button (Button 1): Toggle Zoom / Cancel Teleport
+        if (justPressed(1)) {
+            if (this.isTeleportMode) {
+                this.toggleTeleportMap(false);
+            } else {
+                this.toggleZoom();
+            }
+        }
+
+        // X Button (Button 2): Interact with portal
+        if (justPressed(2)) {
+            if (!this.isTeleportMode && !this.isMap3DActive) {
+                const px = Math.floor(this.player.x);
+                const py = Math.floor(this.player.y);
+                const pz = this.player.z;
+                const val = this.maze.get(px, py, pz);
+                const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                const isInactive = this.inactiveTeleportPos && 
+                                   this.inactiveTeleportPos.x === px && 
+                                   this.inactiveTeleportPos.y === py && 
+                                   this.inactiveTeleportPos.z === pz;
+                const isOnTeleport = isTeleport && this.discoveredTeleports.has(`${px},${py},${pz}`);
+
+                if (isOnTeleport && !isInactive) {
+                    if (this.discoveredTeleports.size >= 2) {
+                        this.toggleTeleportMap(true);
+                        this.gamepadTeleportSelectedIndex = 0;
+                    } else {
+                        this.ui.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
+                    }
+                }
+            }
+        }
+
+        // Y Button (Button 3): Ascend floor
+        if (justPressed(3)) {
+            if (!this.isTeleportMode && !this.isMap3DActive) {
+                const px = Math.floor(this.player.x);
+                const py = Math.floor(this.player.y);
+                const pz = this.player.z;
+                const hUp = pz < this.mazeGen.size - 1 && this.maze.get(px, py, pz + 1) !== 0;
+                const val = this.maze.get(px, py, pz);
+                const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                const isInactive = this.inactiveTeleportPos && 
+                                   this.inactiveTeleportPos.x === px && 
+                                   this.inactiveTeleportPos.y === py && 
+                                   this.inactiveTeleportPos.z === pz;
+                const isOnTeleport = isTeleport && this.discoveredTeleports.has(`${px},${py},${pz}`);
+
+                if (!isOnTeleport || isInactive) {
+                    if (hUp) this.changeFloor(2);
+                }
+            }
+        }
+
+        // Start / Menu Button (Button 9) or Back / View Button (Button 8): Toggle 3D Map
+        if (justPressed(9) || justPressed(8)) {
+            if (this.isTeleportMode) {
+                this.toggleTeleportMap(false);
+            } else {
+                this.toggleMap3D();
+            }
+        }
+
+        // 3. Teleport target selection (LB/RB or D-pad Left/Right in Teleport Mode)
+        if (this.isTeleportMode) {
+            const prevTeleport = justPressed(4) || justPressed(14);
+            const nextTeleport = justPressed(5) || justPressed(15);
+
+            if (prevTeleport || nextTeleport) {
+                const candidates = this.getTeleportCandidates();
+                if (candidates.length > 0) {
+                    if (prevTeleport) {
+                        this.gamepadTeleportSelectedIndex = (this.gamepadTeleportSelectedIndex - 1 + candidates.length) % candidates.length;
+                    } else {
+                        this.gamepadTeleportSelectedIndex = (this.gamepadTeleportSelectedIndex + 1) % candidates.length;
+                    }
+                }
+            }
+        }
+
+        // 4. Right Analog Stick (axes 2 & 3): Rotate 3D Camera / Triggers (LT/RT): Zoom 3D Camera
+        if (this.isMap3DActive && this.controls) {
+            const rotX = gp.axes[2];
+            const rotY = gp.axes[3];
+            const zoomInVal = gp.buttons[7] ? gp.buttons[7].value : 0;  // RT
+            const zoomOutVal = gp.buttons[6] ? gp.buttons[6].value : 0; // LT
+            
+            const rotDeadzone = 0.15;
+            const zoomDeadzone = 0.15;
+            const rotSpeed = 2.0 * dt;
+            const zoomSpeed = 20.0 * dt;
+
+            const hasRotation = Math.abs(rotX) > rotDeadzone || Math.abs(rotY) > rotDeadzone;
+            const hasZoom = zoomInVal > zoomDeadzone || zoomOutVal > zoomDeadzone;
+
+            if (hasRotation || hasZoom) {
+                const offset = new THREE.Vector3().copy(this.camera.position).sub(this.controls.target);
+                const spherical = new THREE.Spherical().setFromVector3(offset);
+
+                if (Math.abs(rotX) > rotDeadzone) {
+                    spherical.theta -= rotX * rotSpeed;
+                }
+                if (Math.abs(rotY) > rotDeadzone) {
+                    spherical.phi -= rotY * rotSpeed;
+                    const minPolar = this.controls.minPolarAngle || 0;
+                    const maxPolar = this.controls.maxPolarAngle || Math.PI;
+                    spherical.phi = Math.max(minPolar, Math.min(maxPolar, spherical.phi));
+                }
+
+                if (zoomInVal > zoomDeadzone) {
+                    spherical.radius -= zoomInVal * zoomSpeed;
+                }
+                if (zoomOutVal > zoomDeadzone) {
+                    spherical.radius += zoomOutVal * zoomSpeed;
+                }
+                const minDist = this.controls.minDistance || 2;
+                const maxDist = this.controls.maxDistance || 100;
+                spherical.radius = Math.max(minDist, Math.min(maxDist, spherical.radius));
+
+                spherical.makeSafe();
+                offset.setFromSpherical(spherical);
+                this.camera.position.copy(this.controls.target).add(offset);
+                this.controls.update();
+            }
+        }
+
+        this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+    }
+
     update(dt) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        this.updateGamepad(dt);
 
         if (this.hunters.some(h => h.state === 'SLEEP')) {
             const percent = this.getMapVisitedPercentage();
@@ -882,6 +1093,47 @@ export class Engine {
                     km.rotation.y += 1.5 * dt;
                     km.rotation.x += 0.5 * dt;
                 }
+            }
+            if (this.isTeleportMode && this.teleportMeshes && this.gamepadTeleportSelectedIndex !== undefined) {
+                const candidates = this.getTeleportCandidates();
+                const selected = candidates[this.gamepadTeleportSelectedIndex];
+                this.teleportMeshes.forEach(mesh => {
+                    const { gridX, gridY, gridZ } = mesh.userData;
+                    const isSelected = selected && gridX === selected.x && gridY === selected.y && gridZ === selected.z;
+                    if (isSelected) {
+                        const scale = 1.3 + 0.25 * Math.sin(Date.now() / 100);
+                        mesh.scale.set(scale, scale, scale);
+                        if (mesh.material && mesh.material.emissive) {
+                            mesh.material.emissive.setHex(0xffaa00);
+                            mesh.material.emissiveIntensity = 3.5;
+                        }
+                    } else {
+                        const isPlayerHere = gridX === Math.floor(this.player.x) && gridY === Math.floor(this.player.y) && gridZ === this.player.z;
+                        const isInactive = this.inactiveTeleportPos && 
+                                           this.inactiveTeleportPos.x === gridX && 
+                                           this.inactiveTeleportPos.y === gridY && 
+                                           this.inactiveTeleportPos.z === gridZ;
+                        
+                        let baseScale = 1.0;
+                        if (isPlayerHere) {
+                            baseScale = 1.4;
+                        }
+                        mesh.scale.set(baseScale, baseScale, baseScale);
+
+                        if (mesh.material && mesh.material.emissive) {
+                            if (isInactive) {
+                                mesh.material.emissive.setHex(0x444444);
+                                mesh.material.emissiveIntensity = 0.0;
+                            } else if (isPlayerHere) {
+                                mesh.material.emissive.setHex(0x00ffff);
+                                mesh.material.emissiveIntensity = 3.0;
+                            } else {
+                                mesh.material.emissive.setHex(CONFIG.COLORS.THREE_TELEPORT);
+                                mesh.material.emissiveIntensity = 2.5;
+                            }
+                        }
+                    }
+                });
             }
         }
 
