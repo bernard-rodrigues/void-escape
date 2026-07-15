@@ -138,6 +138,28 @@ body {
     animation-delay: 1.6s;
 }
 
+.game-credits {
+    font-family: 'Orbitron', sans-serif;
+    font-size: calc(var(--h-unit) * 1.25);
+    font-size: calc(var(--d-h-unit) * 1.25);
+    color: var(--clr-text-dim);
+    text-transform: lowercase;
+    letter-spacing: calc(var(--h-unit) * 0.15);
+    letter-spacing: calc(var(--d-h-unit) * 0.15);
+    font-weight: 500;
+    margin: 0;
+    text-align: center;
+}
+
+#start-menu .game-credits {
+    opacity: 0;
+    transform: translateY(-16dvh);
+    animation: credits-intro 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: 1.6s;
+    margin-top: calc(var(--h-unit) * 4);
+    margin-top: calc(var(--d-h-unit) * 4);
+}
+
 #start-menu .menu-stats-grid,
 #start-menu .control-group,
 #start-menu .menu-action-btns {
@@ -197,6 +219,44 @@ body {
     50% {
         opacity: 1;
         transform: translateY(35dvh);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes credits-intro {
+    0% {
+        opacity: 0;
+        transform: translateY(-16dvh);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-16dvh);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(-16dvh);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes credits-intro-mobile {
+    0% {
+        opacity: 0;
+        transform: translateY(-38dvh);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-38dvh);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(-38dvh);
     }
     100% {
         opacity: 1;
@@ -1454,6 +1514,13 @@ body {
         transform: translateY(35dvh);
         animation: title-intro-mobile 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         animation-delay: 1.6s;
+    }
+    #start-menu .game-credits {
+        transform: translateY(-38dvh);
+        animation: credits-intro-mobile 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation-delay: 1.6s;
+        margin-top: calc(var(--h-unit) * 3);
+        margin-top: calc(var(--d-h-unit) * 3);
     }
     #teleport-warning {
         top: calc(var(--h-unit) * 2);
