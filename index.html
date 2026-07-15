@@ -166,25 +166,27 @@
                 </button>
             </div>
             
+            <!-- Proximeter Container (Mapeado fora do Bottom HUD para controle de ordem) -->
+            <div id="proximeter-container" class="hidden">
+                <div class="proximeter-label">PROXIMITY DETECTOR</div>
+                <div class="proximeter-bar">
+                    <span class="proximeter-cell" data-index="1"></span>
+                    <span class="proximeter-cell" data-index="2"></span>
+                    <span class="proximeter-cell" data-index="3"></span>
+                    <span class="proximeter-cell" data-index="4"></span>
+                    <span class="proximeter-cell" data-index="5"></span>
+                    <span class="proximeter-cell" data-index="6"></span>
+                    <span class="proximeter-cell" data-index="7"></span>
+                    <span class="proximeter-cell" data-index="8"></span>
+                    <span class="proximeter-cell" data-index="9"></span>
+                    <span class="proximeter-cell" data-index="10"></span>
+                </div>
+            </div>
+
             <!-- Bottom HUD Container (Flex on Desktop, Stacked on Mobile) -->
             <div id="bottom-hud-container">
-                <div id="floor-display" aria-live="polite">Floor: <span id="current-floor">0</span></div>
-                <div id="visited-display" aria-live="polite">Visited: <span id="visited-percent">0</span>%</div>
-                <div id="proximeter-container" class="hidden">
-                    <div class="proximeter-label">PROXIMITY DETECTOR</div>
-                    <div class="proximeter-bar">
-                        <span class="proximeter-cell" data-index="1"></span>
-                        <span class="proximeter-cell" data-index="2"></span>
-                        <span class="proximeter-cell" data-index="3"></span>
-                        <span class="proximeter-cell" data-index="4"></span>
-                        <span class="proximeter-cell" data-index="5"></span>
-                        <span class="proximeter-cell" data-index="6"></span>
-                        <span class="proximeter-cell" data-index="7"></span>
-                        <span class="proximeter-cell" data-index="8"></span>
-                        <span class="proximeter-cell" data-index="9"></span>
-                        <span class="proximeter-cell" data-index="10"></span>
-                    </div>
-                </div>
+                <div id="floor-display" aria-live="polite"><span class="hud-label">Floor</span> <span id="current-floor">0</span></div>
+                <div id="visited-display" aria-live="polite"><span class="hud-label">Visited</span> <span class="visited-value"><span id="visited-percent">0</span>%</span></div>
             </div>
         </div>
 
