@@ -1136,24 +1136,54 @@ export class Engine {
                      });
                  }
                 
-                if (h.history && h.history.length > 0) {
-                    if (h.history.length === 2) {
-                        const oldest = h.history[0];
-                        const newest = h.history[1];
-                        
-                        hm.trail2.position.set(oldest.x - size/2, (oldest.z - size/2) * this.vScale, oldest.y - size/2);
-                        hm.trail2.visible = true;
-                        
-                        hm.trail1.position.set(newest.x - size/2, (newest.z - size/2) * this.vScale, newest.y - size/2);
-                        hm.trail1.visible = true;
-                    } else if (h.history.length === 1) {
-                        const newest = h.history[0];
-                        hm.trail1.position.set(newest.x - size/2, (newest.z - size/2) * this.vScale, newest.y - size/2);
-                        hm.trail1.visible = true;
-                        hm.trail2.visible = false;
+                // Calcula o progresso p do passo atual (de 0 a 1) baseado na distância física
+                const dx = h.x - h.visualX;
+                const dy = h.y - h.visualY;
+                const stepDist = Math.sqrt(dx * dx + dy * dy);
+                const p = Math.max(0, Math.min(1, 1 - stepDist));
+
+                // 1. Rastro 1 (newest) na posição h.lastPos
+                if (h.lastPos && (h.lastPos.x !== h.x || h.lastPos.y !== h.y)) {
+                    hm.trail1.position.set(h.lastPos.x - size/2, (h.lastPos.z - size/2) * this.vScale, h.lastPos.y - size/2);
+                    hm.trail1.visible = true;
+                    
+                    const time1 = h.jellyTime - 0.2;
+                    const scale1 = 0.95 - p * 0.47;
+                    const scaleX1 = scale1 * (1 + Math.sin(time1 * 1.2) * 0.07);
+                    const scaleY1 = scale1 * (1 + Math.cos(time1 * 0.8) * 0.07);
+                    const scaleZ1 = scale1 * (1 + Math.sin(time1 * 1.5) * 0.07);
+                    hm.trail1.scale.set(scaleX1, scaleY1, scaleZ1);
+                    
+                    // Suaviza a opacidade do material
+                    if (hm.trail1.material) {
+                        hm.trail1.material.opacity = (0.40 - p * 0.20) * opFactor;
                     }
                 } else {
                     hm.trail1.visible = false;
+                }
+
+                // 2. Rastro 2 (oldest) na posição anterior do histórico (history[0]) apenas se houver 2 posições consecutivas
+                if (h.history && h.history.length === 2) {
+                    const oldestPos = h.history[0];
+                    hm.trail2.position.set(oldestPos.x - size/2, (oldestPos.z - size/2) * this.vScale, oldestPos.y - size/2);
+                    
+                    const scale2 = 0.48 * (1 - p);
+                    if (scale2 > 0.02) {
+                        hm.trail2.visible = true;
+                        
+                        const time2 = h.jellyTime - 0.4;
+                        const scaleX2 = scale2 * (1 + Math.sin(time2 * 1.2) * 0.07);
+                        const scaleY2 = scale2 * (1 + Math.cos(time2 * 0.8) * 0.07);
+                        const scaleZ2 = scale2 * (1 + Math.sin(time2 * 1.5) * 0.07);
+                        hm.trail2.scale.set(scaleX2, scaleY2, scaleZ2);
+                        
+                        if (hm.trail2.material) {
+                            hm.trail2.material.opacity = (0.20 * (1 - p)) * opFactor;
+                        }
+                    } else {
+                        hm.trail2.visible = false;
+                    }
+                } else {
                     hm.trail2.visible = false;
                 }
             }
@@ -1866,10 +1896,10 @@ export class Engine {
         const hGeom = new THREE.SphereGeometry(0.4);
         const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8 });
         
-        // Trail materials with lower opacities
-        const trailMat1 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.55, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.4 });
-        const trailMat2 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.25, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.2 });
-        const trailGeom = new THREE.SphereGeometry(0.3);
+        // Trail materials with lower opacities and emissivities
+        const trailMat1 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.40, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.3 });
+        const trailMat2 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.15, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.1 });
+        const trailGeom = hGeom; // Reutiliza a geometria esférica do monstro
 
         for (let i = 0; i < this.hunters.length; i++) {
             const h = this.hunters[i];
@@ -2058,25 +2088,79 @@ export class Engine {
         const pulse = Math.sin(Date.now() / 200) * 5 + 10;
         for (const h of this.hunters) {
             if (h.state === 'SLEEP') continue;
-            if (h.history) {
-                h.history.forEach((pos, idx) => {
-                    if (pos.z === z) {
-                        const opacity = idx === 0 && h.history.length === 2 ? 0.25 : 0.55;
-                        ctx.save();
-                        ctx.globalAlpha = opacity;
-                        ctx.fillStyle = CONFIG.COLORS.HUNTER;
-                        ctx.beginPath();
-                        ctx.arc(pos.x * cellSize + cellSize/2, pos.y * cellSize + cellSize/2, cellSize * 0.3, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.restore();
-                    }
-                });
-            }
+            
             const distZ = Math.abs(h.visualZ - z);
             const scaleFactor = Math.max(0, 1 - distZ);
-            if (scaleFactor > 0 && h.lowCanvas) {
-                ctx.save();
-                
+            if (scaleFactor <= 0) continue;
+
+            // Calcula o progresso p do passo atual (de 0 a 1) baseado na distância física até o visualX/Y
+            const dx = h.x - h.visualX;
+            const dy = h.y - h.visualY;
+            const stepDist = Math.sqrt(dx * dx + dy * dy);
+            const p = Math.max(0, Math.min(1, 1 - stepDist));
+
+            const trails = [];
+
+            // 1. Rastro 1 (mais recente): na posição h.lastPos
+            if (h.lastPos && (h.lastPos.x !== h.x || h.lastPos.y !== h.y)) {
+                if (h.lastPos.z === z) {
+                    const sizeFactor = 0.95 - p * 0.47;
+                    const opacityFactor = 0.40 - p * 0.20;
+                    trails.push({
+                        pos: h.lastPos,
+                        sizeFactor,
+                        opacityFactor,
+                        age: 1
+                    });
+                }
+            }
+
+            // 2. Rastro 2 (mais antigo): na posição anterior do histórico (history[0]) apenas se houver 2 posições consecutivas
+            if (h.history && h.history.length === 2) {
+                const oldestPos = h.history[0];
+                if (oldestPos.z === z) {
+                    const sizeFactor = 0.48 * (1 - p);
+                    const opacityFactor = 0.20 * (1 - p);
+                    if (sizeFactor > 0.01) {
+                        trails.push({
+                            pos: oldestPos,
+                            sizeFactor,
+                            opacityFactor,
+                            age: 2
+                        });
+                    }
+                }
+            }
+
+            // Desenha os rastros interpolados
+            trails.forEach((trail) => {
+                if (h.lowCanvas) {
+                    const cx = trail.pos.x * cellSize + cellSize / 2;
+                    const cy = trail.pos.y * cellSize + cellSize / 2;
+                    const drawSize = cellSize * trail.sizeFactor * scaleFactor;
+
+                    // MOVIMENTAÇÃO GELATINOSA LENTA DO RASTRO (leve atraso de fase na oscilação)
+                    const time = h.jellyTime - trail.age * 0.2;
+                    const skewX = Math.sin(time) * 6; 
+                    const skewY = Math.cos(time * 0.7) * 4;
+                    const scaleX = 1 + Math.sin(time * 1.2) * 0.06;
+                    const scaleY = 1 + Math.cos(time * 0.8) * 0.06;
+                    
+                    const radX = skewX * Math.PI / 180;
+                    const radY = skewY * Math.PI / 180;
+
+                    // Desenha o rastro gelatinoso pixelado translúcido
+                    ctx.save();
+                    ctx.globalAlpha = trail.opacityFactor;
+                    ctx.translate(cx, cy);
+                    ctx.transform(scaleX, Math.tan(radY), Math.tan(radX), scaleY, 0, 0);
+                    
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(h.lowCanvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+                    ctx.restore();
+                }
+            });
+            if (h.lowCanvas) {
                 const cx = h.visualX * cellSize + cellSize / 2;
                 const cy = h.visualY * cellSize + cellSize / 2;
                 const drawSize = cellSize * 0.95 * scaleFactor; // Contido dentro do limite da célula
@@ -2087,17 +2171,29 @@ export class Engine {
                 const skewY = Math.cos(time * 0.7) * 4;
                 const scaleX = 1 + Math.sin(time * 1.2) * 0.06;
                 const scaleY = 1 + Math.cos(time * 0.8) * 0.06;
-
-                // Aplica deformação gelatinosa (transformação de skew e scale) ao redor do centro do Hunter no canvas
-                ctx.translate(cx, cy);
+                
                 const radX = skewX * Math.PI / 180;
                 const radY = skewY * Math.PI / 180;
-                ctx.transform(scaleX, Math.tan(radY), Math.tan(radX), scaleY, 0, 0);
 
-                // Desenha o canvas offscreen do monstro pixelado sem suavização
+                // 3.1 Desenha a Sombra Gelatinosa (Deslocada à esquerda e acima, luz vinda do canto inferior direito)
+                ctx.save();
+                const shadowOffsetX = -cellSize * 0.12 * scaleFactor;
+                const shadowOffsetY = -cellSize * 0.12 * scaleFactor;
+                ctx.translate(cx + shadowOffsetX, cy + shadowOffsetY);
+                ctx.transform(scaleX, Math.tan(radY), Math.tan(radX), scaleY, 0, 0);
+                
+                // Filtro para escurecer, aplicar blur e atenuar a opacidade
+                ctx.filter = 'brightness(0) blur(1px) opacity(0.35)';
                 ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(h.lowCanvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
-                
+                ctx.restore();
+
+                // 3.2 Desenha o Núcleo Gelatinoso Real (Sem deslocamento)
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.transform(scaleX, Math.tan(radY), Math.tan(radX), scaleY, 0, 0);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(h.lowCanvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
                 ctx.restore();
             }
         }
