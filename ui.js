@@ -40,6 +40,10 @@ export class UIManager {
         // Pause Menu DOM bindings
         this.uiPauseScreen = document.getElementById('pause-screen');
         this.uiMobilePauseBtn = document.getElementById('mobile-pause-btn');
+
+        // Pathfinders HUD DOM bindings
+        this.uiPathfindersRemaining = document.getElementById('pathfinders-remaining-count');
+        this.uiPathfindersTotal = document.getElementById('pathfinders-total-count');
     }
 
     /**
@@ -169,6 +173,14 @@ export class UIManager {
                 this.uiKeysList.appendChild(dot);
             }
         }
+    }
+
+    /**
+     * Update the pathfinders HUD elements (remaining count, total count).
+     */
+    updatePathfindersHUD(remaining, total) {
+        if (this.uiPathfindersRemaining) this.uiPathfindersRemaining.innerText = remaining;
+        if (this.uiPathfindersTotal) this.uiPathfindersTotal.innerText = total;
     }
 
     /**

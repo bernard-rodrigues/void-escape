@@ -23,6 +23,9 @@ export const CONFIG = {
         const diff = degree - 8;
         return Math.floor(0.125 * diff * diff + 0.5 * diff + 4);
     },
+    getPathfinderCount(degree) {
+        return this.getTeleportCount(degree);
+    },
     COLORS: {
         // 2D & Global
         WALL: '#444',
