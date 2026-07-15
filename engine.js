@@ -95,6 +95,7 @@ export class Engine {
 
         this.isMap3DActive = false;
         this.isGameOver = false;
+        this.deathAnimation = null;
         this.isPaused = false;
         this.isDestroyed = false;
         this.isIntroPlaying = false;
@@ -455,6 +456,8 @@ export class Engine {
      * "pass through" a stationary hunter between ticks.
      */
     checkHunterCollision() {
+        if (this.deathAnimation && this.deathAnimation.active) return;
+
         const px = Math.floor(this.player.x);
         const py = Math.floor(this.player.y);
         const pz = this.player.z;
@@ -470,7 +473,26 @@ export class Engine {
         for (const hunter of this.hunters) {
             if (hunter.state === 'SLEEP') continue;
             if (hunter.x === px && hunter.y === py && hunter.z === pz) {
-                this.triggerDeath();
+                // Trava o caçador na posição atual
+                hunter.visualX = hunter.x;
+                hunter.visualY = hunter.y;
+                hunter.visualZ = hunter.z;
+
+                this.isGameOver = true;
+                this.hideGameUI(); // Desativa o mapa 3D se ativo, controles etc.
+
+                this.deathAnimation = {
+                    active: true,
+                    hunter: hunter,
+                    playerPos: { x: this.player.x, y: this.player.y, z: this.player.z },
+                    elapsed: 0,
+                    duration: 1.8, // 1.8 segundos para a corrupção cobrir toda a tela
+                    screenFilled: false,
+                    glitchElapsed: 0,
+                    glitchDuration: 1.5,
+                    uiFade: 0,
+                    uiTriggered: false
+                };
                 return;
             }
         }
@@ -1968,6 +1990,30 @@ export class Engine {
     }    
     
     draw2DMap(dt = 0.016) {
+        if (this.deathAnimation && this.deathAnimation.active) {
+            if (!this.deathAnimation.screenFilled) {
+                this.deathAnimation.elapsed += dt;
+                if (this.deathAnimation.elapsed >= this.deathAnimation.duration) {
+                    this.deathAnimation.screenFilled = true;
+                }
+            } else {
+                this.deathAnimation.glitchElapsed += dt;
+                if (!this.deathAnimation.uiTriggered) {
+                    this.deathAnimation.uiTriggered = true;
+                    this.ui.showDeath(this.hasSavePoint);
+                    const el = document.getElementById('game-over-screen');
+                    if (el) {
+                        el.style.opacity = '0';
+                    }
+                }
+                this.deathAnimation.uiFade = Math.min(1, this.deathAnimation.glitchElapsed / this.deathAnimation.glitchDuration);
+                const el = document.getElementById('game-over-screen');
+                if (el) {
+                    el.style.opacity = this.deathAnimation.uiFade;
+                }
+            }
+        }
+
         if (this.floorTransition) {
             this.floorTransition.progress += dt / this.floorTransition.duration;
             if (this.floorTransition.progress >= 1.0) {
@@ -2199,26 +2245,144 @@ export class Engine {
         }
 
         // 4. Draw Player (dynamic direction line and pulsating node overlay)
-        ctx.save();
-        ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
-        ctx.restore();
-        
-        ctx.fillStyle = CONFIG.COLORS.PLAYER;
-        ctx.beginPath();
-        ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.strokeStyle = CONFIG.COLORS.PLAYER;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(px * cellSize, py * cellSize);
-        ctx.lineTo(px * cellSize + Math.cos(this.player.dir) * cellSize * 1, py * cellSize + Math.sin(this.player.dir) * cellSize * 1);
-        ctx.stroke();
+        if (!this.deathAnimation || !this.deathAnimation.active) {
+            ctx.save();
+            ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
+            ctx.restore();
+            
+            ctx.fillStyle = CONFIG.COLORS.PLAYER;
+            ctx.beginPath();
+            ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = CONFIG.COLORS.PLAYER;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(px * cellSize, py * cellSize);
+            ctx.lineTo(px * cellSize + Math.cos(this.player.dir) * cellSize * 1, py * cellSize + Math.sin(this.player.dir) * cellSize * 1);
+            ctx.stroke();
+        }
 
         if (useZoom) {
             ctx.restore();
+        }
+
+        // Draw death animation corruption / glitch overlay
+        if (this.deathAnimation && this.deathAnimation.active) {
+            const h = this.deathAnimation.hunter;
+            
+            // Calcula o centro do hunter na tela
+            let screenX, screenY;
+            if (useZoom) {
+                const scaleTransition = 11 / this.zoomVisibleCells;
+                const half = this.zoomVisibleCells / 2;
+                let camX = px;
+                let camY = py;
+                if (camX < half) camX = half;
+                if (camX > size - half) camX = size - half;
+                if (camY < half) camY = half;
+                if (camY > size - half) camY = size - half;
+                
+                const cx = ctx.canvas.width / 2;
+                const cy = ctx.canvas.height / 2;
+                screenX = cx + (h.visualX + 0.5 - camX) * cellSize * scaleTransition;
+                screenY = cy + (h.visualY + 0.5 - camY) * cellSize * scaleTransition;
+            } else {
+                screenX = (h.visualX + 0.5) * cellSize;
+                screenY = (h.visualY + 0.5) * cellSize;
+            }
+
+            if (!this.deathAnimation.screenFilled) {
+                const maxRadius = Math.hypot(ctx.canvas.width, ctx.canvas.height) * 1.1;
+                const progress = this.deathAnimation.elapsed / this.deathAnimation.duration;
+                // Easing in out para a expansão da corrupção
+                const t = progress * progress * (3 - 2 * progress); // smoothstep
+                const currentRadius = t * maxRadius;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, currentRadius, 0, Math.PI * 2);
+                ctx.clip();
+
+                // Fundo roxo bem escuro corrompido
+                ctx.fillStyle = 'rgba(15, 0, 25, 0.96)';
+                ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+                // Desenha glitches internos
+                const numGlitches = 45;
+                const baseScale = useZoom ? (11 / this.zoomVisibleCells) : 1;
+                for (let i = 0; i < numGlitches; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    // Distribui mais glitches na borda para um efeito orgânico
+                    const dist = Math.pow(Math.random(), 0.7) * currentRadius;
+                    const gx = screenX + Math.cos(angle) * dist;
+                    const gy = screenY + Math.sin(angle) * dist;
+                    const gw = (15 + Math.random() * 70) * baseScale;
+                    const gh = (3 + Math.random() * 12) * baseScale;
+
+                    const r = 80 + Math.floor(Math.random() * 50);
+                    const g = Math.floor(Math.random() * 25);
+                    const b = 130 + Math.floor(Math.random() * 70);
+                    ctx.fillStyle = Math.random() < 0.12 ? '#00ff66' : 
+                                    Math.random() < 0.12 ? '#00ccff' : 
+                                    Math.random() < 0.08 ? '#ffffff' : `rgb(${r},${g},${b})`;
+                    ctx.fillRect(gx - gw/2, gy - gh/2, gw, gh);
+                }
+
+                // Trovões internos ocasionais
+                if (Math.random() < 0.3) {
+                    ctx.fillStyle = Math.random() < 0.7 ? '#ffffff' : '#b3ffff';
+                    const tx = screenX + (Math.random() - 0.5) * currentRadius * 0.8;
+                    const ty = screenY + (Math.random() - 0.5) * currentRadius * 0.8;
+                    const tw = (2 + Math.random() * 5) * baseScale;
+                    const th = (10 + Math.random() * 30) * baseScale;
+                    ctx.fillRect(tx - tw/2, ty - th/2, tw, th);
+                }
+
+                ctx.restore();
+            } else {
+                // Tela totalmente preenchida pela corrupção -> efeito de glitch contínuo
+                ctx.fillStyle = 'rgba(10, 0, 15, 1.0)';
+                ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+                // Desenha scanlines horizontais de ruído digital
+                ctx.fillStyle = 'rgba(138, 3, 196, 0.08)';
+                for (let y = 0; y < ctx.canvas.height; y += 6) {
+                    if (Math.random() < 0.6) {
+                        ctx.fillRect(0, y + Math.sin(Date.now() * 0.01 + y) * 2, ctx.canvas.width, 2);
+                    }
+                }
+
+                // Desenha blocos gigantes de glitch coloridos que piscam e se movem rapidamente
+                const numBlocks = Math.floor(Math.random() * 5) + 3;
+                const colors = ['#00ff66', '#ff0055', '#00ccff', '#ffff00', '#8a03c4', '#ffffff'];
+                for (let i = 0; i < numBlocks; i++) {
+                    const bx = Math.random() * ctx.canvas.width;
+                    const by = Math.random() * ctx.canvas.height;
+                    const bw = 80 + Math.random() * 250;
+                    const bh = 8 + Math.random() * 30;
+                    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                    ctx.globalAlpha = 0.12 + Math.random() * 0.18;
+                    ctx.fillRect(bx, by, bw, bh);
+                }
+                ctx.globalAlpha = 1.0;
+
+                // Deslocamento de fatias horizontais da própria imagem da tela (horizontal screen displacement glitch)
+                if (Math.random() < 0.35) {
+                    const sy = Math.floor(Math.random() * ctx.canvas.height);
+                    const sh = 15 + Math.floor(Math.random() * 80);
+                    const shift = Math.floor(Math.random() * 40) - 20;
+                    ctx.drawImage(ctx.canvas, 0, sy, ctx.canvas.width, sh, shift, sy, ctx.canvas.width, sh);
+                }
+
+                // Estática branca/cinza fina ocasional
+                if (Math.random() < 0.15) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.fillRect(0, Math.random() * ctx.canvas.height, ctx.canvas.width, 5 + Math.random() * 20);
+                }
+            }
         }
     }
 
