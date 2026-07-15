@@ -15,25 +15,25 @@
     <section id="start-menu">
         <div class="menu-content">
             <header>
-                <h1 class="game-title">VOID ESCAPE</h1>
+                <h1 class="game-title" data-i18n="gameTitle">VOID ESCAPE</h1>
             </header>
 
             <!-- Grid 2x2 for isolated info containers -->
             <div class="menu-stats-grid">
                 <div class="stat-container hunter">
-                    <div class="stat-label">Active Hunters</div>
+                    <div class="stat-label" data-i18n="activeHunters">Active Hunters</div>
                     <div class="stat-value" id="hunter-count">-</div>
                 </div>
                 <div class="stat-container teleport">
-                    <div class="stat-label">Active Teleports</div>
+                    <div class="stat-label" data-i18n="activeTeleports">Active Teleports</div>
                     <div class="stat-value" id="teleport-count">-</div>
                 </div>
                 <div class="stat-container keys">
-                    <div class="stat-label">Active Keys</div>
+                    <div class="stat-label" data-i18n="activeKeys">Active Keys</div>
                     <div class="stat-value" id="keys-count">-</div>
                 </div>
                 <div class="stat-container pathfinder">
-                    <div class="stat-label">Available Pathfinders</div>
+                    <div class="stat-label" data-i18n="availablePathfinders">Available Pathfinders</div>
                     <div class="stat-value" id="pathfinder-count">-</div>
                 </div>
             </div>
@@ -41,80 +41,80 @@
             <!-- Maze Degree control group -->
             <div class="control-group">
                 <div class="degree-full-row">
-                    <span class="degree-label">Maze Degree</span>
+                    <span class="degree-label" data-i18n="mazeDegree">Maze Degree</span>
                     <span class="degree-value" id="degree-val">-</span>
                 </div>
                 <input type="range" id="maze-degree" min="3" max="16" value="8" aria-label="Ajustar Grau do Labirinto">
-                <p class="hint">Controls the grid size. Higher values create larger, more complex mazes.</p>
+                <p class="hint" data-i18n="degreeHint">Controls the grid size. Higher values create larger, more complex mazes.</p>
             </div>
 
             <div class="control-group">
-                <label for="branching-factor">Branching Factor: <span id="branch-val">-</span></label>
+                <label for="branching-factor"><span data-i18n="branchingFactor">Branching Factor</span>: <span id="branch-val">-</span></label>
                 <input type="range" id="branching-factor" min="0" max="1" step="0.05" value="0.2" aria-label="Branching Factor">
-                <p class="hint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
+                <p class="hint" data-i18n="branchingHint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
             </div>
 
             <div class="control-group switch-group">
                 <div class="switch-container">
-                    <span class="switch-label">Safe Mode</span>
+                    <span class="switch-label" data-i18n="safeMode">Safe Mode</span>
                     <label class="switch" for="safe-mode">
                         <input type="checkbox" id="safe-mode" aria-label="Safe Mode">
                         <span class="slider"></span>
                     </label>
                 </div>
-                <p class="hint">When active, no hunters will spawn in the maze.</p>
+                <p class="hint" data-i18n="safeModeHint">When active, no hunters will spawn in the maze.</p>
             </div>
 
 
 
             <div class="menu-action-btns">
-                <button id="start-btn">GENERATE MAZE</button>
-                <button id="continue-btn-menu" class="continue-btn" style="display:none">CONTINUE</button>
+                <button id="start-btn" data-i18n="generateMaze">GENERATE MAZE</button>
+                <button id="continue-btn-menu" class="continue-btn" style="display:none" data-i18n="continue">CONTINUE</button>
             </div>
             
-            <p class="game-credits">a game by Bernard Rodrigues</p>
+            <p class="game-credits" data-i18n="gameCredits">a game by Bernard Rodrigues</p>
         </div>
     </section>
 
     <section id="victory-screen" class="hidden">
         <div class="popup-container victory">
-            <h1>Mission Accomplished</h1>
-            <p>You have successfully navigated the 3D void.</p>
-            <p class="victory-stats">MAP COMPLETION: <span id="victory-completion-rate">0%</span></p>
+            <h1 data-i18n="victoryTitle">Mission Accomplished</h1>
+            <p data-i18n="victoryText">You have successfully navigated the 3D void.</p>
+            <p class="victory-stats"><span data-i18n="mapCompletion">MAP COMPLETION</span>: <span id="victory-completion-rate">0%</span></p>
             <div class="end-game-btns">
-                <button id="restart-btn-victory" class="end-btn">PLAY AGAIN</button>
-                <button id="menu-btn-victory" class="end-btn">MAIN MENU</button>
+                <button id="restart-btn-victory" class="end-btn" data-i18n="playAgain">PLAY AGAIN</button>
+                <button id="menu-btn-victory" class="end-btn" data-i18n="mainMenu">MAIN MENU</button>
             </div>
         </div>
     </section>
 
     <section id="game-over-screen" class="hidden">
         <div class="popup-container death">
-            <h1>Terminated</h1>
-            <p>You were caught by the void hunters.</p>
+            <h1 data-i18n="gameOverTitle">Terminated</h1>
+            <p data-i18n="gameOverText">You were caught by the void hunters.</p>
             <div class="end-game-btns">
-                <button id="continue-btn-death" class="end-btn continue-highlight">CONTINUE</button>
-                <button id="retry-btn-death" class="end-btn">PLAY AGAIN</button>
-                <button id="menu-btn-death" class="end-btn">MAIN MENU</button>
+                <button id="continue-btn-death" class="end-btn continue-highlight" data-i18n="continue">CONTINUE</button>
+                <button id="retry-btn-death" class="end-btn" data-i18n="playAgain">PLAY AGAIN</button>
+                <button id="menu-btn-death" class="end-btn" data-i18n="mainMenu">MAIN MENU</button>
             </div>
         </div>
     </section>
 
     <section id="pause-screen" class="hidden">
         <div class="popup-container pause">
-            <h1>PAUSED</h1>
+            <h1 data-i18n="pauseTitle">PAUSED</h1>
             <div class="end-game-btns">
-                <button id="resume-btn" class="end-btn continue-highlight">RESUME</button>
-                <button id="menu-btn-pause" class="end-btn">MAIN MENU</button>
+                <button id="resume-btn" class="end-btn continue-highlight" data-i18n="resume">RESUME</button>
+                <button id="menu-btn-pause" class="end-btn" data-i18n="mainMenu">MAIN MENU</button>
             </div>
         </div>
     </section>
 
     <!-- Temporary Info Alert -->
     <div id="info-banner" class="hidden"></div>
-    <div id="teleport-info" class="hidden">No other active teleport</div>
-    <div id="teleport-cooldown-timer" class="hidden">TELEPORT ANOMALY: <span id="cooldown-ticks">0</span> TICKS</div>
-    <div id="saving-indicator" class="hidden"><span class="saving-icon">💾</span> SAVING...</div>
+    <div id="teleport-info" class="hidden" data-i18n="msgNoOtherActiveTeleport">No other active teleport</div>
+    <div id="teleport-cooldown-timer" class="hidden"><span data-i18n="teleportAnomaly">TELEPORT ANOMALY</span>: <span id="cooldown-ticks">0</span> <span data-i18n="ticks">TICKS</span></div>
+    <div id="saving-indicator" class="hidden"><span class="saving-icon">💾</span> <span data-i18n="saving">SAVING...</span></div>
 
     <main id="game-container">
         <!-- Mobile Pause Button -->
@@ -123,7 +123,7 @@
         <!-- Left HUD Panel (Keys & Pathfinders) -->
         <div id="left-hud-panel" class="intro-hidden">
             <div class="hud-item-group">
-                <div class="keys-title">KEYS</div>
+                <div class="keys-title" data-i18n="hudKeys">KEYS</div>
                 <div class="keys-counter">
                     <span id="keys-collected-count">0</span> / <span id="keys-total-count">0</span>
                 </div>
@@ -132,7 +132,7 @@
                 </div>
             </div>
             <div class="hud-item-group" id="pathfinder-hud-group">
-                <div class="pathfinders-title">PATHFINDERS</div>
+                <div class="pathfinders-title" data-i18n="hudPathfinders">PATHFINDERS</div>
                 <div class="pathfinders-counter">
                     <span id="pathfinders-remaining-count">0</span> / <span id="pathfinders-total-count">0</span>
                 </div>
@@ -143,9 +143,9 @@
         <div id="map-area-container" class="intro-hidden">
             <!-- Hunter Status Marquee Panel (centered above the 2D map) -->
             <div id="hunter-status-panel">
-                <span class="status-label">HUNTER STATUS:</span>
+                <span class="status-label" data-i18n="statusLabel">HUNTER STATUS:</span>
                 <div class="status-marquee-container">
-                    <span id="hunter-status-val" class="status-marquee-text status--scanning">SCANNING</span>
+                    <span id="hunter-status-val" class="status-marquee-text status--scanning" data-i18n="statusScanning">SCANNING</span>
                 </div>
             </div>
             <!-- Primary 2D Navigation Map -->
@@ -170,7 +170,7 @@
             
             <!-- Proximeter Container (Mapeado fora do Bottom HUD para controle de ordem) -->
             <div id="proximeter-container" class="hidden">
-                <div class="proximeter-label">PROXIMITY DETECTOR</div>
+                <div class="proximeter-label" data-i18n="proximityDetector">PROXIMITY DETECTOR</div>
                 <div class="proximeter-bar">
                     <span class="proximeter-cell" data-index="1"></span>
                     <span class="proximeter-cell" data-index="2"></span>
@@ -187,21 +187,21 @@
 
             <!-- Bottom HUD Container (Flex on Desktop, Stacked on Mobile) -->
             <div id="bottom-hud-container">
-                <div id="floor-display" aria-live="polite"><span class="hud-label">Floor</span> <span id="current-floor">0</span></div>
-                <div id="visited-display" aria-live="polite"><span class="hud-label">Visited</span> <span class="visited-value"><span id="visited-percent">0</span>%</span></div>
+                <div id="floor-display" aria-live="polite"><span class="hud-label" data-i18n="hudFloor">Floor</span> <span id="current-floor">0</span></div>
+                <div id="visited-display" aria-live="polite"><span class="hud-label" data-i18n="hudVisited">Visited</span> <span class="visited-value"><span id="visited-percent">0</span>%</span></div>
             </div>
         </div>
 
         <!-- Right HUD Panel (Legend & Controls) -->
         <div id="right-hud-panel" class="intro-hidden">
             <aside id="map-legend">
-                <h3>MAP LEGEND</h3>
-                <div class="legend-item"><span class="color-box color-box--visited"></span> Visited Path</div>
-                <div class="legend-item"><span class="color-box color-box--known"></span> Known Path</div>
-                <div class="legend-item"><span class="color-box color-box--start"></span> Starting Point</div>
-                <div class="legend-item"><span class="color-box color-box--exit"></span> Maze Exit</div>
-                <div id="legend-hunter" class="legend-item"><span class="color-box color-box--hunter"></span> Void Hunter</div>
-                <div class="legend-item"><span class="color-box color-box--teleport"></span> Teleport</div>
+                <h3 data-i18n="mapLegendTitle">MAP LEGEND</h3>
+                <div class="legend-item"><span class="color-box color-box--visited"></span> <span data-i18n="legendVisited">Visited Path</span></div>
+                <div class="legend-item"><span class="color-box color-box--known"></span> <span data-i18n="legendKnown">Known Path</span></div>
+                <div class="legend-item"><span class="color-box color-box--start"></span> <span data-i18n="legendStart">Starting Point</span></div>
+                <div class="legend-item"><span class="color-box color-box--exit"></span> <span data-i18n="legendExit">Maze Exit</span></div>
+                <div id="legend-hunter" class="legend-item"><span class="color-box color-box--hunter"></span> <span data-i18n="legendHunter">Void Hunter</span></div>
+                <div class="legend-item"><span class="color-box color-box--teleport"></span> <span data-i18n="legendTeleport">Teleport</span></div>
                 <div class="legend-item">
                     <span class="symbol-box">
                         <svg viewBox="0 0 24 24" fill="none" style="width: 100%; height: 100%;">
@@ -211,29 +211,30 @@
                             <path d="M12 22L19 15H15V13H9V15H5L12 22Z" fill="#ff00ff" />
                         </svg>
                     </span>
-                    Elevator
+                    <span data-i18n="legendElevator">Elevator</span>
                 </div>
             </aside>
 
             <aside id="controls-hint">
-                Arrows or WASD: Move/Rotate<br>
-                PgUp/PgDn or Q/E: Move Up/Down<br>
-                <strong>M: 3D Holographic Map</strong><br>
-                <span id="control-hint-zoom"><strong>Z: Minimap Zoom</strong></span>
+                <h3 data-i18n="controlsHintTitle">CONTROLS HINT</h3>
+                <span data-i18n="hintMove">Arrows or WASD: Move/Rotate</span><br>
+                <span data-i18n="hintElevator">PgUp/PgDn or Q/E: Move Up/Down</span><br>
+                <strong><span data-i18n="hintMap">M: 3D Holographic Map</span></strong><br>
+                <span id="control-hint-zoom"><strong><span data-i18n="hintZoom">Z: Minimap Zoom</span></strong></span>
             </aside>
         </div>
         
         <!-- Mobile Controls Panel -->
         <nav id="mobile-controls" class="hidden">
             <button id="mobile-down" class="mobile-btn" disabled aria-label="Go Down">▼</button>
-            <button id="mobile-map" class="mobile-btn" disabled aria-label="Open Map">MAP</button>
+            <button id="mobile-map" class="mobile-btn" disabled aria-label="Open Map" data-i18n="map">MAP</button>
             <button id="mobile-up" class="mobile-btn" disabled aria-label="Go Up">▲</button>
         </nav>
         
         <!-- 3D Holographic Map Container -->
         <div id="map3d-container" class="hidden">
-            <div id="map3d-instructions">Drag to rotate | Scroll to zoom | M to return</div>
-            <div id="teleport-warning" class="hidden">CLICK ON A TELEPORT POINT</div>
+            <div id="map3d-instructions" data-i18n="map3dInstructions">Drag to rotate | Scroll to zoom | M to return</div>
+            <div id="teleport-warning" class="hidden" data-i18n="teleportWarning">CLICK ON A TELEPORT POINT</div>
         </div>
     </main>
 

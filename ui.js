@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { getTranslation } from './translations.js';
 
 /**
  * UIManager - Manages DOM interactions, HUD overlay, notifications, and menus.
@@ -44,6 +45,26 @@ export class UIManager {
         // Pathfinders HUD DOM bindings
         this.uiPathfindersRemaining = document.getElementById('pathfinders-remaining-count');
         this.uiPathfindersTotal = document.getElementById('pathfinders-total-count');
+
+        this.localizeDOM();
+    }
+
+    /**
+     * Localize all elements with [data-i18n] attributes using translations.js.
+     */
+    localizeDOM(lang = 'en') {
+        const elements = document.querySelectorAll('[data-i18n]');
+        elements.forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            const translation = getTranslation(key, {}, lang);
+            if (translation !== key) {
+                if (el.tagName === 'INPUT' && el.type === 'button') {
+                    el.value = translation;
+                } else {
+                    el.textContent = translation;
+                }
+            }
+        });
     }
 
     /**
@@ -254,22 +275,22 @@ export class UIManager {
     updateHazardWarning(isTracking, cooldownTicks, isSafeMode = false, isSleeping = false) {
         if (!this.uiHunterStatusVal) return;
 
-        let statusText = "SCANNING";
+        let statusText = getTranslation('statusScanning');
         let statusClass = "status--scanning";
         let isHunted = false;
 
         if (isSafeMode) {
-            statusText = "ACTIVE";
+            statusText = getTranslation('statusActive');
             statusClass = "status--scanning";
         } else if (isSleeping) {
-            statusText = "SLEEPING";
+            statusText = getTranslation('statusSleeping');
             statusClass = "status--sleeping";
         } else if (cooldownTicks > 0) {
-            statusText = `HUNTERS CONVERGING (${cooldownTicks} Ticks)`;
+            statusText = getTranslation('statusConverging', { ticks: cooldownTicks });
             statusClass = "status--converging";
             isHunted = true;
         } else if (isTracking) {
-            statusText = "TRACKING MODE";
+            statusText = getTranslation('statusTracking');
             statusClass = "status--tracking";
             isHunted = true;
         }
@@ -350,12 +371,12 @@ export class UIManager {
 
         if (isPortrait) {
             if (isOnTeleport && !isInactive) {
-                this.uiMobileMap.innerText = "TELEPORT";
+                this.uiMobileMap.innerText = getTranslation('teleport');
                 this.uiMobileMap.style.borderColor = "var(--clr-teleport, #ff8c00)";
                 this.uiMobileMap.style.color = "var(--clr-teleport, #ff8c00)";
                 this.uiMobileMap.style.background = "rgba(255, 140, 0, 0.2)";
             } else {
-                this.uiMobileMap.innerText = "MAP";
+                this.uiMobileMap.innerText = getTranslation('map');
                 this.uiMobileMap.style.borderColor = "";
                 this.uiMobileMap.style.color = "";
                 this.uiMobileMap.style.background = "";
