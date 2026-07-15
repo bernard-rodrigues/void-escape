@@ -2348,21 +2348,39 @@ export class Engine {
                 W = totalWidth * n.closeProgress;
             }
             
+            // Limites de ajuste do labirinto (container) para evitar estouro nas bordas
+            const mazeWidth = this.mazeGen.size * cellSize;
+            const mazeHeight = this.mazeGen.size * cellSize;
+            
+            let renderX = X;
+            if (renderX - W/2 < 0) {
+                renderX = W/2;
+            } else if (renderX + W/2 > mazeWidth) {
+                renderX = mazeWidth - W/2;
+            }
+            
+            let renderY = Y;
+            if (renderY - H/2 < 0) {
+                renderY = H/2;
+            } else if (renderY + H/2 > mazeHeight) {
+                renderY = mazeHeight - H/2;
+            }
+            
             // Preenchimento preto
             ctx.fillStyle = '#000000';
-            ctx.fillRect(X - W/2, Y - H/2, W, H);
+            ctx.fillRect(renderX - W/2, renderY - H/2, W, H);
             
             // Borda azul neon
             ctx.strokeStyle = '#00ffff';
             ctx.lineWidth = Math.max(1.5, cellSize * 0.04);
-            ctx.strokeRect(X - W/2, Y - H/2, W, H);
+            ctx.strokeRect(renderX - W/2, renderY - H/2, W, H);
             
             // Desenha o texto apenas se a janela estiver aberta
             if (n.state === "TYPING" || n.state === "WAITING") {
                 ctx.fillStyle = '#ffffff';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(n.displayText, X, Y);
+                ctx.fillText(n.displayText, renderX, renderY);
             }
             
             ctx.restore();
@@ -3339,6 +3357,7 @@ export class Engine {
         this.inactiveTeleportPos = { x, y, z };
 
         this.ui.updateCooldownTimer(this.teleportCooldownTicks);
+        this.ui.showInfoBanner("Oops... noisy sh*t!");
 
         for (const hunter of this.hunters) {
             hunter.state = 'TELEPORT_TRACKING';

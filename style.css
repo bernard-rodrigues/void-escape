@@ -458,7 +458,7 @@ body {
     width: 100vw;
     height: 100vh;
     height: 100dvh;
-    background: radial-gradient(circle at center, rgba(10, 30, 10, 0.95), rgba(0, 0, 0, 0.98));
+    background: #000000;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -503,7 +503,7 @@ body {
     width: 100vw;
     height: 100vh;
     height: 100dvh;
-    background: radial-gradient(circle at center, rgba(15, 0, 20, 0.72), rgba(0, 0, 0, 0.92));
+    background: radial-gradient(circle at center, rgba(20, 0, 5, 0.9), #000);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -931,7 +931,7 @@ body {
     width: 100vw;
     height: 100vh;
     height: 100dvh;
-    background: rgba(0, 0, 0, 0.85);
+    background: #000000;
     z-index: 100;
     cursor: grab;
 }
@@ -1598,7 +1598,7 @@ body {
     width: 100vw;
     height: 100vh;
     height: 100dvh;
-    background: rgba(5, 5, 5, 0.98);
+    background: #000000;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1675,3 +1675,24 @@ body {
         box-sizing: border-box;
     }
 }
+
+/* Oculta os botões mobile e o botão de pause flutuante do mobile quando pause, vitória ou game-over estiverem abertos */
+body:has(#pause-screen:not(.hidden)) #mobile-controls,
+body:has(#pause-screen:not(.hidden)) #mobile-pause-btn,
+body:has(#victory-screen:not(.hidden)) #mobile-controls,
+body:has(#victory-screen:not(.hidden)) #mobile-pause-btn,
+body:has(#game-over-screen:not(.hidden)) #mobile-controls,
+body:has(#game-over-screen:not(.hidden)) #mobile-pause-btn {
+    display: none !important;
+}
+
+/* Quando o mapa 3D/Teleportes estiver visível:
+   - Esconde o botão de pause flutuante.
+   - Oculta os botões de subir/descer andar (Up e Down).
+   - O botão MAP continua visível para fechar a tela. */
+body:has(#map3d-container:not(.hidden)) #mobile-pause-btn,
+body:has(#map3d-container:not(.hidden)) #mobile-down,
+body:has(#map3d-container:not(.hidden)) #mobile-up {
+    display: none !important;
+}
+
