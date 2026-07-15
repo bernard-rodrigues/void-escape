@@ -6,7 +6,7 @@
     <title>Void Escape</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;500;700;900&display=swap">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="./assets/images/wall.png">
     <script src="error_handler.js"></script>
@@ -18,11 +18,32 @@
                 <h1 class="game-title">VOID ESCAPE</h1>
             </header>
 
+            <!-- Grid 2x2 for isolated info containers -->
+            <div class="menu-stats-grid">
+                <div class="stat-container hunter">
+                    <div class="stat-label">Active Hunters</div>
+                    <div class="stat-value" id="hunter-count">-</div>
+                </div>
+                <div class="stat-container teleport">
+                    <div class="stat-label">Active Teleports</div>
+                    <div class="stat-value" id="teleport-count">-</div>
+                </div>
+                <div class="stat-container keys">
+                    <div class="stat-label">Active Keys</div>
+                    <div class="stat-value" id="keys-count">-</div>
+                </div>
+                <div class="stat-container pathfinder">
+                    <div class="stat-label">Available Pathfinders</div>
+                    <div class="stat-value" id="pathfinder-count">-</div>
+                </div>
+            </div>
+
+            <!-- Maze Degree control group -->
             <div class="control-group">
-                <label for="maze-degree">Maze Degree: <span id="degree-val">-</span></label>
-                <div class="hunter-info">Active Hunters: <span id="hunter-count">-</span></div>
-                <div class="teleport-info-start">Active Teleports: <span id="teleport-count">-</span></div>
-                <div class="keys-info-start">Active Keys: <span id="keys-count">-</span></div>
+                <div class="degree-full-row">
+                    <span class="degree-label">Maze Degree</span>
+                    <span class="degree-value" id="degree-val">-</span>
+                </div>
                 <input type="range" id="maze-degree" min="3" max="16" value="8" aria-label="Ajustar Grau do Labirinto">
                 <p class="hint">Controls the grid size. Higher values create larger, more complex mazes.</p>
             </div>
@@ -33,18 +54,23 @@
                 <p class="hint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
             </div>
 
-            <div class="control-group checkbox-group">
-                <label for="safe-mode" class="checkbox-label">
-                    <input type="checkbox" id="safe-mode" aria-label="Safe Mode">
-                    <span>Safe Mode</span>
-                </label>
+            <div class="control-group switch-group">
+                <div class="switch-container">
+                    <span class="switch-label">Safe Mode</span>
+                    <label class="switch" for="safe-mode">
+                        <input type="checkbox" id="safe-mode" aria-label="Safe Mode">
+                        <span class="slider"></span>
+                    </label>
+                </div>
                 <p class="hint">When active, no hunters will spawn in the maze.</p>
             </div>
 
 
 
-            <button id="start-btn">GENERATE MAZE</button>
-            <button id="continue-btn-menu" class="continue-btn" style="display:none">CONTINUE</button>
+            <div class="menu-action-btns">
+                <button id="start-btn">GENERATE MAZE</button>
+                <button id="continue-btn-menu" class="continue-btn" style="display:none">CONTINUE</button>
+            </div>
         </div>
     </section>
 
@@ -91,14 +117,22 @@
         <!-- Mobile Pause Button -->
         <button id="mobile-pause-btn" class="hidden" aria-label="Pause Game">✕</button>
 
-        <!-- Left HUD Panel (Keys Counter) -->
+        <!-- Left HUD Panel (Keys & Pathfinders) -->
         <div id="left-hud-panel" class="intro-hidden">
-            <div class="keys-title">KEYS</div>
-            <div class="keys-counter">
-                <span id="keys-collected-count">0</span> / <span id="keys-total-count">0</span>
+            <div class="hud-item-group">
+                <div class="keys-title">KEYS</div>
+                <div class="keys-counter">
+                    <span id="keys-collected-count">0</span> / <span id="keys-total-count">0</span>
+                </div>
+                <div id="keys-list-container">
+                    <!-- Dynamically populated key indicator dots -->
+                </div>
             </div>
-            <div id="keys-list-container">
-                <!-- Dynamically populated key indicator dots -->
+            <div class="hud-item-group" id="pathfinder-hud-group">
+                <div class="pathfinders-title">PATHFINDERS</div>
+                <div class="pathfinders-counter">
+                    <span id="pathfinders-remaining-count">0</span> / <span id="pathfinders-total-count">0</span>
+                </div>
             </div>
         </div>
 

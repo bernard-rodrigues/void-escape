@@ -78,6 +78,9 @@ export class Engine {
         this.keysCollected = 0;
         this.totalKeys = CONFIG.getHunterCount(degree) * 2;
 
+        this.totalPathfinders = CONFIG.getPathfinderCount(degree);
+        this.pathfindersRemaining = this.totalPathfinders;
+
         this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
         this.activePathReveal = [];
@@ -88,6 +91,7 @@ export class Engine {
 
         this.ui.initGameUI(this.isSafeMode);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
+        this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
 
         this.isMap3DActive = false;
         this.isGameOver = false;
@@ -431,6 +435,10 @@ export class Engine {
         this.keysCollected = snapshot.keysCollected !== undefined ? snapshot.keysCollected : 0;
         this.totalKeys = snapshot.totalKeys !== undefined ? snapshot.totalKeys : (CONFIG.getHunterCount(this.degree) * 2);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
+
+        this.totalPathfinders = snapshot.totalPathfinders !== undefined ? snapshot.totalPathfinders : CONFIG.getPathfinderCount(this.degree);
+        this.pathfindersRemaining = snapshot.pathfindersRemaining !== undefined ? snapshot.pathfindersRemaining : this.totalPathfinders;
+        this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
         // Restore revealed paths
         this.revealedPathSet = new Set(snapshot.revealedPathSet);
 
@@ -2761,6 +2769,11 @@ export class Engine {
     }
 
     triggerPathReveal(tx, ty, tz) {
+        if (this.pathfindersRemaining <= 0) {
+            this.ui.showInfoBanner("NO PATHFINDERS REMAINING");
+            return;
+        }
+
         if (this.pathRevealInterval) {
             clearInterval(this.pathRevealInterval);
             this.pathRevealInterval = null;
@@ -2791,6 +2804,10 @@ export class Engine {
         const path = this.findShortestPath(start, end, isExitClicked);
 
         if (!path || path.length === 0) return;
+
+        this.pathfindersRemaining--;
+        this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
+        saveGame(this);
 
         this.activePathReveal = path;
         this.revealedPathProgress = 0;

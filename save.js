@@ -89,7 +89,10 @@ export function saveGame(engine) {
             revealedPathSet: Array.from(engine.revealedPathSet),
             // Key collection state
             keysCollected: engine.keysCollected,
-            totalKeys: engine.totalKeys
+            totalKeys: engine.totalKeys,
+            // Pathfinder state
+            totalPathfinders: engine.totalPathfinders,
+            pathfindersRemaining: engine.pathfindersRemaining
         };
 
         localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));

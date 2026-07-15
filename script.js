@@ -56,6 +56,7 @@ window.onload = () => {
     const hunterCount = document.getElementById('hunter-count');
     const teleportCount = document.getElementById('teleport-count');
     const keysCount = document.getElementById('keys-count');
+    const pathfinderCount = document.getElementById('pathfinder-count');
 
     const safeModeCheckbox = document.getElementById('safe-mode');
 
@@ -86,11 +87,19 @@ window.onload = () => {
         }
     };
 
+    const updatePathfinderDisplay = (degree) => {
+        const count = CONFIG.getPathfinderCount(degree);
+        if (pathfinderCount) {
+            pathfinderCount.innerText = count;
+        }
+    };
+
     degreeSlider.oninput = () => { 
         degreeVal.innerText = degreeSlider.value; 
         updateHunterDisplay(parseInt(degreeSlider.value)); 
         updateTeleportDisplay(parseInt(degreeSlider.value)); 
         updateKeysDisplay(parseInt(degreeSlider.value));
+        updatePathfinderDisplay(parseInt(degreeSlider.value));
     };
     branchSlider.oninput = () => branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
     
@@ -101,6 +110,7 @@ window.onload = () => {
     updateHunterDisplay(parseInt(degreeSlider.value));
     updateTeleportDisplay(parseInt(degreeSlider.value));
     updateKeysDisplay(parseInt(degreeSlider.value));
+    updatePathfinderDisplay(parseInt(degreeSlider.value));
 
     // Show / hide menu Continue button on first load
     const continueBtnMenu = document.getElementById('continue-btn-menu');
