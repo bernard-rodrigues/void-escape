@@ -205,6 +205,11 @@ export class UIManager {
      * Show custom warning banner for a short duration.
      */
     showInfoBanner(message) {
+        this.bannerMessage = message; // Salva para compatibilidade de asserções nos testes unitários
+        if (this.onInfoBanner) {
+            this.onInfoBanner(message);
+            return;
+        }
         if (this.uiInfoBanner) {
             this.uiInfoBanner.innerText = message;
             this.uiInfoBanner.classList.remove('hidden');
