@@ -90,12 +90,15 @@ export class Engine {
         this.pathRevealInterval = null;
 
         this.ui.initGameUI(this.isSafeMode);
+        this.ui.onInfoBanner = (msg) => this.queueNotification(msg);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
 
         this.isMap3DActive = false;
         this.isGameOver = false;
         this.deathAnimation = null;
+        this.notificationQueue = [];
+        this.activeNotification = null;
         this.isPaused = false;
         this.isDestroyed = false;
         this.isIntroPlaying = false;
@@ -319,7 +322,7 @@ export class Engine {
             hunter.history = [];
         }
 
-        this.ui.showInfoBanner("WARNING: VOID HUNTERS DETECTED");
+        this.ui.showInfoBanner("Void Hunters Detected");
         this.staticMapCacheDirty = true;
         if (this.isMap3DActive) {
             this.build3DMap();
@@ -380,10 +383,10 @@ export class Engine {
         this.keysCollected++;
         this.staticMapCacheDirty = true;
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
-        this.ui.showInfoBanner(`KEY SECURED (${this.keysCollected}/${this.totalKeys})`);
+        this.ui.showInfoBanner(`Key secured (${this.keysCollected}/${this.totalKeys})`);
         
         if (this.keysCollected === this.totalKeys) {
-            this.ui.showInfoBanner("EXIT UNLOCKED! SECURE THE EXTRACTION POINT");
+            this.ui.showInfoBanner("Exit unlocked");
             if (this.exitMesh) {
                 this.exitMesh.material.color.setHex(CONFIG.COLORS.THREE_EXIT);
                 this.exitMesh.material.emissive.setHex(CONFIG.COLORS.THREE_EXIT);
@@ -401,7 +404,7 @@ export class Engine {
         if (!this.lastLockedWarningTime || now - this.lastLockedWarningTime > 1500) {
             this.lastLockedWarningTime = now;
             const missing = this.totalKeys - this.keysCollected;
-            this.ui.showInfoBanner(`ACCESS DENIED: NEED ${missing} MORE KEY${missing > 1 ? 'S' : ''}`);
+            this.ui.showInfoBanner(`${missing} key(s) remaining`);
         }
     }
 
@@ -575,7 +578,7 @@ export class Engine {
                     if (this.discoveredTeleports.size >= 2) {
                         this.toggleTeleportMap(true);
                     } else {
-                        this.ui.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
+                        this.ui.showInfoBanner("No other active teleport");
                     }
                 } else {
                     this.toggleMap3D();
@@ -987,7 +990,7 @@ export class Engine {
                         this.toggleTeleportMap(true);
                         this.gamepadTeleportSelectedIndex = 0;
                     } else {
-                        this.ui.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
+                        this.ui.showInfoBanner("No other active teleport");
                     }
                 }
             }
@@ -1089,8 +1092,65 @@ export class Engine {
         this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
     }
 
+    queueNotification(text) {
+        this.notificationQueue.push(text);
+    }
+
+    updateNotification(dt) {
+        if (!this.activeNotification) {
+            if (this.notificationQueue.length > 0) {
+                const text = this.notificationQueue.shift();
+                this.activeNotification = {
+                    text: text,
+                    displayText: "",
+                    state: "OPENING",
+                    widthProgress: 0,
+                    typeTimer: 0,
+                    charIndex: 0,
+                    waitTimer: 0,
+                    closeProgress: 1
+                };
+            }
+            return;
+        }
+
+        const n = this.activeNotification;
+        if (n.state === "OPENING") {
+            n.widthProgress += dt / 0.15;
+            if (n.widthProgress >= 1) {
+                n.widthProgress = 1;
+                n.state = "TYPING";
+            }
+        } else if (n.state === "TYPING") {
+            n.typeTimer += dt;
+            if (n.typeTimer >= 0.025) {
+                n.typeTimer = 0;
+                n.charIndex++;
+                n.displayText = n.text.substring(0, n.charIndex);
+                if (n.charIndex >= n.text.length) {
+                    n.state = "WAITING";
+                    n.waitTimer = 0;
+                }
+            }
+        } else if (n.state === "WAITING") {
+            n.waitTimer += dt;
+            if (n.waitTimer >= 1.0) {
+                n.state = "CLOSING";
+                n.closeProgress = 1;
+            }
+        } else if (n.state === "CLOSING") {
+            n.closeProgress -= dt / 0.15;
+            if (n.closeProgress <= 0) {
+                n.closeProgress = 0;
+                this.activeNotification = null;
+            }
+        }
+    }
+
     update(dt) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        this.updateNotification(dt);
 
         this.updateGamepad(dt);
 
@@ -1325,7 +1385,7 @@ export class Engine {
                 // Desbloqueia o pathfinder da saída se visitou o vizinho dela
                 if (!this.exitPathfinderUnlocked && this.checkExitNeighborVisited()) {
                     this.exitPathfinderUnlocked = true;
-                    this.ui.showInfoBanner("EXIT FOUND");
+                    this.ui.showInfoBanner("Exit found");
                 }
                 
                 if (finalVal === this.mazeGen.TYPES.EXIT) {
@@ -1365,6 +1425,7 @@ export class Engine {
                         this.staticMapCacheDirty = true;
                         // Reentered or newly found teleport -> auto-save
                         this.triggerSave();
+                        this.ui.showInfoBanner("Safe point... Teleport?");
                     }
                 }
 
@@ -1403,7 +1464,7 @@ export class Engine {
                     if (this.discoveredTeleports.size >= 2) {
                         this.toggleTeleportMap(true);
                     } else {
-                        this.ui.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
+                        this.ui.showInfoBanner("No other active teleport");
                     }
                 }
             } else {
@@ -2266,6 +2327,47 @@ export class Engine {
             ctx.stroke();
         }
 
+        // Draw floating micro-notification box above the player
+        if (this.activeNotification) {
+            const n = this.activeNotification;
+            ctx.save();
+            
+            ctx.font = `bold ${cellSize * 0.22}px monospace`;
+            const textWidth = ctx.measureText(n.text).width;
+            const padding = cellSize * 0.4;
+            const totalWidth = textWidth + padding;
+            const H = cellSize * 0.48;
+            
+            const X = px * cellSize;
+            const Y = py * cellSize - cellSize * 0.75;
+            
+            let W = totalWidth;
+            if (n.state === "OPENING") {
+                W = totalWidth * n.widthProgress;
+            } else if (n.state === "CLOSING") {
+                W = totalWidth * n.closeProgress;
+            }
+            
+            // Preenchimento preto
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(X - W/2, Y - H/2, W, H);
+            
+            // Borda azul neon
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = Math.max(1.5, cellSize * 0.04);
+            ctx.strokeRect(X - W/2, Y - H/2, W, H);
+            
+            // Desenha o texto apenas se a janela estiver aberta
+            if (n.state === "TYPING" || n.state === "WAITING") {
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(n.displayText, X, Y);
+            }
+            
+            ctx.restore();
+        }
+
         if (useZoom) {
             ctx.restore();
         }
@@ -3123,7 +3225,7 @@ export class Engine {
 
     triggerPathReveal(tx, ty, tz) {
         if (this.pathfindersRemaining <= 0) {
-            this.ui.showInfoBanner("NO PATHFINDERS REMAINING");
+            this.ui.showInfoBanner("No pathfinders remaining");
             return;
         }
 
@@ -3135,7 +3237,7 @@ export class Engine {
         const isExitClicked = this.maze.get(tx, ty, tz) === this.mazeGen.TYPES.EXIT;
         if (isExitClicked) {
             if (!this.exitPathfinderUnlocked) {
-                this.ui.showInfoBanner("EXIT NOT FOUND YET");
+                this.ui.showInfoBanner("Exit not found yet");
                 return;
             }
         }

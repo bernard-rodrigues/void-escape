@@ -159,7 +159,7 @@ function updateGamepad(engine, dt) {
                     engine.toggleTeleportMap(true);
                     engine.gamepadTeleportSelectedIndex = 0;
                 } else {
-                    engine.ui.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
+                    engine.ui.showInfoBanner("No other active teleport");
                 }
             }
         }
