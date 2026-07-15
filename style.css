@@ -1543,4 +1543,23 @@ body {
     #mobile-pause-btn {
         display: flex; /* Shown on mobile portrait */
     }
+    
+    .end-game-btns {
+        flex-wrap: wrap;
+        gap: calc(var(--h-unit) * 1);
+        gap: calc(var(--d-h-unit) * 1);
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .end-btn {
+        padding: calc(var(--h-unit) * 1) calc(var(--h-unit) * 1.2);
+        padding: calc(var(--d-h-unit) * 1) calc(var(--d-h-unit) * 1.2);
+        font-size: calc(var(--h-unit) * 1.45);
+        font-size: calc(var(--d-h-unit) * 1.45);
+        flex: 1 1 auto;
+        min-width: calc(var(--h-unit) * 9.5);
+        min-width: calc(var(--d-h-unit) * 9.5);
+        box-sizing: border-box;
+    }
 }
