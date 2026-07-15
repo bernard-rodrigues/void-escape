@@ -4,7 +4,7 @@
 export const CONFIG = {
     SEED: null, // Define a number or string (e.g. "void-escape-1") to lock the map generator, or null for random
     
-    MAZE_DEGREE: 8,
+    MAZE_DEGREE: 6,
     BRAID_FACTOR: 0.10, // Fraction of eligible walls to turn into paths (0.0 to 1.0)
     SHADOW_SIZE_FACTOR: 0.075, // Proportional width/height of wall-projected shadows in 2D minimap
     TELEPORT_MAP_OPACITY: 0.25, // Opacity of non-teleport meshes when choosing teleport destination
