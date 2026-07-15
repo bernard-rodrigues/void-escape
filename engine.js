@@ -319,7 +319,7 @@ export class Engine {
             hunter.history = [];
         }
 
-        this.ui.showInfoBanner("WARNING: VOID HUNTERS DETECTED");
+        this.ui.showInfoBanner("Void Hunters Detected");
         this.staticMapCacheDirty = true;
         if (this.isMap3DActive) {
             this.build3DMap();
@@ -380,10 +380,10 @@ export class Engine {
         this.keysCollected++;
         this.staticMapCacheDirty = true;
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
-        this.ui.showInfoBanner(`KEY SECURED (${this.keysCollected}/${this.totalKeys})`);
+        this.ui.showInfoBanner(`Key secured (${this.keysCollected}/${this.totalKeys})`);
         
         if (this.keysCollected === this.totalKeys) {
-            this.ui.showInfoBanner("EXIT UNLOCKED! SECURE THE EXTRACTION POINT");
+            this.ui.showInfoBanner("Exit unlocked");
             if (this.exitMesh) {
                 this.exitMesh.material.color.setHex(CONFIG.COLORS.THREE_EXIT);
                 this.exitMesh.material.emissive.setHex(CONFIG.COLORS.THREE_EXIT);
@@ -401,7 +401,7 @@ export class Engine {
         if (!this.lastLockedWarningTime || now - this.lastLockedWarningTime > 1500) {
             this.lastLockedWarningTime = now;
             const missing = this.totalKeys - this.keysCollected;
-            this.ui.showInfoBanner(`ACCESS DENIED: NEED ${missing} MORE KEY${missing > 1 ? 'S' : ''}`);
+            this.ui.showInfoBanner(`${missing} key(s) remaining`);
         }
     }
 
@@ -575,7 +575,7 @@ export class Engine {
                     if (this.discoveredTeleports.size >= 2) {
                         this.toggleTeleportMap(true);
                     } else {
-                        this.ui.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
+                        this.ui.showInfoBanner("No other active teleport");
                     }
                 } else {
                     this.toggleMap3D();
@@ -987,7 +987,7 @@ export class Engine {
                         this.toggleTeleportMap(true);
                         this.gamepadTeleportSelectedIndex = 0;
                     } else {
-                        this.ui.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
+                        this.ui.showInfoBanner("No other active teleport");
                     }
                 }
             }
@@ -1325,7 +1325,7 @@ export class Engine {
                 // Desbloqueia o pathfinder da saída se visitou o vizinho dela
                 if (!this.exitPathfinderUnlocked && this.checkExitNeighborVisited()) {
                     this.exitPathfinderUnlocked = true;
-                    this.ui.showInfoBanner("EXIT FOUND");
+                    this.ui.showInfoBanner("Exit found");
                 }
                 
                 if (finalVal === this.mazeGen.TYPES.EXIT) {
@@ -1403,7 +1403,7 @@ export class Engine {
                     if (this.discoveredTeleports.size >= 2) {
                         this.toggleTeleportMap(true);
                     } else {
-                        this.ui.showInfoBanner("FIND ANOTHER TELEPORT TO ACTIVATE");
+                        this.ui.showInfoBanner("No other active teleport");
                     }
                 }
             } else {
@@ -3123,7 +3123,7 @@ export class Engine {
 
     triggerPathReveal(tx, ty, tz) {
         if (this.pathfindersRemaining <= 0) {
-            this.ui.showInfoBanner("NO PATHFINDERS REMAINING");
+            this.ui.showInfoBanner("No pathfinders remaining");
             return;
         }
 
@@ -3135,7 +3135,7 @@ export class Engine {
         const isExitClicked = this.maze.get(tx, ty, tz) === this.mazeGen.TYPES.EXIT;
         if (isExitClicked) {
             if (!this.exitPathfinderUnlocked) {
-                this.ui.showInfoBanner("EXIT NOT FOUND YET");
+                this.ui.showInfoBanner("Exit not found yet");
                 return;
             }
         }

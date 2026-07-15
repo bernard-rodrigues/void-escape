@@ -33,7 +33,7 @@ class MockEngine {
 
     triggerPathReveal(tx, ty, tz) {
         if (this.pathfindersRemaining <= 0) {
-            this.ui.showInfoBanner("NO PATHFINDERS REMAINING");
+            this.ui.showInfoBanner("No pathfinders remaining");
             return;
         }
 
@@ -92,7 +92,7 @@ test('Pathfinder Limit - Exhaustion blocks further pathfinding requests', () => 
     engine.triggerPathReveal(2, 2, 1);
     assert.strictEqual(engine.pathfindersRemaining, 0);
     assert.strictEqual(engine.pathRevealTriggered, false);
-    assert.strictEqual(engine.ui.bannerMessage, "NO PATHFINDERS REMAINING");
+    assert.strictEqual(engine.ui.bannerMessage, "No pathfinders remaining");
 });
 
 test('Pathfinder Limit - State save and load preservation', () => {
