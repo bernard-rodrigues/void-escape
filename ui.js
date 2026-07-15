@@ -36,6 +36,28 @@ export class UIManager {
         this.uiKeysCollected = document.getElementById('keys-collected-count');
         this.uiKeysTotal = document.getElementById('keys-total-count');
         this.uiKeysList = document.getElementById('keys-list-container');
+
+        // Pause Menu DOM bindings
+        this.uiPauseScreen = document.getElementById('pause-screen');
+        this.uiMobilePauseBtn = document.getElementById('mobile-pause-btn');
+    }
+
+    /**
+     * Show pause overlay.
+     */
+    showPause() {
+        if (this.uiPauseScreen) {
+            this.uiPauseScreen.classList.remove('hidden');
+        }
+    }
+
+    /**
+     * Hide pause overlay.
+     */
+    hidePause() {
+        if (this.uiPauseScreen) {
+            this.uiPauseScreen.classList.add('hidden');
+        }
     }
 
     /**
@@ -68,6 +90,7 @@ export class UIManager {
      */
     hideGameUI() {
         if (this.uiMobileControls) this.uiMobileControls.classList.add('hidden');
+        if (this.uiMobilePauseBtn) this.uiMobilePauseBtn.classList.add('hidden');
         if (this.uiMap3dContainer) this.uiMap3dContainer.classList.add('hidden');
         if (this.uiTeleportWarning) this.uiTeleportWarning.classList.add('hidden');
         if (this.uiProximeterContainer) this.uiProximeterContainer.classList.add('hidden');
@@ -86,6 +109,9 @@ export class UIManager {
     initGameUI(isSafeMode = false) {
         if (this.uiMobileControls) {
             this.uiMobileControls.classList.remove('hidden');
+        }
+        if (this.uiMobilePauseBtn) {
+            this.uiMobilePauseBtn.classList.remove('hidden');
         }
         if (this.uiMobileMap) {
             this.uiMobileMap.disabled = true;
