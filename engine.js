@@ -1425,6 +1425,7 @@ export class Engine {
                         this.staticMapCacheDirty = true;
                         // Reentered or newly found teleport -> auto-save
                         this.triggerSave();
+                        this.ui.showInfoBanner("Safe point... Teleport?");
                     }
                 }
 
