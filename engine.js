@@ -91,6 +91,7 @@ export class Engine {
 
         this.isMap3DActive = false;
         this.isGameOver = false;
+        this.isPaused = false;
         this.isDestroyed = false;
         this.isIntroPlaying = false;
         this.pulsatingMaterials = [];
@@ -469,6 +470,7 @@ export class Engine {
 
     hideGameUI() {
         this.ui.hideGameUI();
+        this.ui.hidePause();
         this.canvas.classList.remove('hunted-map-effect');
         this.isMap3DActive = false;
     }
@@ -486,6 +488,11 @@ export class Engine {
     init(savedState = null) {
         this.handleKeyDownExtra = e => {
             const key = e.key.toLowerCase();
+            if (key === 'escape') {
+                this.togglePause();
+                return;
+            }
+            if (this.isPaused) return;
             if (key === 'm') {
                 if (this.isTeleportMode) {
                     this.toggleTeleportMap(false);
@@ -881,6 +888,19 @@ export class Engine {
         const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
         const justPressed = (btnIdx) => isPressed(btnIdx) && !wasPressed(btnIdx);
 
+        // Start / Menu Button (Button 9): Toggle Pause
+        if (justPressed(9)) {
+            this.togglePause();
+            this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+            return;
+        }
+
+        // If paused, ignore all other inputs
+        if (this.isPaused) {
+            this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+            return;
+        }
+
         // A Button (Button 0): Descend floor / Confirm teleport
         if (justPressed(0)) {
             if (this.isTeleportMode) {
@@ -963,8 +983,8 @@ export class Engine {
             }
         }
 
-        // Start / Menu Button (Button 9) or Back / View Button (Button 8): Toggle 3D Map
-        if (justPressed(9) || justPressed(8)) {
+        // Back / View Button (Button 8): Toggle 3D Map
+        if (justPressed(8)) {
             if (this.isTeleportMode) {
                 this.toggleTeleportMap(false);
             } else {
@@ -1042,6 +1062,8 @@ export class Engine {
         if (this.isGameOver || this.isDestroyed || !dt) return;
 
         this.updateGamepad(dt);
+
+        if (this.isPaused) return;
 
         if (this.hunters.some(h => h.state === 'SLEEP')) {
             const percent = this.getMapVisitedPercentage();
@@ -2649,6 +2671,23 @@ export class Engine {
             } else {
                 zoomOutIcon.classList.add('hidden');
                 zoomInIcon.classList.remove('hidden');
+            }
+        }
+    }
+
+    togglePause() {
+        if (this.isGameOver || this.isDestroyed || this.isIntroPlaying) return;
+
+        this.isPaused = !this.isPaused;
+        if (this.isPaused) {
+            this.ui.showPause();
+            if (this.ui.uiMobilePauseBtn) {
+                this.ui.uiMobilePauseBtn.classList.add('hidden');
+            }
+        } else {
+            this.ui.hidePause();
+            if (this.ui.uiMobilePauseBtn && !this.ui.uiMobileControls.classList.contains('hidden')) {
+                this.ui.uiMobilePauseBtn.classList.remove('hidden');
             }
         }
     }

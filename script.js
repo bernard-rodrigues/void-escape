@@ -120,7 +120,7 @@ window.onload = () => {
         };
     });
 
-    ['menu-btn-victory', 'menu-btn-death'].forEach(id => {
+    ['menu-btn-victory', 'menu-btn-death', 'menu-btn-pause'].forEach(id => {
         document.getElementById(id).onclick = returnToMenu;
     });
 
@@ -128,6 +128,23 @@ window.onload = () => {
     const continueBtnDeath = document.getElementById('continue-btn-death');
     if (continueBtnDeath) {
         continueBtnDeath.onclick = continueGame;
+    }
+
+    // Resume from pause screen
+    const resumeBtn = document.getElementById('resume-btn');
+    if (resumeBtn) {
+        resumeBtn.onclick = () => {
+            if (currentGame) currentGame.togglePause();
+        };
+    }
+
+    // Mobile pause button
+    const mobilePauseBtn = document.getElementById('mobile-pause-btn');
+    if (mobilePauseBtn) {
+        mobilePauseBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (currentGame) currentGame.togglePause();
+        };
     }
 };
 

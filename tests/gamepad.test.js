@@ -91,6 +91,19 @@ function updateGamepad(engine, dt) {
     const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
     const justPressed = (btnIdx) => isPressed(btnIdx) && !wasPressed(btnIdx);
 
+    // Start / Menu Button (Button 9): Toggle Pause
+    if (justPressed(9)) {
+        engine.togglePause();
+        engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+        return;
+    }
+
+    // If paused, ignore all other inputs
+    if (engine.isPaused) {
+        engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+        return;
+    }
+
     // A Button (Button 0): Descend floor / Confirm teleport
     if (justPressed(0)) {
         if (engine.isTeleportMode) {
@@ -173,8 +186,8 @@ function updateGamepad(engine, dt) {
         }
     }
 
-    // Start / Menu Button (Button 9) or Back / View Button (Button 8): Toggle 3D Map
-    if (justPressed(9) || justPressed(8)) {
+    // Back / View Button (Button 8): Toggle 3D Map
+    if (justPressed(8)) {
         if (engine.isTeleportMode) {
             engine.toggleTeleportMap(false);
         } else {
