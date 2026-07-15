@@ -31,6 +31,107 @@ export class Hunter {
             this.state = 'SLEEP';
             this.lastPos = null;
         }
+
+        // Jelly Glitch Monster Animation State
+        this.jellyTime = 0;
+        if (typeof document !== 'undefined') {
+            this.lowCanvas = document.createElement('canvas');
+            this.lowCanvas.width = 64;
+            this.lowCanvas.height = 64;
+            this.lctx = this.lowCanvas.getContext('2d');
+        }
+    }
+
+    generateCloudTexture(dt = 0.016) {
+        if (this.state === 'SLEEP') return;
+        this.jellyTime += dt;
+
+        if (typeof document === 'undefined') return;
+
+        const size = 64;
+        const lctx = this.lctx;
+
+        // 1. FUNDO E Rastro transparentes (desbota o alpha do rastro anterior via destination-out)
+        lctx.globalCompositeOperation = 'destination-out';
+        lctx.fillStyle = 'rgba(0, 0, 0, 0.22)'; // Atenua a opacidade gradualmente a cada frame
+        lctx.fillRect(0, 0, size, size);
+        lctx.globalCompositeOperation = 'source-over';
+
+        const time = this.jellyTime;
+
+        // 2. NÚCLEO DA NUVEM ROXA (Ondas internas mais lentas)
+        // Usamos ImageData para manipulação ultra-rápida de pixels em buffer
+        try {
+            const imgData = lctx.getImageData(0, 0, size, size);
+            const data = imgData.data;
+
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const dx = x - size / 2;
+                    const dy = y - size / 2;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Pulsação de fumaça interna desacelerada
+                    const distortion = Math.sin(time * 1.5 + x * 0.08) * 2.5;
+                    const maxDist = (size * 0.35) + distortion;
+
+                    if (dist < maxDist + (Math.random() * 1.5)) {
+                        const r = 90 + Math.floor(Math.random() * 45);
+                        const g = 10 + Math.floor(Math.random() * 20);
+                        const b = 140 + Math.floor(Math.random() * 60);
+                        
+                        const idx = (y * size + x) * 4;
+                        data[idx] = r;
+                        data[idx + 1] = g;
+                        data[idx + 2] = b;
+                        data[idx + 3] = 255;
+                    }
+                }
+            }
+            lctx.putImageData(imgData, 0, 0);
+        } catch (e) {}
+
+        // 3. TROVÕES INTERNOS (Flashes raros, lentos e pontuais)
+        if (Math.random() < 0.04) {
+            lctx.fillStyle = Math.random() < 0.7 ? '#ffffff' : '#b3ffff';
+            const bx = (size / 2 - 8) + Math.random() * 16;
+            const by = (size / 2 - 8) + Math.random() * 16;
+            lctx.fillRect(bx, by, 2 + Math.random() * 3, 4 + Math.random() * 10);
+        }
+
+        // 4. GLITCH DE CORES (Apenas na área roxa e menos frequentes)
+        if (Math.random() < 0.12) {
+            const blocks = Math.floor(Math.random() * 3) + 1;
+            const colors = ['#00ff66', '#ff0055', '#00ccff', '#ffff00', '#ffffff'];
+
+            for (let i = 0; i < blocks; i++) {
+                const bx = Math.floor(Math.random() * size);
+                const by = Math.floor(Math.random() * size);
+                
+                const dx = bx - size / 2;
+                const dy = by - size / 2;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < size * 0.32) {
+                    const bw = Math.floor(Math.random() * 4) + 2;
+                    const bh = Math.floor(Math.random() * 2) + 1;
+                    lctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                    lctx.fillRect(bx, by, bw, bh);
+                }
+            }
+        }
+
+        // 5. DESLOCAMENTO DE LINHAS (Raros cortes horizontais rápidos)
+        if (Math.random() < 0.08) {
+            const sy = Math.floor(Math.random() * size);
+            const sh = Math.floor(Math.random() * 6) + 2;
+            const shift = Math.floor(Math.random() * 6) - 3;
+            try {
+                const imgData = lctx.getImageData(0, sy, size, sh);
+                lctx.clearRect(0, sy, size, sh);
+                lctx.putImageData(imgData, shift, sy);
+            } catch (e) {}
+        }
     }
 
     move(playerPos, matrix, types) {

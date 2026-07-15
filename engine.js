@@ -1087,15 +1087,54 @@ export class Engine {
             hunter.visualX = moveTowards(hunter.visualX, hunter.x, maxDelta);
             hunter.visualY = moveTowards(hunter.visualY, hunter.y, maxDelta);
             hunter.visualZ = moveTowards(hunter.visualZ, hunter.z, maxDelta * 2);
+            hunter.generateCloudTexture(dt);
         }
 
         if (this.isMap3DActive) {
             this.controls.update();
             const size = this.mazeGen.size;
+            const opFactor = this.isTeleportMode ? 0.25 : 1.0;
             for (const hm of this.hunterMeshes) {
-                const h = hm.hunter;
-                const mesh = hm.mesh;
-                mesh.position.set(h.visualX - size/2, (h.visualZ - size/2) * this.vScale, h.visualY - size/2);
+                 const h = hm.hunter;
+                 const mesh = hm.mesh;
+                 mesh.position.set(h.visualX - size/2, (h.visualZ - size/2) * this.vScale, h.visualY - size/2);
+
+                 // Jelly shape deformation (slow skew / stretch scale) - contido
+                 const time = h.jellyTime;
+                 const scaleX = 1 + Math.sin(time * 1.2) * 0.07;
+                 const scaleY = 1 + Math.cos(time * 0.8) * 0.07;
+                 const scaleZ = 1 + Math.sin(time * 1.5) * 0.07;
+                 if (hm.coreMesh) {
+                     hm.coreMesh.scale.set(scaleX, scaleY, scaleZ);
+                     // Flashing/pulsing emissive light intensity
+                     if (hm.coreMesh.material) {
+                         hm.coreMesh.material.emissiveIntensity = (0.8 + 0.2 * Math.sin(time * 3) + (Math.random() < 0.1 ? (Math.random() - 0.5) * 0.4 : 0)) * opFactor;
+                     }
+                 }
+
+                 // Orbit and jitter the glitch particles (kept within cell block size)
+                 if (hm.particles) {
+                     hm.particles.forEach((p) => {
+                         const ud = p.userData;
+                         ud.angle += ud.speed * dt;
+                         
+                         const px = Math.cos(ud.angle) * ud.radius;
+                         const pz = Math.sin(ud.angle) * ud.radius;
+                         const py = Math.sin(ud.angle * 2 + ud.phaseY) * 0.25;
+                         
+                         let jitterX = 0, jitterY = 0, jitterZ = 0;
+                         // Glitch tremor displacements kept small to stay inside bounds
+                         if (Math.random() < 0.15) {
+                             jitterX = (Math.random() - 0.5) * 0.12;
+                             jitterY = (Math.random() - 0.5) * 0.12;
+                             jitterZ = (Math.random() - 0.5) * 0.12;
+                             p.scale.set(1.4 + Math.random() * 0.4, 0.6 + Math.random() * 0.3, 1.4 + Math.random() * 0.4);
+                         } else {
+                             p.scale.set(1.0, 1.0, 1.0);
+                         }
+                         p.position.set(px + jitterX, py + jitterY, pz + jitterZ);
+                     });
+                 }
                 
                 if (h.history && h.history.length > 0) {
                     if (h.history.length === 2) {
@@ -1846,13 +1885,48 @@ export class Engine {
             this.scene.add(tMesh2);
             this.scene.add(tMesh1);
 
-            const hMesh = new THREE.Mesh(hGeom, hMat);
-            hMesh.position.set(h.x - size/2, (h.z - size/2) * this.vScale, h.y - size/2);
-            this.scene.add(hMesh);
+            const hGroup = new THREE.Group();
+            
+            // Core sphere (jelly nucleus)
+            const coreMesh = new THREE.Mesh(hGeom, hMat);
+            hGroup.add(coreMesh);
+            
+            // Orbital glitch/corruption particles (small cubes) that float and leak outside
+            const numParticles = 4;
+            const particles = [];
+            const partGeom = new THREE.BoxGeometry(0.18, 0.18, 0.18);
+            const partColors = [CONFIG.COLORS.THREE_HUNTER, 0xff00ff, 0x00ffff, 0xffff00];
+            
+            for (let p = 0; p < numParticles; p++) {
+                const pMat = new THREE.MeshPhongMaterial({
+                    color: partColors[p % partColors.length],
+                    transparent: true,
+                    opacity: 0.8,
+                    emissive: partColors[p % partColors.length],
+                    emissiveIntensity: 0.8
+                });
+                const pMesh = new THREE.Mesh(partGeom, pMat);
+                
+                // Orbit parameters
+                pMesh.userData = {
+                    angle: (p / numParticles) * Math.PI * 2,
+                    radius: 0.35 + Math.random() * 0.1, // Contido na célula
+                    speed: 1.0 + Math.random() * 1.5,
+                    phaseY: Math.random() * Math.PI * 2
+                };
+                
+                hGroup.add(pMesh);
+                particles.push(pMesh);
+            }
+            
+            hGroup.position.set(h.x - size/2, (h.z - size/2) * this.vScale, h.y - size/2);
+            this.scene.add(hGroup);
             
             this.hunterMeshes.push({ 
                 hunter: h, 
-                mesh: hMesh,
+                mesh: hGroup,
+                coreMesh: coreMesh,
+                particles: particles,
                 trail1: tMesh1,
                 trail2: tMesh2
             });
@@ -2000,12 +2074,30 @@ export class Engine {
             }
             const distZ = Math.abs(h.visualZ - z);
             const scaleFactor = Math.max(0, 1 - distZ);
-            if (scaleFactor > 0) {
+            if (scaleFactor > 0 && h.lowCanvas) {
                 ctx.save();
-                ctx.fillStyle = CONFIG.COLORS.HUNTER;
-                ctx.beginPath();
-                ctx.arc(h.visualX * cellSize + cellSize/2, h.visualY * cellSize + cellSize/2, cellSize * 0.4 * scaleFactor, 0, Math.PI * 2);
-                ctx.fill();
+                
+                const cx = h.visualX * cellSize + cellSize / 2;
+                const cy = h.visualY * cellSize + cellSize / 2;
+                const drawSize = cellSize * 0.95 * scaleFactor; // Contido dentro do limite da célula
+
+                // MOVIMENTAÇÃO GELATINOSA LENTA (Baseada no tempo acumulado do Hunter)
+                const time = h.jellyTime;
+                const skewX = Math.sin(time) * 6; 
+                const skewY = Math.cos(time * 0.7) * 4;
+                const scaleX = 1 + Math.sin(time * 1.2) * 0.06;
+                const scaleY = 1 + Math.cos(time * 0.8) * 0.06;
+
+                // Aplica deformação gelatinosa (transformação de skew e scale) ao redor do centro do Hunter no canvas
+                ctx.translate(cx, cy);
+                const radX = skewX * Math.PI / 180;
+                const radY = skewY * Math.PI / 180;
+                ctx.transform(scaleX, Math.tan(radY), Math.tan(radX), scaleY, 0, 0);
+
+                // Desenha o canvas offscreen do monstro pixelado sem suavização
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(h.lowCanvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+                
                 ctx.restore();
             }
         }
