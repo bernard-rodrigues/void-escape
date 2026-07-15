@@ -67,10 +67,14 @@ export class UIManager {
     /**
      * Show victory overlay and hide game controls.
      */
-    showVictory() {
+    showVictory(mapCompletionPercent = 0) {
         this.hideGameUI();
         if (this.uiVictoryScreen) {
             this.uiVictoryScreen.classList.remove('hidden');
+        }
+        const completionEl = document.getElementById('victory-completion-rate');
+        if (completionEl) {
+            completionEl.innerText = `${mapCompletionPercent}%`;
         }
     }
 

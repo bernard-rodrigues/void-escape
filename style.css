@@ -478,7 +478,22 @@ body {
 
 .popup-container.victory p {
     color: var(--clr-text);
-    margin-bottom: calc(var(--h-unit) * 1);
+    margin-bottom: calc(var(--h-unit) * 0.5);
+}
+
+.victory-stats {
+    font-family: 'Orbitron', sans-serif;
+    font-size: calc(var(--h-unit) * 2.1);
+    font-size: calc(var(--d-h-unit) * 2.1);
+    font-weight: bold;
+    color: var(--clr-text) !important;
+    margin-bottom: calc(var(--h-unit) * 1.5) !important;
+}
+
+#victory-completion-rate {
+    color: var(--clr-victory);
+    text-shadow: 0 0 calc(var(--h-unit) * 1) rgba(0, 255, 102, 0.4);
+    text-shadow: 0 0 calc(var(--d-h-unit) * 1) rgba(0, 255, 102, 0.4);
 }
 
 #game-over-screen {

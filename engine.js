@@ -366,7 +366,8 @@ export class Engine {
     triggerVictory() {
         this.isGameOver = true;
         clearSave(); // Victory clears the save so "Continue" is no longer offered
-        this.ui.showVictory();
+        const percent = this.getMapVisitedPercentage();
+        this.ui.showVictory(percent);
     }
 
     triggerDeath() {
