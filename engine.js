@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from './config.js';
+import { getTranslation } from './translations.js';
 import { Hunter } from './hunter.js';
 import { Maze3D } from './maze3d.js';
 import { aStarDistance, aStarPath, proximeterDistance } from './pathfinder.js';
@@ -322,7 +323,7 @@ export class Engine {
             hunter.history = [];
         }
 
-        this.ui.showInfoBanner("Void Hunters Detected");
+        this.ui.showInfoBanner(getTranslation('msgVoidHuntersDetected'));
         this.staticMapCacheDirty = true;
         if (this.isMap3DActive) {
             this.build3DMap();
@@ -383,10 +384,10 @@ export class Engine {
         this.keysCollected++;
         this.staticMapCacheDirty = true;
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
-        this.ui.showInfoBanner(`Key secured (${this.keysCollected}/${this.totalKeys})`);
+        this.ui.showInfoBanner(getTranslation('msgKeySecured', { collected: this.keysCollected, total: this.totalKeys }));
         
         if (this.keysCollected === this.totalKeys) {
-            this.ui.showInfoBanner("Exit unlocked");
+            this.ui.showInfoBanner(getTranslation('msgExitUnlocked'));
             if (this.exitMesh) {
                 this.exitMesh.material.color.setHex(CONFIG.COLORS.THREE_EXIT);
                 this.exitMesh.material.emissive.setHex(CONFIG.COLORS.THREE_EXIT);
@@ -404,7 +405,7 @@ export class Engine {
         if (!this.lastLockedWarningTime || now - this.lastLockedWarningTime > 1500) {
             this.lastLockedWarningTime = now;
             const missing = this.totalKeys - this.keysCollected;
-            this.ui.showInfoBanner(`${missing} key(s) remaining`);
+            this.ui.showInfoBanner(getTranslation('msgKeysRemaining', { count: missing }));
         }
     }
 
@@ -578,7 +579,7 @@ export class Engine {
                     if (this.discoveredTeleports.size >= 2) {
                         this.toggleTeleportMap(true);
                     } else {
-                        this.ui.showInfoBanner("No other active teleport");
+                        this.ui.showInfoBanner(getTranslation('msgNoOtherActiveTeleport'));
                     }
                 } else {
                     this.toggleMap3D();
@@ -990,7 +991,7 @@ export class Engine {
                         this.toggleTeleportMap(true);
                         this.gamepadTeleportSelectedIndex = 0;
                     } else {
-                        this.ui.showInfoBanner("No other active teleport");
+                        this.ui.showInfoBanner(getTranslation('msgNoOtherActiveTeleport'));
                     }
                 }
             }
@@ -1385,7 +1386,7 @@ export class Engine {
                 // Desbloqueia o pathfinder da saída se visitou o vizinho dela
                 if (!this.exitPathfinderUnlocked && this.checkExitNeighborVisited()) {
                     this.exitPathfinderUnlocked = true;
-                    this.ui.showInfoBanner("Exit found");
+                    this.ui.showInfoBanner(getTranslation('msgExitFound'));
                 }
                 
                 if (finalVal === this.mazeGen.TYPES.EXIT) {
@@ -1425,7 +1426,7 @@ export class Engine {
                         this.staticMapCacheDirty = true;
                         // Reentered or newly found teleport -> auto-save
                         this.triggerSave();
-                        this.ui.showInfoBanner("Safe point... Teleport?");
+                        this.ui.showInfoBanner(getTranslation('msgSafePointTeleport'));
                     }
                 }
 
@@ -1464,7 +1465,7 @@ export class Engine {
                     if (this.discoveredTeleports.size >= 2) {
                         this.toggleTeleportMap(true);
                     } else {
-                        this.ui.showInfoBanner("No other active teleport");
+                        this.ui.showInfoBanner(getTranslation('msgNoOtherActiveTeleport'));
                     }
                 }
             } else {
@@ -3243,7 +3244,7 @@ export class Engine {
 
     triggerPathReveal(tx, ty, tz) {
         if (this.pathfindersRemaining <= 0) {
-            this.ui.showInfoBanner("No pathfinders remaining");
+            this.ui.showInfoBanner(getTranslation('msgNoPathfindersRemaining'));
             return;
         }
 
@@ -3255,7 +3256,7 @@ export class Engine {
         const isExitClicked = this.maze.get(tx, ty, tz) === this.mazeGen.TYPES.EXIT;
         if (isExitClicked) {
             if (!this.exitPathfinderUnlocked) {
-                this.ui.showInfoBanner("Exit not found yet");
+                this.ui.showInfoBanner(getTranslation('msgExitNotFoundYet'));
                 return;
             }
         }
@@ -3357,7 +3358,7 @@ export class Engine {
         this.inactiveTeleportPos = { x, y, z };
 
         this.ui.updateCooldownTimer(this.teleportCooldownTicks);
-        this.ui.showInfoBanner("Oops... noisy sh*t!");
+        this.ui.showInfoBanner(getTranslation('msgOopsNoisyShit'));
 
         for (const hunter of this.hunters) {
             hunter.state = 'TELEPORT_TRACKING';
