@@ -614,14 +614,14 @@ export class Engine {
         this.resize();
         this.updateFloorUI();
         this.hideCanvasInstant();
-        this.loop();
-        
         if (savedState) {
             this.restoreFromSave(savedState);
             this.playContinueAnimation();
         } else {
             this.playIntroAnimation();
         }
+
+        this.loop();
 
         // Hides zoom controls if the maze size <= 11 (degree <= 5)
         const size = this.mazeGen.size;
@@ -1381,15 +1381,28 @@ export class Engine {
                 
                 const finalGridIdxX = Math.floor(this.player.x);
                 const finalGridIdxY = Math.floor(this.player.y);
-                const finalVal = this.maze.get(finalGridIdxX, finalGridIdxY, this.player.z);
-                if (finalVal === this.mazeGen.TYPES.PATH || finalVal === this.mazeGen.TYPES.KEY) {
-                    if (finalVal === this.mazeGen.TYPES.KEY) {
-                        this.collectKey(finalGridIdxX, finalGridIdxY, this.player.z);
-                    } else {
-                        this.maze.set(finalGridIdxX, finalGridIdxY, this.player.z, this.mazeGen.TYPES.VISITED);
+                const z = this.player.z;
+                
+                const markOrCollect = (gx, gy, gz) => {
+                    const val = this.maze.get(gx, gy, gz);
+                    if (val === this.mazeGen.TYPES.PATH || val === this.mazeGen.TYPES.KEY) {
+                        if (val === this.mazeGen.TYPES.KEY) {
+                            this.collectKey(gx, gy, gz);
+                        } else {
+                            this.maze.set(gx, gy, gz, this.mazeGen.TYPES.VISITED);
+                        }
+                        this.staticMapCacheDirty = true;
                     }
-                    this.staticMapCacheDirty = true;
+                };
+
+                markOrCollect(finalGridIdxX, finalGridIdxY, z);
+
+                if (finalGridIdxX !== oldGridX && finalGridIdxY !== oldGridY) {
+                    markOrCollect(finalGridIdxX, oldGridY, z);
+                    markOrCollect(oldGridX, finalGridIdxY, z);
                 }
+
+                const finalVal = this.maze.get(finalGridIdxX, finalGridIdxY, z);
                 
                 // Desbloqueia o pathfinder da saída se visitou o vizinho dela
                 if (!this.exitPathfinderUnlocked && this.checkExitNeighborVisited()) {

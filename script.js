@@ -7,13 +7,13 @@ let currentGame = null;
 /**
  * Start a brand-new game with the given parameters.
  */
-const startNewGame = (degree, branching) => {
+const startNewGame = (degree) => {
     if (currentGame) currentGame.destroy();
     clearSave(); // Clear old saves when a fresh game is started
     document.getElementById('start-menu').classList.add('hidden');
     document.getElementById('victory-screen').classList.add('hidden');
     document.getElementById('game-over-screen').classList.add('hidden');
-    currentGame = new Engine(degree, branching);
+    currentGame = new Engine(degree, CONFIG.BRANCHING_FACTOR);
 };
 
 /**
@@ -50,9 +50,7 @@ const returnToMenu = () => {
 
 window.onload = () => {
     const degreeSlider = document.getElementById('maze-degree');
-    const branchSlider = document.getElementById('branching-factor');
     const degreeVal = document.getElementById('degree-val');
-    const branchVal = document.getElementById('branch-val');
     const hunterCount = document.getElementById('hunter-count');
     const teleportCount = document.getElementById('teleport-count');
     const keysCount = document.getElementById('keys-count');
@@ -62,9 +60,6 @@ window.onload = () => {
 
     if (degreeSlider && CONFIG.MAZE_DEGREE !== undefined) {
         degreeSlider.value = CONFIG.MAZE_DEGREE;
-    }
-    if (branchSlider && CONFIG.BRANCHING_FACTOR !== undefined) {
-        branchSlider.value = CONFIG.BRANCHING_FACTOR;
     }
 
     const updateHunterDisplay = (degree) => {
@@ -108,11 +103,9 @@ window.onload = () => {
         updateKeysDisplay(parseInt(degreeSlider.value));
         updatePathfinderDisplay(parseInt(degreeSlider.value));
     };
-    branchSlider.oninput = () => branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
     
     // Set initial text display values from sliders on load
     degreeVal.innerText = degreeSlider.value;
-    branchVal.innerText = parseFloat(branchSlider.value).toFixed(2);
     
     updateHunterDisplay(parseInt(degreeSlider.value));
     updateTeleportDisplay(parseInt(degreeSlider.value));
@@ -127,13 +120,13 @@ window.onload = () => {
     }
 
     document.getElementById('start-btn').onclick = () => {
-        startNewGame(parseInt(degreeSlider.value), parseFloat(branchSlider.value));
+        startNewGame(parseInt(degreeSlider.value));
     };
 
     // End-game button logic
     ['restart-btn-victory', 'retry-btn-death'].forEach(id => {
         document.getElementById(id).onclick = () => {
-            startNewGame(currentGame.degree, currentGame.branchingFactor);
+            startNewGame(currentGame.degree);
         };
     });
 

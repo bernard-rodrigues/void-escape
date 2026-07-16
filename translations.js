@@ -8,12 +8,10 @@ export const TRANSLATIONS = {
         activeKeys: "Active Keys",
         availablePathfinders: "Available Pathfinders",
         mazeDegree: "Maze Degree",
-        branchingFactor: "Branching Factor",
         safeMode: "Safe Mode",
         generateMaze: "GENERATE MAZE",
         continue: "CONTINUE",
         degreeHint: "Controls the grid size. Higher values create larger, more complex mazes.",
-        branchingHint: "High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.",
         safeModeHint: "When active, no hunters will spawn in the maze.",
 
         // HUD / Game Stats (Grid 2x2)
