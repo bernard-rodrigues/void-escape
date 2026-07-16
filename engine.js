@@ -640,6 +640,7 @@ export class Engine {
         const mapArea = document.getElementById('map-area-container');
         const leftHud = document.getElementById('left-hud-panel');
         const rightHud = document.getElementById('right-hud-panel');
+        const bottomHud = document.getElementById('bottom-hud-container');
         if (mapArea) {
             mapArea.style.transition = 'none';
             mapArea.classList.remove('intro-reveal');
@@ -660,6 +661,13 @@ export class Engine {
             rightHud.classList.add('intro-hidden');
             rightHud.offsetHeight;
             rightHud.style.transition = '';
+        }
+        if (bottomHud) {
+            bottomHud.style.transition = 'none';
+            bottomHud.classList.remove('intro-reveal');
+            bottomHud.classList.add('intro-hidden');
+            bottomHud.offsetHeight;
+            bottomHud.style.transition = '';
         }
     }
 
@@ -3065,6 +3073,7 @@ export class Engine {
             const mapArea = document.getElementById('map-area-container');
             const leftHud = document.getElementById('left-hud-panel');
             const rightHud = document.getElementById('right-hud-panel');
+            const bottomHud = document.getElementById('bottom-hud-container');
             if (mapArea) {
                 mapArea.classList.remove('intro-hidden');
                 mapArea.classList.add('intro-reveal');
@@ -3079,6 +3088,11 @@ export class Engine {
                 rightHud.classList.remove('intro-hidden');
                 rightHud.classList.add('intro-reveal');
                 setTimeout(() => rightHud.classList.remove('intro-reveal'), 700);
+            }
+            if (bottomHud) {
+                bottomHud.classList.remove('intro-hidden');
+                bottomHud.classList.add('intro-reveal');
+                setTimeout(() => bottomHud.classList.remove('intro-reveal'), 700);
             }
         }, 600);
     }
