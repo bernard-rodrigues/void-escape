@@ -164,8 +164,8 @@ body {
 #start-menu .control-group,
 #start-menu .menu-action-btns {
     opacity: 0;
-    animation: elements-fade-in 1.8s ease-in-out forwards;
-    animation-delay: 4.4s;
+    animation: elements-fade-in 0.8s ease-out forwards;
+    animation-delay: 4.0s;
 }
 
 @keyframes menu-open {
@@ -800,6 +800,18 @@ body {
     margin-top: calc(var(--h-unit) * 1.5);
     margin-top: calc(var(--d-h-unit) * 1.5);
     order: 3;
+    transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+#bottom-hud-container.intro-hidden {
+    opacity: 0;
+    transform: scale(0.88);
+    pointer-events: none;
+}
+
+#bottom-hud-container.intro-reveal {
+    opacity: 1;
+    transform: scale(1);
 }
 
 #floor-display {
@@ -1743,23 +1755,27 @@ body {
     }
 }
 
-/* Oculta os botões mobile e o botão de pause flutuante do mobile quando pause, vitória ou game-over estiverem abertos */
+/* Oculta os botões mobile, o botão de pause flutuante e a lupa do mobile quando pause, vitória ou game-over estiverem abertos */
 body:has(#pause-screen:not(.hidden)) #mobile-controls,
 body:has(#pause-screen:not(.hidden)) #mobile-pause-btn,
+body:has(#pause-screen:not(.hidden)) #mobile-zoom-btn,
 body:has(#victory-screen:not(.hidden)) #mobile-controls,
 body:has(#victory-screen:not(.hidden)) #mobile-pause-btn,
+body:has(#victory-screen:not(.hidden)) #mobile-zoom-btn,
 body:has(#game-over-screen:not(.hidden)) #mobile-controls,
-body:has(#game-over-screen:not(.hidden)) #mobile-pause-btn {
+body:has(#game-over-screen:not(.hidden)) #mobile-pause-btn,
+body:has(#game-over-screen:not(.hidden)) #mobile-zoom-btn {
     display: none !important;
 }
 
 /* Quando o mapa 3D/Teleportes estiver visível:
    - Esconde o botão de pause flutuante.
-   - Oculta os botões de subir/descer andar (Up e Down).
+   - Oculta os botões de subir/descer andar (Up e Down) e a lupa (mobile-zoom-btn).
    - O botão MAP continua visível para fechar a tela. */
 body:has(#map3d-container:not(.hidden)) #mobile-pause-btn,
 body:has(#map3d-container:not(.hidden)) #mobile-down,
-body:has(#map3d-container:not(.hidden)) #mobile-up {
+body:has(#map3d-container:not(.hidden)) #mobile-up,
+body:has(#map3d-container:not(.hidden)) #mobile-zoom-btn {
     display: none !important;
 }
 
