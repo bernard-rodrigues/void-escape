@@ -21,8 +21,8 @@ function moveTowards(current, target, maxDelta) {
  */
 export class Engine {
     constructor(degree, branchingFactor, savedState = null) {
-        this.degree = degree;
-        this.branchingFactor = branchingFactor;
+        this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
+        this.branchingFactor = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
         
         // Restore or initialize Safe Mode status
         if (savedState) {
@@ -1053,7 +1053,7 @@ export class Engine {
             
             const rotDeadzone = 0.15;
             const zoomDeadzone = 0.15;
-            const rotSpeed = 2.0 * dt;
+            const rotSpeed = (CONFIG.ROT_SPEED !== undefined ? CONFIG.ROT_SPEED : 2.0) * dt;
             const zoomSpeed = 20.0 * dt;
 
             const hasRotation = Math.abs(rotX) > rotDeadzone || Math.abs(rotY) > rotDeadzone;

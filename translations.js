@@ -45,7 +45,7 @@ export const TRANSLATIONS = {
         msgKeySecured: "Key secured ({collected}/{total})",
         msgExitUnlocked: "Exit unlocked",
         msgKeysRemaining: "{count} key(s) remaining",
-        msgNoOtherActiveTeleport: "No other active teleport",
+        msgNoOtherActiveTeleport: "No other active teleports",
         msgExitFound: "Exit found",
         msgNoPathfindersRemaining: "No pathfinders remaining",
         msgExitNotFoundYet: "Exit not found yet",
