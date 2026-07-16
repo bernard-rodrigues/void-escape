@@ -5,8 +5,10 @@ import { CONFIG } from './config.js';
  */
 export class Maze3D {
     constructor(degree, branchingFactor, seed = null) {
-        this.n = Math.max(3, Math.min(16, degree));
-        this.branchingFactor = Math.max(0, Math.min(1, branchingFactor));
+        const d = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
+        const bf = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
+        this.n = Math.max(3, Math.min(16, d));
+        this.branchingFactor = Math.max(0, Math.min(1, bf));
         this.size = 2 * this.n + 1;
 
         if (seed !== null && seed !== undefined) {

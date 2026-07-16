@@ -60,6 +60,13 @@ window.onload = () => {
 
     const safeModeCheckbox = document.getElementById('safe-mode');
 
+    if (degreeSlider && CONFIG.MAZE_DEGREE !== undefined) {
+        degreeSlider.value = CONFIG.MAZE_DEGREE;
+    }
+    if (branchSlider && CONFIG.BRANCHING_FACTOR !== undefined) {
+        branchSlider.value = CONFIG.BRANCHING_FACTOR;
+    }
+
     const updateHunterDisplay = (degree) => {
         const isSafe = safeModeCheckbox && safeModeCheckbox.checked;
         const count = isSafe ? 0 : CONFIG.getHunterCount(degree);

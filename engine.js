@@ -21,8 +21,8 @@ function moveTowards(current, target, maxDelta) {
  */
 export class Engine {
     constructor(degree, branchingFactor, savedState = null) {
-        this.degree = degree;
-        this.branchingFactor = branchingFactor;
+        this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
+        this.branchingFactor = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
         
         // Restore or initialize Safe Mode status
         if (savedState) {
@@ -640,6 +640,7 @@ export class Engine {
         const mapArea = document.getElementById('map-area-container');
         const leftHud = document.getElementById('left-hud-panel');
         const rightHud = document.getElementById('right-hud-panel');
+        const bottomHud = document.getElementById('bottom-hud-container');
         if (mapArea) {
             mapArea.style.transition = 'none';
             mapArea.classList.remove('intro-reveal');
@@ -660,6 +661,13 @@ export class Engine {
             rightHud.classList.add('intro-hidden');
             rightHud.offsetHeight;
             rightHud.style.transition = '';
+        }
+        if (bottomHud) {
+            bottomHud.style.transition = 'none';
+            bottomHud.classList.remove('intro-reveal');
+            bottomHud.classList.add('intro-hidden');
+            bottomHud.offsetHeight;
+            bottomHud.style.transition = '';
         }
     }
 
@@ -1053,7 +1061,7 @@ export class Engine {
             
             const rotDeadzone = 0.15;
             const zoomDeadzone = 0.15;
-            const rotSpeed = 2.0 * dt;
+            const rotSpeed = (CONFIG.ROT_SPEED !== undefined ? CONFIG.ROT_SPEED : 2.0) * dt;
             const zoomSpeed = 20.0 * dt;
 
             const hasRotation = Math.abs(rotX) > rotDeadzone || Math.abs(rotY) > rotDeadzone;
@@ -3065,6 +3073,7 @@ export class Engine {
             const mapArea = document.getElementById('map-area-container');
             const leftHud = document.getElementById('left-hud-panel');
             const rightHud = document.getElementById('right-hud-panel');
+            const bottomHud = document.getElementById('bottom-hud-container');
             if (mapArea) {
                 mapArea.classList.remove('intro-hidden');
                 mapArea.classList.add('intro-reveal');
@@ -3079,6 +3088,11 @@ export class Engine {
                 rightHud.classList.remove('intro-hidden');
                 rightHud.classList.add('intro-reveal');
                 setTimeout(() => rightHud.classList.remove('intro-reveal'), 700);
+            }
+            if (bottomHud) {
+                bottomHud.classList.remove('intro-hidden');
+                bottomHud.classList.add('intro-reveal');
+                setTimeout(() => bottomHud.classList.remove('intro-reveal'), 700);
             }
         }, 600);
     }
