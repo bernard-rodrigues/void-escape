@@ -48,11 +48,6 @@
                 <p class="hint" data-i18n="degreeHint">Controls the grid size. Higher values create larger, more complex mazes.</p>
             </div>
 
-            <div class="control-group">
-                <label for="branching-factor"><span data-i18n="branchingFactor">Branching Factor</span>: <span id="branch-val">-</span></label>
-                <input type="range" id="branching-factor" min="0" max="1" step="0.05" value="0.2" aria-label="Branching Factor">
-                <p class="hint" data-i18n="branchingHint">High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.</p>
-            </div>
 
             <div class="control-group switch-group">
                 <div class="switch-container">
@@ -217,10 +212,7 @@
 
             <aside id="controls-hint">
                 <h3 data-i18n="controlsHintTitle">CONTROLS HINT</h3>
-                <span data-i18n="hintMove">Arrows or WASD: Move/Rotate</span><br>
-                <span data-i18n="hintElevator">PgUp/PgDn or Q/E: Move Up/Down</span><br>
-                <strong><span data-i18n="hintMap">M: 3D Holographic Map</span></strong><br>
-                <span id="control-hint-zoom"><strong><span data-i18n="hintZoom">Z: Minimap Zoom</span></strong></span>
+                <div id="controls-hint-content"></div>
             </aside>
         </div>
         

@@ -8,12 +8,10 @@ export const TRANSLATIONS = {
         activeKeys: "Active Keys",
         availablePathfinders: "Available Pathfinders",
         mazeDegree: "Maze Degree",
-        branchingFactor: "Branching Factor",
         safeMode: "Safe Mode",
         generateMaze: "GENERATE MAZE",
         continue: "CONTINUE",
         degreeHint: "Controls the grid size. Higher values create larger, more complex mazes.",
-        branchingHint: "High values (closer to 1.0) create more intersections. Low values create longer, straighter corridors.",
         safeModeHint: "When active, no hunters will spawn in the maze.",
 
         // HUD / Game Stats (Grid 2x2)
@@ -35,10 +33,10 @@ export const TRANSLATIONS = {
 
         // Controls Hint
         controlsHintTitle: "CONTROLS HINT",
-        hintMove: "Arrows or WASD: Move/Rotate",
-        hintElevator: "PgUp/PgDn or Q/E: Move Up/Down",
-        hintMap: "M: 3D Holographic Map",
-        hintZoom: "Z: Minimap Zoom",
+        actionMove: "Move / Rotate",
+        actionElevator: "Elevator Up / Down",
+        actionMap: "3D Holographic Map",
+        actionZoom: "Zoom Minimap",
 
         // Banner Warnings & Messages
         msgVoidHuntersDetected: "Void Hunters Detected",
