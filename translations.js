@@ -33,10 +33,10 @@ export const TRANSLATIONS = {
 
         // Controls Hint
         controlsHintTitle: "CONTROLS HINT",
-        hintMove: "Arrows or WASD: Move/Rotate",
-        hintElevator: "PgUp/PgDn or Q/E: Move Up/Down",
-        hintMap: "M: 3D Holographic Map",
-        hintZoom: "Z: Minimap Zoom",
+        actionMove: "Move / Rotate",
+        actionElevator: "Elevator Up / Down",
+        actionMap: "3D Holographic Map",
+        actionZoom: "Zoom Minimap",
 
         // Banner Warnings & Messages
         msgVoidHuntersDetected: "Void Hunters Detected",

@@ -121,6 +121,7 @@ export class Engine {
         this.exitPathfinderUnlocked = false;
         this.isZoomActive = true;
         this.zoomVisibleCells = 11;
+        this.lastInputDevice = 'keyboard';
 
         // Static 2D map cache to prevent redundant loops and redrawing
         this.staticMapCacheCanvas = document.createElement('canvas');
@@ -153,6 +154,9 @@ export class Engine {
         this.ui.destroy();
         
         window.removeEventListener('keydown', this.handleKeyDownExtra);
+        if (this.handleKeyboardDetection) {
+            window.removeEventListener('keydown', this.handleKeyboardDetection);
+        }
         window.removeEventListener('resize', this.handleResize);
 
         // Clean up temporary skip handlers and timers to prevent memory leaks
@@ -540,8 +544,15 @@ export class Engine {
             }
         };
         this.handleResize = () => this.resize();
+        this.handleKeyboardDetection = () => {
+            if (this.lastInputDevice !== 'keyboard') {
+                this.lastInputDevice = 'keyboard';
+                this.ui.updateControlsHint('keyboard', this.mazeGen.size > 11);
+            }
+        };
 
         window.addEventListener('keydown', this.handleKeyDownExtra);
+        window.addEventListener('keydown', this.handleKeyboardDetection);
         window.addEventListener('resize', this.handleResize);
 
         const zoomBtn = document.getElementById('mobile-zoom-btn');
@@ -626,14 +637,13 @@ export class Engine {
         // Hides zoom controls if the maze size <= 11 (degree <= 5)
         const size = this.mazeGen.size;
         const mobileZoomBtn = document.getElementById('mobile-zoom-btn');
-        const zoomHint = document.getElementById('control-hint-zoom');
         if (size <= 11) {
             if (mobileZoomBtn) mobileZoomBtn.classList.add('hidden');
-            if (zoomHint) zoomHint.classList.add('hidden');
         } else {
             if (mobileZoomBtn) mobileZoomBtn.classList.remove('hidden');
-            if (zoomHint) zoomHint.classList.remove('hidden');
         }
+
+        this.ui.updateControlsHint(this.lastInputDevice, size > 11);
     }
 
     hideCanvasInstant() {
@@ -901,11 +911,22 @@ export class Engine {
         const gp = gamepads[0] || gamepads.find(g => g !== null);
         if (!gp) return;
 
+        const deadzone = 0.25;
+        const isGamepadActive = 
+            Math.abs(gp.axes[0]) > deadzone || 
+            Math.abs(gp.axes[1]) > deadzone || 
+            (gp.axes[2] !== undefined && Math.abs(gp.axes[2]) > deadzone) ||
+            (gp.axes[3] !== undefined && Math.abs(gp.axes[3]) > deadzone) ||
+            gp.buttons.some(b => b.pressed);
+
+        if (isGamepadActive && this.lastInputDevice !== 'gamepad') {
+            this.lastInputDevice = 'gamepad';
+            this.ui.updateControlsHint('gamepad', this.mazeGen.size > 11);
+        }
+
         // 1. Movement axes (Left Analog / D-pad)
         const axisX = gp.axes[0];
         const axisY = gp.axes[1];
-        
-        const deadzone = 0.25;
         let left = axisX < -deadzone;
         let right = axisX > deadzone;
         let up = axisY < -deadzone;

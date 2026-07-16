@@ -46,6 +46,9 @@ export class UIManager {
         this.uiPathfindersRemaining = document.getElementById('pathfinders-remaining-count');
         this.uiPathfindersTotal = document.getElementById('pathfinders-total-count');
 
+        // Controls Hint DOM bindings
+        this.uiControlsHintContent = document.getElementById('controls-hint-content');
+
         this.localizeDOM();
     }
 
@@ -381,6 +384,77 @@ export class UIManager {
                 this.uiMobileMap.style.color = "";
                 this.uiMobileMap.style.background = "";
             }
+        }
+    }
+
+    /**
+     * Dynamically update the controls hint box layout with styled keycaps
+     * depending on the active input device (keyboard vs gamepad).
+     */
+    updateControlsHint(device, hasZoom = true) {
+        if (!this.uiControlsHintContent) return;
+
+        if (device === 'gamepad') {
+            this.uiControlsHintContent.innerHTML = `
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd class="kbd-round kbd-dark">LS</kbd>
+                        <span style="color:var(--clr-text-dim);font-size:0.9em;margin:0 2px;">or</span>
+                        <kbd class="kbd-dark">D-Pad</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionMove')}</span>
+                </div>
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd class="kbd-round kbd-a">A</kbd>
+                        <span style="color:var(--clr-text-dim);font-size:0.9em;margin:0 2px;">/</span>
+                        <kbd class="kbd-round kbd-y">Y</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionElevator')}</span>
+                </div>
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd class="kbd-dark" style="min-width: calc(var(--h-unit) * 3); min-width: calc(var(--d-h-unit) * 3);">Back</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionMap')}</span>
+                </div>
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd class="kbd-round kbd-b">B</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionZoom')}</span>
+                </div>
+            `;
+        } else {
+            this.uiControlsHintContent.innerHTML = `
+                <div class="hint-row">
+                    <div class="wasd-container">
+                        <div class="wasd-row"><kbd>W</kbd></div>
+                        <div class="wasd-row"><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionMove')}</span>
+                </div>
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd>Q</kbd>
+                        <span style="color:var(--clr-text-dim);font-size:0.9em;margin:0 2px;">/</span>
+                        <kbd>E</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionElevator')}</span>
+                </div>
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd>M</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionMap')}</span>
+                </div>
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd>Z</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionZoom')}</span>
+                </div>
+            `;
         }
     }
 
