@@ -158,7 +158,7 @@ export class Engine {
         this.inactiveTeleportPos = null;
         this.floorTransition = null;
         this.hasSavePoint = false;
-        this.lastPlayerCell = null;
+        this.lastPlayerCell = { x: startGridX, y: startGridY, z: startGridZ };
         this.exitPathfinderUnlocked = false;
         this.isZoomActive = true;
         this.zoomVisibleCells = 11;
@@ -505,6 +505,11 @@ export class Engine {
         // Mark that this session was loaded from a save (so Continue remains available
         // until the player reaches a new teleport or dies)
         this.hasSavePoint = true;
+        this.lastPlayerCell = {
+            x: Math.floor(this.player.x),
+            y: Math.floor(this.player.y),
+            z: this.player.z
+        };
         this.populateFullyRevealedCells(this.player.z);
         this.exitPathfinderUnlocked = this.checkExitNeighborVisited();
     }
