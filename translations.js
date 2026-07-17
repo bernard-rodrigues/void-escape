@@ -49,6 +49,14 @@ export const TRANSLATIONS = {
         msgExitNotFoundYet: "Exit not found yet",
         msgSafePointTeleport: "Safe point... Teleport?",
         msgOopsNoisyShit: "Oops... noisy sh*t!",
+        msgWhereAmI: "Where am I?",
+        msgElevatorUp: "Up?",
+        msgElevatorDown: "Down?",
+        msgWhichWay: "Which way?",
+        msgDidYouHearThat: "Did you hear that?",
+        msgIWasDetected: "Damn! I was detected.",
+        msgFoundPathfinder: "Found a pathfinder!",
+        msgWorldSaved: "World saved. What now?",
 
         // Hunter Status Panel Marquee
         statusLabel: "HUNTER STATUS:",
