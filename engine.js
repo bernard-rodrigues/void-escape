@@ -4760,6 +4760,18 @@ export class Engine {
                         continue;
                     }
 
+                    // Draw hunters in real-time even on unvisited corridors
+                    for (const h of this.hunters) {
+                        if (h.state === 'SLEEP') continue;
+                        const closestPlayableFloor = Math.round((h.visualZ - 1) / 2) * 2 + 1;
+                        const hGridX = Math.max(0, Math.min(size - 1, Math.floor(h.visualX)));
+                        const hGridY = Math.max(0, Math.min(size - 1, Math.floor(h.visualY)));
+                        if (x === hGridX && y === hGridY && z === closestPlayableFloor) {
+                            const hCoords = getIsoCoords(h.visualX, h.visualY, h.visualZ);
+                            drawHunter(h, hCoords.x, hCoords.y - 1.5, opacity);
+                        }
+                    }
+
                     const isVisible = isVisited || isKnown || isRevealedPath || isKey || isExit;
 
                     if (isVisible) {
@@ -4821,12 +4833,6 @@ export class Engine {
 
                         if (x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z) {
                             drawPlayer(coords.x, coords.y - H, opacity);
-                        }
-
-                        for (const h of this.hunters) {
-                            if (x === Math.floor(h.x) && y === Math.floor(h.y) && z === Math.floor(h.z)) {
-                                drawHunter(coords.x, coords.y - H, opacity);
-                            }
                         }
                     }
                 }
@@ -4980,18 +4986,60 @@ export class Engine {
             ctx.restore();
         };
 
-        const drawHunter = (cx, cy, opacity) => {
-            ctx.save();
-            ctx.globalAlpha = opacity;
-            const pulse = 4 + Math.sin(performance.now() / 100) * 1.5;
-            ctx.beginPath();
-            ctx.arc(cx, cy - 3, pulse, 0, Math.PI * 2);
-            ctx.fillStyle = CONFIG.COLORS.HUNTER;
-            ctx.fill();
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            ctx.restore();
+        const drawHunter = (h, cx, cy, opacity) => {
+            if (h && h.lowCanvas) {
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                
+                const drawSize = tileWidth * 0.90;
+                
+                // 1. Draw a flat isometric shadow on the floor (at cy)
+                ctx.save();
+                ctx.beginPath();
+                const shadowW = tileWidthHalf * 0.60;
+                const shadowH = tileHeightHalf * 0.60;
+                ctx.ellipse(cx, cy, shadowW, shadowH, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; // flat dark shadow on ground
+                ctx.fill();
+                ctx.restore();
+
+                // 2. Floating offset with bobbing/bouncing animation
+                const bounce = Math.sin(h.jellyTime * 3) * (tileWidth * 0.06);
+                const floatOffset = tileWidth * 0.38 + bounce;
+                const floatY = cy - floatOffset;
+
+                // JELLY OSCILLATION (same as 2D)
+                const time = h.jellyTime;
+                const skewX = Math.sin(time) * 6; 
+                const skewY = Math.cos(time * 0.7) * 4;
+                const scaleX = 1 + Math.sin(time * 1.2) * 0.06;
+                const scaleY = 1 + Math.cos(time * 0.8) * 0.06;
+                
+                const radX = skewX * Math.PI / 180;
+                const radY = skewY * Math.PI / 180;
+
+                // 3. Real Jelly Core (floating above)
+                ctx.save();
+                ctx.translate(cx, floatY);
+                ctx.transform(scaleX, Math.tan(radY), Math.tan(radX), scaleY, 0, 0);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(h.lowCanvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+                ctx.restore();
+
+                ctx.restore();
+            } else {
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                const pulse = 4 + Math.sin(performance.now() / 100) * 1.5;
+                ctx.beginPath();
+                ctx.arc(cx, cy - 3, pulse, 0, Math.PI * 2);
+                ctx.fillStyle = CONFIG.COLORS.HUNTER || '#ff00ff';
+                ctx.fill();
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.restore();
+            }
         };
 
         const getFloorOpacity = (fz) => {
