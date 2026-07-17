@@ -2050,6 +2050,7 @@ export class Engine {
             }
             this.isometricCanvas.style.display = 'block';
         } else {
+            if (this.ui.uiMobileControls) this.ui.uiMobileControls.classList.remove('hidden');
             this.ui.setMap3DVisible(false);
             if (this.isometricCanvas) {
                 this.isometricCanvas.style.display = 'none';
@@ -3544,6 +3545,7 @@ export class Engine {
         this.ui.setTeleportWarning(show);
         
         if (show) {
+            if (this.ui.uiMobileControls) this.ui.uiMobileControls.classList.add('hidden');
             this.ui.setMap3DVisible(true);
             
             // Re-center active floor and cursor to player position
@@ -3584,6 +3586,7 @@ export class Engine {
             
             this.teleportConfirmModalActive = false;
         } else {
+            if (this.ui.uiMobileControls) this.ui.uiMobileControls.classList.remove('hidden');
             this.ui.setMap3DVisible(false);
             if (this.isometricCanvas) {
                 this.isometricCanvas.style.display = 'none';
@@ -3847,20 +3850,22 @@ export class Engine {
             this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
         }
 
-        const nTicks = Math.floor(this.degree * 1.5) + 3;
-        this.teleportCooldownTicks = nTicks;
-        this.inactiveTeleportPos = { x, y, z };
+        if (!this.isSafeMode) {
+            const nTicks = Math.floor(this.degree * 1.5) + 3;
+            this.teleportCooldownTicks = nTicks;
+            this.inactiveTeleportPos = { x, y, z };
 
-        this.ui.updateCooldownTimer(this.teleportCooldownTicks);
-        this.ui.showInfoBanner(getTranslation('msgOopsNoisyShit'));
+            this.ui.updateCooldownTimer(this.teleportCooldownTicks);
+            this.ui.showInfoBanner(getTranslation('msgOopsNoisyShit'));
 
-        for (const hunter of this.hunters) {
-            hunter.state = 'TELEPORT_TRACKING';
-            const path = hunter.findPathToTarget({ x, y, z }, this.maze, this.mazeGen.TYPES);
-            if (path) {
-                hunter.pathToTarget = path;
-            } else {
-                hunter.pathToTarget = [];
+            for (const hunter of this.hunters) {
+                hunter.state = 'TELEPORT_TRACKING';
+                const path = hunter.findPathToTarget({ x, y, z }, this.maze, this.mazeGen.TYPES);
+                if (path) {
+                    hunter.pathToTarget = path;
+                } else {
+                    hunter.pathToTarget = [];
+                }
             }
         }
         
@@ -5045,8 +5050,6 @@ export class Engine {
         const sliderY = centerYTrack - (visualDiff / 2) * slotHeight;
 
         ctx.save();
-        ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 8;
         ctx.fillStyle = '#00ffff';
         ctx.beginPath();
         ctx.arc(lineX, sliderY, 5, 0, Math.PI * 2);
@@ -5073,12 +5076,6 @@ export class Engine {
             const isActive = pos.floor === activeZ;
 
             ctx.save();
-
-            // Apply glow to the active box
-            if (isActive) {
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 12;
-            }
 
             // Draw sci-fi corner-cut container shape
             ctx.beginPath();
@@ -5137,8 +5134,6 @@ export class Engine {
             const rectH = 36;
 
             ctx.save();
-            ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 6;
 
             ctx.beginPath();
             ctx.moveTo(rectX + 6, rectY);
@@ -5160,7 +5155,7 @@ export class Engine {
             ctx.font = "bold 8px 'Roboto', sans-serif";
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillText('PATHFINDERS', rectX + rectW / 2, rectY + 5);
+            ctx.fillText(getTranslation('hudPathfinders'), rectX + rectW / 2, rectY + 5);
 
             ctx.fillStyle = '#ffffff';
             ctx.font = "bold 13px 'Roboto', sans-serif";
@@ -5176,8 +5171,6 @@ export class Engine {
             const bannerY = 30;
 
             ctx.save();
-            ctx.shadowColor = '#ff8c00';
-            ctx.shadowBlur = 12;
 
             ctx.beginPath();
             ctx.moveTo(bannerX + 8, bannerY);
@@ -5201,20 +5194,20 @@ export class Engine {
             ctx.font = "bold 15px 'Roboto', sans-serif";
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('TELEPORT', width / 2, bannerY + bannerH / 2);
+            ctx.fillText(getTranslation('teleportWarning'), width / 2, bannerY + bannerH / 2);
         }
 
         // 3. Draw Teleport Selection Dots UI Dock
         if (this.isTeleportMode) {
-            const spacing = 28;
+            const spacing = 36;
             const numTeleports = this.allTeleports.length;
             const totalDotsWidth = (numTeleports - 1) * spacing;
-            const dotY = height - 50;
+            const dotY = height - 55;
             const startX = width / 2 - totalDotsWidth / 2;
 
             // Draw glassmorphic dock container background
-            const dockW = totalDotsWidth + 50;
-            const dockH = 34;
+            const dockW = totalDotsWidth + 60;
+            const dockH = 44;
             const dockX = width / 2 - dockW / 2;
             const dockYPos = dotY - dockH / 2;
 
@@ -5253,7 +5246,7 @@ export class Engine {
                 if (!isDiscovered) {
                     // Locked/Undiscovered Dot (Grey/Lock representation)
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
                     ctx.fillStyle = 'rgba(100, 100, 100, 0.45)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -5261,7 +5254,7 @@ export class Engine {
                 } else if (isInactive) {
                     // Inactive Dot (crossed/faded)
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, 4.5, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, 6.5, 0, Math.PI * 2);
                     ctx.fillStyle = 'rgba(255, 45, 0, 0.2)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 45, 0, 0.4)';
@@ -5271,17 +5264,15 @@ export class Engine {
                     // Active Discovered Dot
                     if (isSelected) {
                         // Bouncing/glowing highlight
-                        ctx.shadowColor = '#00ffff';
-                        ctx.shadowBlur = 8;
                         const pulse = 1.0 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() / 120));
                         ctx.beginPath();
-                        ctx.arc(dotX, dotY, 9 * pulse, 0, Math.PI * 2);
+                        ctx.arc(dotX, dotY, 13 * pulse, 0, Math.PI * 2);
                         ctx.fillStyle = 'rgba(0, 255, 255, 0.18)';
                         ctx.fill();
                     }
 
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, isSelected ? 6.5 : 4.5, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, isSelected ? 9 : 6, 0, Math.PI * 2);
                     ctx.fillStyle = isSelected ? '#ffffff' : '#00b3ff';
                     ctx.fill();
                     ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
@@ -5291,7 +5282,7 @@ export class Engine {
                     // Mini inner core if player is on it
                     if (isPlayerHere) {
                         ctx.beginPath();
-                        ctx.arc(dotX, dotY, isSelected ? 2.5 : 1.8, 0, Math.PI * 2);
+                        ctx.arc(dotX, dotY, isSelected ? 4 : 2.5, 0, Math.PI * 2);
                         ctx.fillStyle = '#39ff14'; // glowing green core
                         ctx.fill();
                     }
@@ -5300,10 +5291,10 @@ export class Engine {
                 ctx.restore();
 
                 this.teleportDotsClickRects.push({
-                    x: dotX - 12,
-                    y: dotY - 12,
-                    w: 24,
-                    h: 24,
+                    x: dotX - 16,
+                    y: dotY - 16,
+                    w: 32,
+                    h: 32,
                     index: idx
                 });
             });
@@ -5314,14 +5305,12 @@ export class Engine {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
                 ctx.fillRect(0, 0, width, height);
 
-                const modalW = 280;
-                const modalH = 135;
+                const modalW = 320;
+                const modalH = 160;
                 const modalX = width / 2 - modalW / 2;
                 const modalY = height / 2 - modalH / 2;
 
                 ctx.save();
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 14;
                 ctx.beginPath();
                 ctx.moveTo(modalX + 10, modalY);
                 ctx.lineTo(modalX + modalW - 10, modalY);
@@ -5341,34 +5330,34 @@ export class Engine {
 
                 // Modal Title
                 ctx.fillStyle = '#00ffff';
-                ctx.font = "bold 12px 'Roboto', sans-serif";
+                ctx.font = "bold 15px 'Roboto', sans-serif";
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
-                ctx.fillText('TELEPORTATION LINK', width / 2, modalY + 14);
+                ctx.fillText(getTranslation('teleportationLink'), width / 2, modalY + 16);
 
                 ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(modalX + 15, modalY + 28);
-                ctx.lineTo(modalX + modalW - 15, modalY + 28);
+                ctx.moveTo(modalX + 15, modalY + 34);
+                ctx.lineTo(modalX + modalW - 15, modalY + 34);
                 ctx.stroke();
 
                 // Modal Message details
                 const targetT = this.allTeleports[this.selectedTeleportIndex];
                 ctx.fillStyle = '#ffffff';
-                ctx.font = "bold 12px 'Roboto', sans-serif";
-                ctx.fillText(`Jump to Sector ${((targetT.z + 1) / 2)}F?`, width / 2, modalY + 44);
+                ctx.font = "bold 15px 'Roboto', sans-serif";
+                ctx.fillText(getTranslation('teleportJumpSector', { floor: ((targetT.z + 1) / 2) }), width / 2, modalY + 52);
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                ctx.font = "11px 'Roboto', sans-serif";
-                ctx.fillText(`Target Grid: (${targetT.x}, ${targetT.y})`, width / 2, modalY + 62);
+                ctx.font = "13px 'Roboto', sans-serif";
+                ctx.fillText(getTranslation('teleportTargetGrid', { x: targetT.x, y: targetT.y }), width / 2, modalY + 75);
 
                 // GO / CANCEL Buttons
-                const buttonW = 85;
-                const buttonH = 26;
-                const btnGoX = width / 2 - buttonW - 12;
-                const btnGoY = modalY + 86;
-                const btnCancelX = width / 2 + 12;
-                const btnCancelY = modalY + 86;
+                const buttonW = 100;
+                const buttonH = 30;
+                const btnGoX = width / 2 - buttonW - 15;
+                const btnGoY = modalY + 105;
+                const btnCancelX = width / 2 + 15;
+                const btnCancelY = modalY + 105;
 
                 this.teleportModalClickRects = [
                     { x: btnGoX, y: btnGoY, w: buttonW, h: buttonH, selection: 'go' },
@@ -5378,10 +5367,6 @@ export class Engine {
                 const drawModalButton = (bx, by, label, selectionVal) => {
                     const isSel = (this.teleportModalSelection === selectionVal);
                     ctx.save();
-                    if (isSel) {
-                        ctx.shadowColor = '#00ffff';
-                        ctx.shadowBlur = 8;
-                    }
                     ctx.beginPath();
                     ctx.moveTo(bx + 4, by);
                     ctx.lineTo(bx + buttonW - 4, by);
@@ -5401,14 +5386,14 @@ export class Engine {
                     ctx.restore();
 
                     ctx.fillStyle = isSel ? '#ffffff' : '#00ffff';
-                    ctx.font = "bold 11px 'Roboto', sans-serif";
+                    ctx.font = "bold 13px 'Roboto', sans-serif";
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(label, bx + buttonW / 2, by + buttonH / 2);
                 };
 
-                drawModalButton(btnGoX, btnGoY, 'GO', 'go');
-                drawModalButton(btnCancelX, btnCancelY, 'CANCEL', 'cancel');
+                drawModalButton(btnGoX, btnGoY, getTranslation('teleportGo'), 'go');
+                drawModalButton(btnCancelX, btnCancelY, getTranslation('teleportCancel'), 'cancel');
             }
         }
     }

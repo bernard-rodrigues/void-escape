@@ -85,7 +85,14 @@ export const TRANSLATIONS = {
 
         // Mobile Buttons
         map: "MAP",
-        teleport: "TELEPORT"
+        teleport: "TELEPORT",
+
+        // Teleport Modal Translation Keys
+        teleportationLink: "TELEPORTATION LINK",
+        teleportJumpSector: "Jump to Sector {floor}F?",
+        teleportTargetGrid: "Target Grid: ({x}, {y})",
+        teleportGo: "GO",
+        teleportCancel: "CANCEL"
     }
 };
 
