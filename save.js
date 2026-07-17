@@ -94,7 +94,12 @@ export function saveGame(engine) {
             totalPathfinders: engine.totalPathfinders,
             pathfindersRemaining: engine.pathfindersRemaining,
             pathfinderRewardsGranted: engine.pathfinderRewardsGranted !== undefined ? engine.pathfinderRewardsGranted : 0,
-            mapCompletion100Triggered: engine.mapCompletion100Triggered || false
+            mapCompletion100Triggered: engine.mapCompletion100Triggered || false,
+            dialogueUpTriggered: engine.dialogueUpTriggered || false,
+            dialogueDownTriggered: engine.dialogueDownTriggered || false,
+            dialogueWhichWayTriggered: engine.dialogueWhichWayTriggered || false,
+            dialogueDetectedTriggered: engine.dialogueDetectedTriggered || false,
+            hunterOnSameFloorDetected: engine.hunterOnSameFloorDetected || false
         };
 
         localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));

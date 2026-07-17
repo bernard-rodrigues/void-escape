@@ -48,6 +48,10 @@ export class Engine {
         this.isResumedFromSave = !!savedState;
         this.mapCompletion100Triggered = false;
         this.hunterOnSameFloorDetected = false;
+        this.dialogueUpTriggered = false;
+        this.dialogueDownTriggered = false;
+        this.dialogueWhichWayTriggered = false;
+        this.dialogueDetectedTriggered = false;
 
         this.wallImage = new Image();
         this.wallImage.onload = () => {
@@ -501,6 +505,11 @@ export class Engine {
         // Restore revealed paths
         this.revealedPathSet = new Set(snapshot.revealedPathSet);
         this.mapCompletion100Triggered = snapshot.mapCompletion100Triggered || false;
+        this.dialogueUpTriggered = snapshot.dialogueUpTriggered || false;
+        this.dialogueDownTriggered = snapshot.dialogueDownTriggered || false;
+        this.dialogueWhichWayTriggered = snapshot.dialogueWhichWayTriggered || false;
+        this.dialogueDetectedTriggered = snapshot.dialogueDetectedTriggered || false;
+        this.hunterOnSameFloorDetected = snapshot.hunterOnSameFloorDetected || false;
 
         // Mark that this session was loaded from a save (so Continue remains available
         // until the player reaches a new teleport or dies)
@@ -1552,8 +1561,6 @@ export class Engine {
                     this.ui.showInfoBanner(getTranslation('msgDidYouHearThat'));
                     this.hunterOnSameFloorDetected = true;
                 }
-            } else {
-                this.hunterOnSameFloorDetected = false;
             }
         }
 
@@ -1783,11 +1790,20 @@ export class Engine {
                         const hUp = z + 1 < this.mazeGen.size && this.maze.get(finalGridIdxX, finalGridIdxY, z + 1) !== this.mazeGen.TYPES.WALL;
                         const hDown = z - 1 >= 0 && this.maze.get(finalGridIdxX, finalGridIdxY, z - 1) !== this.mazeGen.TYPES.WALL;
                         if (hUp && hDown) {
-                            this.ui.showInfoBanner(getTranslation('msgWhichWay'));
+                            if (!this.dialogueWhichWayTriggered) {
+                                this.ui.showInfoBanner(getTranslation('msgWhichWay'));
+                                this.dialogueWhichWayTriggered = true;
+                            }
                         } else if (hUp) {
-                            this.ui.showInfoBanner(getTranslation('msgElevatorUp'));
+                            if (!this.dialogueUpTriggered) {
+                                this.ui.showInfoBanner(getTranslation('msgElevatorUp'));
+                                this.dialogueUpTriggered = true;
+                            }
                         } else if (hDown) {
-                            this.ui.showInfoBanner(getTranslation('msgElevatorDown'));
+                            if (!this.dialogueDownTriggered) {
+                                this.ui.showInfoBanner(getTranslation('msgElevatorDown'));
+                                this.dialogueDownTriggered = true;
+                            }
                         }
                     }
                 }
@@ -1931,8 +1947,9 @@ export class Engine {
                         if (cellVal === this.mazeGen.TYPES.VISITED || cellVal === this.mazeGen.TYPES.START || cellVal === this.mazeGen.TYPES.EXIT) {
                             const oldState = hunter.state;
                             hunter.state = 'TRACKING';
-                            if (oldState !== 'TRACKING') {
+                            if (oldState !== 'TRACKING' && !this.dialogueDetectedTriggered) {
                                 this.ui.showInfoBanner(getTranslation('msgIWasDetected'));
+                                this.dialogueDetectedTriggered = true;
                             }
                         } else {
                             hunter.state = 'WANDERING';
@@ -1952,8 +1969,9 @@ export class Engine {
                 if (hunter.state === 'SLEEP') continue;
                 const oldState = hunter.state;
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
-                if (hunter.state === 'TRACKING' && oldState !== 'TRACKING') {
+                if (hunter.state === 'TRACKING' && oldState !== 'TRACKING' && !this.dialogueDetectedTriggered) {
                     this.ui.showInfoBanner(getTranslation('msgIWasDetected'));
+                    this.dialogueDetectedTriggered = true;
                 }
                 if (hunter.state === 'TRACKING' || hunter.state === 'TELEPORT_TRACKING') trackingCount++;
                 const sameFloor = hunter.z === this.player.z;
