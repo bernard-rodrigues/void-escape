@@ -88,6 +88,9 @@ export class Engine {
         this.isometricCanvas = null;
         this.isometricCtx = null;
         this.floorClickRects = [];
+        this.mapZoom = 1.0;
+        this.mapPanOffsetX = 0;
+        this.mapPanOffsetY = 0;
 
         this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
@@ -1169,6 +1172,42 @@ export class Engine {
 
         // Map Mode Gamepad Controls
         if (this.isMap3DActive && !this.isIntroPlaying) {
+            // Gamepad LT/RT Zoom (focusing on mapCursor)
+            const zoomInPressed = isPressed(7); // RT
+            const zoomOutPressed = isPressed(6); // LT
+            if (zoomInPressed || zoomOutPressed) {
+                const size = this.mazeGen.size;
+                let baseTileWidth = (window.innerWidth * 0.7) / size;
+                baseTileWidth = Math.max(20, Math.min(48, baseTileWidth));
+                const tileWidth = baseTileWidth * this.mapZoom;
+                const tileWidthHalf = tileWidth / 2;
+                const tileHeightHalf = tileWidth / 4;
+                const floorOffset = tileWidthHalf * 5;
+
+                const centerX = window.innerWidth / 2 + this.mapPanOffsetX;
+                const centerY = window.innerHeight / 2 + this.mapPanOffsetY;
+
+                const rx = this.mapCursor.x;
+                const ry = this.mapCursor.y;
+                const rz = this.mapCursor.z;
+                const visualZ = this.visualActiveFloor;
+
+                const focusX = (rx - ry) * tileWidthHalf + centerX;
+                const focusY = (rx + ry) * tileHeightHalf - (rz - visualZ) * floorOffset + centerY;
+
+                const oldZoom = this.mapZoom;
+                const factor = 1.025;
+                let newZoom = zoomInPressed ? oldZoom * factor : oldZoom / factor;
+                newZoom = Math.max(0.5, Math.min(4.0, newZoom));
+
+                if (newZoom !== oldZoom) {
+                    const ratio = newZoom / oldZoom;
+                    this.mapPanOffsetX = focusX - (focusX - (window.innerWidth / 2 + this.mapPanOffsetX)) * ratio - window.innerWidth / 2;
+                    this.mapPanOffsetY = focusY - (focusY - (window.innerHeight / 2 + this.mapPanOffsetY)) * ratio - window.innerHeight / 2;
+                    this.mapZoom = newZoom;
+                }
+            }
+
             const justLeft = left && (!this.prevGamepadStick || !this.prevGamepadStick.left);
             const justRight = right && (!this.prevGamepadStick || !this.prevGamepadStick.right);
             const justUp = up && (!this.prevGamepadStick || !this.prevGamepadStick.up);
@@ -1995,6 +2034,9 @@ export class Engine {
                 y: Math.floor(this.player.y),
                 z: this.player.z
             };
+            this.mapZoom = 1.0;
+            this.mapPanOffsetX = 0;
+            this.mapPanOffsetY = 0;
 
             // Hide Three.js canvas, show Isometric canvas
             if (this.renderer && this.renderer.domElement) {
@@ -3512,6 +3554,9 @@ export class Engine {
                 y: Math.floor(this.player.y),
                 z: this.player.z
             };
+            this.mapZoom = 1.0;
+            this.mapPanOffsetX = 0;
+            this.mapPanOffsetY = 0;
 
             // Re-sync selectedTeleportIndex to the current player position
             const px = Math.floor(this.player.x);
@@ -3839,18 +3884,187 @@ export class Engine {
         // Click handler
         this.isometricCanvas.addEventListener('click', (e) => this.handleIsometricClick(e));
 
-        // Touch handler
+        // Touch gestures handler (Pinch zoom, vertical swipe to change floors, drag to pan)
+        let initialTouchDist = null;
+        let initialZoom = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartPanX = 0;
+        let touchStartPanY = 0;
+        let isPinchZooming = false;
+        let isTouchPanning = false;
+        let hasSwipedFloor = false;
+        let totalTouchMoveDist = 0;
+
         this.isometricCanvas.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 0) {
+            if (!this.isMap3DActive || this.isIntroPlaying) return;
+
+            totalTouchMoveDist = 0;
+            hasSwipedFloor = false;
+
+            if (e.touches.length === 1) {
                 const touch = e.touches[0];
-                const dummyEvent = {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                };
-                this.handleIsometricClick(dummyEvent);
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                touchStartPanX = this.mapPanOffsetX;
+                touchStartPanY = this.mapPanOffsetY;
+                isTouchPanning = true;
+                isPinchZooming = false;
+            } else if (e.touches.length === 2) {
+                isPinchZooming = true;
+                isTouchPanning = false;
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                initialTouchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                initialZoom = this.mapZoom;
+            }
+        }, { passive: false });
+
+        this.isometricCanvas.addEventListener('touchmove', (e) => {
+            if (!this.isMap3DActive || this.isIntroPlaying) return;
+
+            if (isPinchZooming && e.touches.length === 2) {
+                e.preventDefault();
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                if (initialTouchDist > 0) {
+                    const rect = this.isometricCanvas.getBoundingClientRect();
+                    const touchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left;
+                    const touchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
+
+                    const oldZoom = this.mapZoom;
+                    let newZoom = initialZoom * (currentDist / initialTouchDist);
+                    newZoom = Math.max(0.5, Math.min(4.0, newZoom));
+
+                    const ratio = newZoom / oldZoom;
+                    this.mapPanOffsetX = touchCenterX - (touchCenterX - (rect.width / 2 + this.mapPanOffsetX)) * ratio - rect.width / 2;
+                    this.mapPanOffsetY = touchCenterY - (touchCenterY - (rect.height / 2 + this.mapPanOffsetY)) * ratio - rect.height / 2;
+
+                    this.mapZoom = newZoom;
+                    totalTouchMoveDist = 100; // prevent click
+                }
+            } else if (isTouchPanning && e.touches.length === 1) {
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - touchStartX;
+                const deltaY = touch.clientY - touchStartY;
+                const moveDist = Math.hypot(deltaX, deltaY);
+                totalTouchMoveDist = Math.max(totalTouchMoveDist, moveDist);
+
+                // Vertical swipe gesture for mobile floor navigation
+                if (!hasSwipedFloor) {
+                    if (Math.abs(deltaY) > 40 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+                        const size = this.mazeGen.size;
+                        if (deltaY < -40) {
+                            // Swipe UP -> Floor Up
+                            if (this.activeMapFloor + 2 <= size - 2) {
+                                this.activeMapFloor += 2;
+                                hasSwipedFloor = true;
+                            }
+                        } else if (deltaY > 40) {
+                            // Swipe DOWN -> Floor Down
+                            if (this.activeMapFloor - 2 >= 1) {
+                                this.activeMapFloor -= 2;
+                                hasSwipedFloor = true;
+                            }
+                        }
+                    }
+                }
+
+                if (!hasSwipedFloor) {
+                    // Normal panning
+                    this.mapPanOffsetX = touchStartPanX + deltaX;
+                    this.mapPanOffsetY = touchStartPanY + deltaY;
+                }
                 e.preventDefault();
             }
         }, { passive: false });
+
+        this.isometricCanvas.addEventListener('touchend', (e) => {
+            isPinchZooming = false;
+            isTouchPanning = false;
+
+            // Trigger click only if touch moved very little and didn't swipe floor
+            if (totalTouchMoveDist < 8 && !hasSwipedFloor) {
+                const touch = e.changedTouches[0];
+                if (touch) {
+                    const dummyEvent = {
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    };
+                    this.handleIsometricClick(dummyEvent);
+                }
+            }
+        });
+
+        // Mouse wheel zoom
+        this.isometricCanvas.addEventListener('wheel', (e) => {
+            if (!this.isMap3DActive || this.isIntroPlaying) return;
+            e.preventDefault();
+
+            const rect = this.isometricCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const oldZoom = this.mapZoom;
+            const factor = 1.15;
+            let newZoom = e.deltaY < 0 ? oldZoom * factor : oldZoom / factor;
+            newZoom = Math.max(0.5, Math.min(4.0, newZoom));
+
+            const width = rect.width;
+            const height = rect.height;
+
+            const ratio = newZoom / oldZoom;
+            this.mapPanOffsetX = mouseX - (mouseX - (width / 2 + this.mapPanOffsetX)) * ratio - width / 2;
+            this.mapPanOffsetY = mouseY - (mouseY - (height / 2 + this.mapPanOffsetY)) * ratio - height / 2;
+
+            this.mapZoom = newZoom;
+        }, { passive: false });
+
+        // Mouse Drag to Pan
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+
+        this.isometricCanvas.addEventListener('mousedown', (e) => {
+            if (!this.isMap3DActive || this.isIntroPlaying) return;
+            const rect = this.isometricCanvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            
+            // Check if clicked floor selectors
+            if (this.floorClickRects && this.floorClickRects.some(r => clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h)) {
+                return;
+            }
+            // Check if clicked teleport dots
+            if (this.isTeleportMode) {
+                if (this.teleportConfirmModalActive && this.teleportModalClickRects && this.teleportModalClickRects.some(r => clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h)) {
+                    return;
+                }
+                if (!this.teleportConfirmModalActive && this.teleportDotsClickRects && this.teleportDotsClickRects.some(r => clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h)) {
+                    return;
+                }
+            }
+
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const dx = e.clientX - dragStartX;
+                const dy = e.clientY - dragStartY;
+                this.mapPanOffsetX += dx;
+                this.mapPanOffsetY += dy;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
 
         // Hover handler
         this.isometricCanvas.addEventListener('mousemove', (e) => {
@@ -3894,14 +4108,15 @@ export class Engine {
                 const size = this.mazeGen.size;
                 const activeZ = this.activeMapFloor;
 
-                let tileWidth = (rect.width * 0.7) / size;
-                tileWidth = Math.max(20, Math.min(48, tileWidth));
+                let baseTileWidth = (rect.width * 0.7) / size;
+                baseTileWidth = Math.max(20, Math.min(48, baseTileWidth));
+                const tileWidth = baseTileWidth * this.mapZoom;
                 const tileWidthHalf = tileWidth / 2;
                 const tileHeightHalf = tileWidth / 4;
                 const floorOffset = tileWidthHalf * 5;
 
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
+                const centerX = rect.width / 2 + this.mapPanOffsetX;
+                const centerY = rect.height / 2 + this.mapPanOffsetY;
 
                 const floorsToTest = [];
                 if (activeZ + 2 <= size - 2) floorsToTest.push(activeZ + 2);
@@ -3996,14 +4211,15 @@ export class Engine {
         const size = this.mazeGen.size;
         const activeZ = this.activeMapFloor;
 
-        let tileWidth = (rect.width * 0.7) / size;
-        tileWidth = Math.max(20, Math.min(48, tileWidth));
+        let baseTileWidth = (rect.width * 0.7) / size;
+        baseTileWidth = Math.max(20, Math.min(48, baseTileWidth));
+        const tileWidth = baseTileWidth * this.mapZoom;
         const tileWidthHalf = tileWidth / 2;
         const tileHeightHalf = tileWidth / 4;
         const floorOffset = tileWidthHalf * 5;
 
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
+        const centerX = rect.width / 2 + this.mapPanOffsetX;
+        const centerY = rect.height / 2 + this.mapPanOffsetY;
 
         const floorsToTest = [];
         if (activeZ + 2 <= size - 2) floorsToTest.push(activeZ + 2);
@@ -4249,15 +4465,16 @@ export class Engine {
         const activeZ = this.activeMapFloor;
         const visualZ = this.visualActiveFloor;
 
-        let tileWidth = (width * 0.7) / size;
-        tileWidth = Math.max(20, Math.min(48, tileWidth));
+        let baseTileWidth = (width * 0.7) / size;
+        baseTileWidth = Math.max(20, Math.min(48, baseTileWidth));
+        const tileWidth = baseTileWidth * this.mapZoom;
         const tileHeight = tileWidth / 2;
         const tileWidthHalf = tileWidth / 2;
         const tileHeightHalf = tileWidth / 4;
         const floorOffset = tileWidthHalf * 5;
 
-        const centerX = width / 2;
-        const centerY = height / 2;
+        const centerX = width / 2 + this.mapPanOffsetX;
+        const centerY = height / 2 + this.mapPanOffsetY;
 
         const getIsoCoords = (x, y, z) => {
             const rx = x;
