@@ -5050,8 +5050,6 @@ export class Engine {
         const sliderY = centerYTrack - (visualDiff / 2) * slotHeight;
 
         ctx.save();
-        ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 8;
         ctx.fillStyle = '#00ffff';
         ctx.beginPath();
         ctx.arc(lineX, sliderY, 5, 0, Math.PI * 2);
@@ -5078,12 +5076,6 @@ export class Engine {
             const isActive = pos.floor === activeZ;
 
             ctx.save();
-
-            // Apply glow to the active box
-            if (isActive) {
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 12;
-            }
 
             // Draw sci-fi corner-cut container shape
             ctx.beginPath();
@@ -5142,8 +5134,6 @@ export class Engine {
             const rectH = 36;
 
             ctx.save();
-            ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 6;
 
             ctx.beginPath();
             ctx.moveTo(rectX + 6, rectY);
@@ -5181,8 +5171,6 @@ export class Engine {
             const bannerY = 30;
 
             ctx.save();
-            ctx.shadowColor = '#ff8c00';
-            ctx.shadowBlur = 12;
 
             ctx.beginPath();
             ctx.moveTo(bannerX + 8, bannerY);
@@ -5276,8 +5264,6 @@ export class Engine {
                     // Active Discovered Dot
                     if (isSelected) {
                         // Bouncing/glowing highlight
-                        ctx.shadowColor = '#00ffff';
-                        ctx.shadowBlur = 10;
                         const pulse = 1.0 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() / 120));
                         ctx.beginPath();
                         ctx.arc(dotX, dotY, 13 * pulse, 0, Math.PI * 2);
@@ -5325,8 +5311,6 @@ export class Engine {
                 const modalY = height / 2 - modalH / 2;
 
                 ctx.save();
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 14;
                 ctx.beginPath();
                 ctx.moveTo(modalX + 10, modalY);
                 ctx.lineTo(modalX + modalW - 10, modalY);
@@ -5383,10 +5367,6 @@ export class Engine {
                 const drawModalButton = (bx, by, label, selectionVal) => {
                     const isSel = (this.teleportModalSelection === selectionVal);
                     ctx.save();
-                    if (isSel) {
-                        ctx.shadowColor = '#00ffff';
-                        ctx.shadowBlur = 8;
-                    }
                     ctx.beginPath();
                     ctx.moveTo(bx + 4, by);
                     ctx.lineTo(bx + buttonW - 4, by);
