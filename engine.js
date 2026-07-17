@@ -81,6 +81,13 @@ export class Engine {
 
         this.totalPathfinders = CONFIG.getPathfinderCount(degree);
         this.pathfindersRemaining = this.totalPathfinders;
+        this.activeMapFloor = 1;
+        this.visualActiveFloor = 1;
+        this.mapCursor = { x: 0, y: 0, z: 1 };
+        this.pathfinderRewardsGranted = 0;
+        this.isometricCanvas = null;
+        this.isometricCtx = null;
+        this.floorClickRects = [];
 
         this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
@@ -449,6 +456,14 @@ export class Engine {
         this.totalPathfinders = snapshot.totalPathfinders !== undefined ? snapshot.totalPathfinders : CONFIG.getPathfinderCount(this.degree);
         this.pathfindersRemaining = snapshot.pathfindersRemaining !== undefined ? snapshot.pathfindersRemaining : this.totalPathfinders;
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
+
+        // Restore pathfinder rewards progress
+        const rewardStep = (this.degree >= 12) ? 10 : (this.degree >= 8 ? 20 : 0);
+        const currentPercent = this.getMapVisitedPercentage();
+        this.pathfinderRewardsGranted = snapshot.pathfinderRewardsGranted !== undefined 
+            ? snapshot.pathfinderRewardsGranted 
+            : (rewardStep > 0 ? Math.floor(currentPercent / rewardStep) : 0);
+
         // Restore revealed paths
         this.revealedPathSet = new Set(snapshot.revealedPathSet);
 
@@ -541,6 +556,73 @@ export class Engine {
             }
             if (key === 'z') {
                 this.toggleZoom();
+            }
+
+            if (this.isMap3DActive && !this.isIntroPlaying) {
+                // Change Floor
+                if (key === 'q' || key === 'pagedown') {
+                    if (this.activeMapFloor - 2 >= 1) {
+                        this.activeMapFloor -= 2;
+                    }
+                    e.preventDefault();
+                }
+                if (key === 'e' || key === 'pageup') {
+                    if (this.activeMapFloor + 2 <= this.mazeGen.size - 2) {
+                        this.activeMapFloor += 2;
+                    }
+                    e.preventDefault();
+                }
+
+                // Move Cursor
+                if (key === 'a' || key === 'arrowleft') {
+                    this.navigateCursor('left');
+                    e.preventDefault();
+                }
+                if (key === 'd' || key === 'arrowright') {
+                    this.navigateCursor('right');
+                    e.preventDefault();
+                }
+                if (key === 'w' || key === 'arrowup') {
+                    this.navigateCursor('up');
+                    e.preventDefault();
+                }
+                if (key === 's' || key === 'arrowdown') {
+                    this.navigateCursor('down');
+                    e.preventDefault();
+                }
+
+                // Confirm Selection (Space or Enter)
+                if (key === 'enter' || key === ' ') {
+                    const x = this.mapCursor.x;
+                    const y = this.mapCursor.y;
+                    const z = this.mapCursor.z;
+                    const elements = this.getInteractiveElements(this.activeMapFloor);
+                    const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
+                    if (isInteractive) {
+                        if (this.isTeleportMode) {
+                            const targetTeleport = elements.find(el => el.x === x && el.y === y && el.z === z && el.type === 'teleport');
+                            if (targetTeleport) {
+                                const isTargetInactive = this.inactiveTeleportPos && 
+                                                         this.inactiveTeleportPos.x === x && 
+                                                         this.inactiveTeleportPos.y === y && 
+                                                         this.inactiveTeleportPos.z === z;
+                                const px = Math.floor(this.player.x);
+                                const py = Math.floor(this.player.y);
+                                const pz = this.player.z;
+                                const isCurrentPos = x === px && y === py && z === pz;
+
+                                if (isCurrentPos) {
+                                    this.toggleTeleportMap(false);
+                                } else if (!isTargetInactive) {
+                                    this.teleportTo(x, y, z);
+                                }
+                            }
+                        } else {
+                            this.triggerPathReveal(x, y, z);
+                        }
+                    }
+                    e.preventDefault();
+                }
             }
         };
         this.handleResize = () => this.resize();
@@ -887,6 +969,32 @@ export class Engine {
         // Update map visited percentage display
         const percent = this.getMapVisitedPercentage();
         this.ui.updateVisitedPercent(percent);
+
+        // Check for pathfinder rewards!
+        this.checkPathfinderRewards(percent);
+    }
+
+    checkPathfinderRewards(percent) {
+        const step = (this.degree >= 12) ? 10 : (this.degree >= 8 ? 20 : 0);
+        if (step === 0) return;
+
+        if (this.pathfinderRewardsGranted === undefined) {
+            this.pathfinderRewardsGranted = 0;
+        }
+
+        const expectedRewards = Math.floor(percent / step);
+        if (expectedRewards > this.pathfinderRewardsGranted) {
+            const countToAward = expectedRewards - this.pathfinderRewardsGranted;
+            this.pathfindersRemaining += countToAward;
+            this.totalPathfinders += countToAward;
+            this.pathfinderRewardsGranted = expectedRewards;
+
+            this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
+            this.ui.showInfoBanner("Just found a pathfinder!");
+            
+            // Save state immediately
+            saveGame(this);
+        }
     }
 
     getTeleportCandidates() {
@@ -961,6 +1069,77 @@ export class Engine {
 
         // If paused, ignore all other inputs
         if (this.isPaused) {
+            this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+            return;
+        }
+
+        // Map Mode Gamepad Controls
+        if (this.isMap3DActive && !this.isIntroPlaying) {
+            const justLeft = left && (!this.prevGamepadStick || !this.prevGamepadStick.left);
+            const justRight = right && (!this.prevGamepadStick || !this.prevGamepadStick.right);
+            const justUp = up && (!this.prevGamepadStick || !this.prevGamepadStick.up);
+            const justDown = down && (!this.prevGamepadStick || !this.prevGamepadStick.down);
+
+            this.prevGamepadStick = { left, right, up, down };
+
+            if (justLeft || justPressed(14)) this.navigateCursor('left');
+            if (justRight || justPressed(15)) this.navigateCursor('right');
+            if (justUp || justPressed(12)) this.navigateCursor('up');
+            if (justDown || justPressed(13)) this.navigateCursor('down');
+
+            // Floor transition with A (Button 0) and Y (Button 3)
+            if (justPressed(0)) { // A button
+                if (this.activeMapFloor - 2 >= 1) {
+                    this.activeMapFloor -= 2;
+                }
+            }
+            if (justPressed(3)) { // Y button
+                if (this.activeMapFloor + 2 <= this.mazeGen.size - 2) {
+                    this.activeMapFloor += 2;
+                }
+            }
+
+            // Confirm selection with X (Button 2)
+            if (justPressed(2)) {
+                const x = this.mapCursor.x;
+                const y = this.mapCursor.y;
+                const z = this.mapCursor.z;
+                const elements = this.getInteractiveElements(this.activeMapFloor);
+                const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
+                if (isInteractive) {
+                    if (this.isTeleportMode) {
+                        const targetTeleport = elements.find(el => el.x === x && el.y === y && el.z === z && el.type === 'teleport');
+                        if (targetTeleport) {
+                            const isTargetInactive = this.inactiveTeleportPos && 
+                                                     this.inactiveTeleportPos.x === x && 
+                                                     this.inactiveTeleportPos.y === y && 
+                                                     this.inactiveTeleportPos.z === z;
+                            const px = Math.floor(this.player.x);
+                            const py = Math.floor(this.player.y);
+                            const pz = this.player.z;
+                            const isCurrentPos = x === px && y === py && z === pz;
+
+                            if (isCurrentPos) {
+                                this.toggleTeleportMap(false);
+                            } else if (!isTargetInactive) {
+                                this.teleportTo(x, y, z);
+                            }
+                        }
+                    } else {
+                        this.triggerPathReveal(x, y, z);
+                    }
+                }
+            }
+
+            // Exit Map with B (Button 1) or View (Button 8)
+            if (justPressed(1) || justPressed(8)) {
+                if (this.isTeleportMode) {
+                    this.toggleTeleportMap(false);
+                } else {
+                    this.toggleMap3D();
+                }
+            }
+
             this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
             return;
         }
@@ -1680,10 +1859,32 @@ export class Engine {
         this.ui.setTeleportWarning(false);
         if (this.isMap3DActive) {
             this.ui.setMap3DVisible(true);
-            this.build3DMap();
-            this.updateRendererSize();
+            
+            // Set initial map floor and cursor to player position
+            this.activeMapFloor = this.player.z;
+            this.visualActiveFloor = this.player.z;
+            this.mapCursor = {
+                x: Math.floor(this.player.x),
+                y: Math.floor(this.player.y),
+                z: this.player.z
+            };
+
+            // Hide Three.js canvas, show Isometric canvas
+            if (this.renderer && this.renderer.domElement) {
+                this.renderer.domElement.style.display = 'none';
+            }
+            const instEl = document.getElementById('map3d-instructions');
+            if (instEl) instEl.style.display = 'none'; // Hide 3D instructions
+
+            if (!this.isometricCanvas) {
+                this.initIsometricCanvas();
+            }
+            this.isometricCanvas.style.display = 'block';
         } else {
             this.ui.setMap3DVisible(false);
+            if (this.isometricCanvas) {
+                this.isometricCanvas.style.display = 'none';
+            }
         }
     }
 
@@ -2805,8 +3006,17 @@ export class Engine {
         }
 
         if (this.isMap3DActive || this.isIntroPlaying) {
-            this.renderer.render(this.scene, this.camera);
-            if (!this.isIntroPlaying) this.updatePulse();
+            if (this.isIntroPlaying) {
+                this.renderer.render(this.scene, this.camera);
+            } else {
+                const lerpSpeed = 10;
+                const ease = 1 - Math.exp(-lerpSpeed * clampedDt);
+                this.visualActiveFloor += (this.activeMapFloor - this.visualActiveFloor) * ease;
+                if (Math.abs(this.activeMapFloor - this.visualActiveFloor) < 0.001) {
+                    this.visualActiveFloor = this.activeMapFloor;
+                }
+                this.drawIsometricMap();
+            }
         } else {
             this.draw2DMap(clampedDt);
         }
@@ -2821,6 +3031,16 @@ export class Engine {
     playContinueAnimation() {
         this.isIntroPlaying = true;
         const size = this.mazeGen.size;
+
+        // Ensure 3D canvas and instructions are visible, and isometric map canvas is hidden
+        if (this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.style.display = 'block';
+        }
+        const instEl = document.getElementById('map3d-instructions');
+        if (instEl) instEl.style.display = 'block';
+        if (this.isometricCanvas) {
+            this.isometricCanvas.style.display = 'none';
+        }
 
         this.ui.setMap3DVisible(true);
         this.isMap3DActive = true;
@@ -2918,6 +3138,16 @@ export class Engine {
 
         const size = this.mazeGen.size;
 
+        // Ensure 3D canvas and instructions are visible, and isometric map canvas is hidden
+        if (this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.style.display = 'block';
+        }
+        const instEl = document.getElementById('map3d-instructions');
+        if (instEl) instEl.style.display = 'block';
+        if (this.isometricCanvas) {
+            this.isometricCanvas.style.display = 'none';
+        }
+
         // --- 1. Set up minimal scene: lights + renderer only (no mesh bulk) ---
         while (this.scene.children.length > 0) this.scene.remove(this.scene.children[0]);
         this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -2952,7 +3182,7 @@ export class Engine {
         this.scene.add(startMesh);
 
         const exitMat = new THREE.MeshPhongMaterial({
-            color: CONFIG.COLORS.THREE_EXIT, emissive: CONFIG.COLORS.THREE_EXIT,
+            color: 0xff3300, emissive: 0xff3300,
             emissiveIntensity: 0.6, transparent: true, opacity: 0.95
         });
         const exitMesh = new THREE.Mesh(markerGeom, exitMat);
@@ -2961,6 +3191,13 @@ export class Engine {
             (exitPos.z - size / 2) * this.vScale,
             exitPos.y - size / 2
         );
+        const cageGeom = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+        const cageMat = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            wireframe: true
+        });
+        const cageMesh = new THREE.Mesh(cageGeom, cageMat);
+        exitMesh.add(cageMesh);
         this.scene.add(exitMesh);
 
         // --- 3. BFS from start AND exit to build reveal order ---
@@ -3422,4 +3659,1007 @@ export class Engine {
         this.draw2DMap();
         this.input.keys = {};
     }
+
+    initIsometricCanvas() {
+        this.isometricCanvas = document.createElement('canvas');
+        this.isometricCanvas.id = 'isometric-map-canvas';
+        this.isometricCanvas.style.position = 'absolute';
+        this.isometricCanvas.style.top = '0';
+        this.isometricCanvas.style.left = '0';
+        this.isometricCanvas.style.width = '100%';
+        this.isometricCanvas.style.height = '100%';
+        this.isometricCanvas.style.zIndex = '101';
+        this.isometricCtx = this.isometricCanvas.getContext('2d');
+        this.ui.uiMap3dContainer.appendChild(this.isometricCanvas);
+
+        // Click handler
+        this.isometricCanvas.addEventListener('click', (e) => this.handleIsometricClick(e));
+
+        // Hover handler
+        this.isometricCanvas.addEventListener('mousemove', (e) => {
+            if (!this.isMap3DActive || this.isIntroPlaying) return;
+
+            const rect = this.isometricCanvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            const size = this.mazeGen.size;
+            const activeZ = this.activeMapFloor;
+
+            let tileWidth = (rect.width * 0.7) / size;
+            tileWidth = Math.max(20, Math.min(48, tileWidth));
+            const tileWidthHalf = tileWidth / 2;
+            const tileHeightHalf = tileWidth / 4;
+            const floorOffset = tileWidthHalf * 5;
+
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+
+            const floorsToTest = [];
+            if (activeZ + 2 <= size - 2) floorsToTest.push(activeZ + 2);
+            if (activeZ + 1 < size) floorsToTest.push(activeZ + 1);
+            floorsToTest.push(activeZ);
+            if (activeZ - 1 >= 0) floorsToTest.push(activeZ - 1);
+            if (activeZ - 2 >= 1) floorsToTest.push(activeZ - 2);
+
+            for (const z of floorsToTest) {
+                const Y_offset_adjusted = centerY - (z - activeZ) * floorOffset;
+                const A = (clickX - centerX) / tileWidthHalf;
+                const B = (clickY - Y_offset_adjusted) / tileHeightHalf;
+
+                const x = Math.round((A + B) / 2);
+                const y = Math.round((B - A) / 2);
+
+                if (x >= 0 && x < size && y >= 0 && y < size) {
+                    const elements = this.getInteractiveElements(activeZ);
+                    const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
+                    if (isInteractive) {
+                        this.mapCursor = { x, y, z };
+                        return;
+                    }
+                }
+            }
+        });
+    }
+
+    handleIsometricClick(event) {
+        if (!this.isMap3DActive || this.isIntroPlaying) return;
+
+        const rect = this.isometricCanvas.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const clickY = event.clientY - rect.top;
+
+        // 1. Check if clicked on a floor box
+        if (this.floorClickRects) {
+            for (const r of this.floorClickRects) {
+                if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
+                    this.activeMapFloor = r.floor;
+                    return;
+                }
+            }
+        }
+
+        // 2. Map screen coordinate to isometric cell
+        const size = this.mazeGen.size;
+        const activeZ = this.activeMapFloor;
+
+        let tileWidth = (rect.width * 0.7) / size;
+        tileWidth = Math.max(20, Math.min(48, tileWidth));
+        const tileWidthHalf = tileWidth / 2;
+        const tileHeightHalf = tileWidth / 4;
+        const floorOffset = tileWidthHalf * 5;
+
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const floorsToTest = [];
+        if (activeZ + 2 <= size - 2) floorsToTest.push(activeZ + 2);
+        if (activeZ + 1 < size) floorsToTest.push(activeZ + 1);
+        floorsToTest.push(activeZ);
+        if (activeZ - 1 >= 0) floorsToTest.push(activeZ - 1);
+        if (activeZ - 2 >= 1) floorsToTest.push(activeZ - 2);
+
+        for (const z of floorsToTest) {
+            const Y_offset_adjusted = centerY - (z - activeZ) * floorOffset;
+            const A = (clickX - centerX) / tileWidthHalf;
+            const B = (clickY - Y_offset_adjusted) / tileHeightHalf;
+
+            const x = Math.round((A + B) / 2);
+            const y = Math.round((B - A) / 2);
+
+            if (x >= 0 && x < size && y >= 0 && y < size) {
+                const elements = this.getInteractiveElements(activeZ);
+                const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
+                
+                if (isInteractive) {
+                    this.mapCursor = { x, y, z };
+                    
+                    if (this.isTeleportMode) {
+                        const targetTeleport = elements.find(el => el.x === x && el.y === y && el.z === z && el.type === 'teleport');
+                        if (targetTeleport) {
+                            const isTargetInactive = this.inactiveTeleportPos && 
+                                                     this.inactiveTeleportPos.x === x && 
+                                                     this.inactiveTeleportPos.y === y && 
+                                                     this.inactiveTeleportPos.z === z;
+                            const px = Math.floor(this.player.x);
+                            const py = Math.floor(this.player.y);
+                            const pz = this.player.z;
+                            const isCurrentPos = x === px && y === py && z === pz;
+
+                            if (isCurrentPos) {
+                                this.toggleTeleportMap(false);
+                            } else if (!isTargetInactive) {
+                                this.teleportTo(x, y, z);
+                            }
+                        }
+                    } else {
+                        this.triggerPathReveal(x, y, z);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    navigateCursor(direction) {
+        const activeZ = this.activeMapFloor;
+        const elements = this.getInteractiveElements(activeZ);
+        if (elements.length === 0) return;
+
+        const cx = this.mapCursor.x;
+        const cy = this.mapCursor.y;
+        const cz = this.mapCursor.z;
+        const size = this.mazeGen.size;
+
+        if (direction === 'left') {
+            const other = elements.find(e => e.x === cx && e.y === cy && e.z === activeZ + 1 && cz === activeZ - 1);
+            if (other) {
+                this.mapCursor = { x: cx, y: cy, z: activeZ + 1 };
+                return;
+            }
+
+            for (let x = cx - 1; x >= 0; x--) {
+                const candidates = elements.filter(e => e.x === x && e.y === cy);
+                if (candidates.length > 0) {
+                    const hasDown = candidates.find(c => c.z === activeZ - 1);
+                    const hasUp = candidates.find(c => c.z === activeZ + 1);
+                    if (hasDown && hasUp) {
+                        this.mapCursor = { x, y: cy, z: activeZ - 1 };
+                    } else {
+                        this.mapCursor = { x, y: cy, z: candidates[0].z };
+                    }
+                    return;
+                }
+            }
+        } else if (direction === 'right') {
+            const other = elements.find(e => e.x === cx && e.y === cy && e.z === activeZ - 1 && cz === activeZ + 1);
+            if (other) {
+                this.mapCursor = { x: cx, y: cy, z: activeZ - 1 };
+                return;
+            }
+
+            for (let x = cx + 1; x < size; x++) {
+                const candidates = elements.filter(e => e.x === x && e.y === cy);
+                if (candidates.length > 0) {
+                    const hasDown = candidates.find(c => c.z === activeZ - 1);
+                    const hasUp = candidates.find(c => c.z === activeZ + 1);
+                    if (hasDown && hasUp) {
+                        this.mapCursor = { x, y: cy, z: activeZ + 1 };
+                    } else {
+                        this.mapCursor = { x, y: cy, z: candidates[0].z };
+                    }
+                    return;
+                }
+            }
+        } else if (direction === 'up') {
+            const other = elements.find(e => e.x === cx && e.y === cy && e.z === activeZ - 1 && cz === activeZ + 1);
+            if (other) {
+                this.mapCursor = { x: cx, y: cy, z: activeZ - 1 };
+                return;
+            }
+
+            for (let y = cy - 1; y >= 0; y--) {
+                const candidates = elements.filter(e => e.y === y);
+                if (candidates.length > 0) {
+                    let bestX = -1;
+                    let minDist = Infinity;
+                    for (const c of candidates) {
+                        const dist = Math.abs(c.x - cx);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            bestX = c.x;
+                        } else if (dist === minDist && c.x < bestX) {
+                            bestX = c.x;
+                        }
+                    }
+
+                    const bestCandidates = candidates.filter(c => c.x === bestX);
+                    const hasDown = bestCandidates.find(c => c.z === activeZ - 1);
+                    const hasUp = bestCandidates.find(c => c.z === activeZ + 1);
+                    if (hasDown && hasUp) {
+                        this.mapCursor = { x: bestX, y, z: activeZ + 1 };
+                    } else {
+                        this.mapCursor = { x: bestX, y, z: bestCandidates[0].z };
+                    }
+                    return;
+                }
+            }
+        } else if (direction === 'down') {
+            const other = elements.find(e => e.x === cx && e.y === cy && e.z === activeZ + 1 && cz === activeZ - 1);
+            if (other) {
+                this.mapCursor = { x: cx, y: cy, z: activeZ + 1 };
+                return;
+            }
+
+            for (let y = cy + 1; y < size; y++) {
+                const candidates = elements.filter(e => e.y === y);
+                if (candidates.length > 0) {
+                    let bestX = -1;
+                    let minDist = Infinity;
+                    for (const c of candidates) {
+                        const dist = Math.abs(c.x - cx);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            bestX = c.x;
+                        } else if (dist === minDist && c.x < bestX) {
+                            bestX = c.x;
+                        }
+                    }
+
+                    const bestCandidates = candidates.filter(c => c.x === bestX);
+                    const hasDown = bestCandidates.find(c => c.z === activeZ - 1);
+                    const hasUp = bestCandidates.find(c => c.z === activeZ + 1);
+                    if (hasDown && hasUp) {
+                        this.mapCursor = { x: bestX, y, z: activeZ - 1 };
+                    } else {
+                        this.mapCursor = { x: bestX, y, z: bestCandidates[0].z };
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    getInteractiveElements(activeZ) {
+        const elements = [];
+        const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+
+        const isFloorVisited = (fx, fy, fz) => {
+            if (fz < 0 || fz >= size) return false;
+            const fVal = this.maze.get(fx, fy, fz);
+            return fVal === TYPES.VISITED || fVal === TYPES.START || fVal === TYPES.ELEVATOR_VISITED || (fVal === TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
+        };
+
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                const val = this.maze.get(x, y, activeZ);
+                if (val === TYPES.WALL) continue;
+
+                const isTeleport = val === TYPES.TELEPORT;
+                const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${activeZ}`);
+                
+                if (isTeleportDiscovered) {
+                    elements.push({ x, y, z: activeZ, type: 'teleport' });
+                    continue;
+                }
+                
+                if (val === TYPES.START) {
+                    elements.push({ x, y, z: activeZ, type: 'start' });
+                    continue;
+                }
+
+                if (val === TYPES.EXIT) {
+                    if (this.keysCollected === this.totalKeys && this.exitPathfinderUnlocked) {
+                        elements.push({ x, y, z: activeZ, type: 'exit' });
+                    }
+                    continue;
+                }
+
+                const isKnown = (val === TYPES.PATH || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, activeZ);
+                if (isKnown) {
+                    elements.push({ x, y, z: activeZ, type: 'known' });
+                }
+            }
+        }
+
+        for (const z of [activeZ - 1, activeZ + 1]) {
+            if (z < 0 || z >= size) continue;
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val === TYPES.WALL) continue;
+
+                    const isShaftVisited = val === TYPES.ELEVATOR_VISITED;
+                    const isShaftKnown = (val === 1) && (isFloorVisited(x, y, z - 1) || isFloorVisited(x, y, z + 1));
+
+                    if (isShaftKnown || isShaftVisited) {
+                        elements.push({ x, y, z, type: 'shaft' });
+                    }
+                }
+            }
+        }
+
+        return elements;
+    }
+
+    drawIsometricMap() {
+        if (!this.isMap3DActive || this.isIntroPlaying) return;
+
+        const canvas = this.isometricCanvas;
+        const ctx = this.isometricCtx;
+        const width = canvas.width = window.innerWidth;
+        const height = canvas.height = window.innerHeight;
+
+        ctx.clearRect(0, 0, width, height);
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
+
+        const size = this.mazeGen.size;
+        const activeZ = this.activeMapFloor;
+        const visualZ = this.visualActiveFloor;
+
+        let tileWidth = (width * 0.7) / size;
+        tileWidth = Math.max(20, Math.min(48, tileWidth));
+        const tileHeight = tileWidth / 2;
+        const tileWidthHalf = tileWidth / 2;
+        const tileHeightHalf = tileWidth / 4;
+        const floorOffset = tileWidthHalf * 5;
+
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        const getIsoCoords = (x, y, z) => {
+            const rx = x;
+            const ry = y;
+            const px = (rx - ry) * tileWidthHalf + centerX;
+            const py = (rx + ry) * tileHeightHalf - (z - visualZ) * floorOffset + centerY;
+            return { x: px, y: py };
+        };
+
+        const floorsToDraw = [];
+        if (activeZ - 2 >= 1) floorsToDraw.push(activeZ - 2);
+        floorsToDraw.push(activeZ);
+        if (activeZ + 2 <= size - 2) floorsToDraw.push(activeZ + 2);
+
+        const drawGrid = (gridOpacity) => {
+            ctx.strokeStyle = `rgba(0, 255, 0, ${0.15 * gridOpacity})`;
+            ctx.lineWidth = 1;
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const coords = getIsoCoords(x, y, activeZ);
+                    ctx.beginPath();
+                    ctx.moveTo(coords.x, coords.y - tileHeightHalf);
+                    ctx.lineTo(coords.x + tileWidthHalf, coords.y);
+                    ctx.lineTo(coords.x, coords.y + tileHeightHalf);
+                    ctx.lineTo(coords.x - tileWidthHalf, coords.y);
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            }
+        };
+
+        const drawIsoBox = (cx, cy, w, h, H, color, opacity = 1.0) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+
+            // Left face
+            ctx.beginPath();
+            ctx.moveTo(cx - w, cy);
+            ctx.lineTo(cx, cy + h);
+            ctx.lineTo(cx, cy + h - H);
+            ctx.lineTo(cx - w, cy - H);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fill();
+
+            // Right face
+            ctx.beginPath();
+            ctx.moveTo(cx, cy + h);
+            ctx.lineTo(cx + w, cy);
+            ctx.lineTo(cx + w, cy - H);
+            ctx.lineTo(cx, cy + h - H);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fill();
+
+            // Top face
+            ctx.beginPath();
+            ctx.moveTo(cx - w, cy - H);
+            ctx.lineTo(cx, cy + h - H);
+            ctx.lineTo(cx + w, cy - H);
+            ctx.lineTo(cx, cy - h - H);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            ctx.restore();
+        };
+
+        const isFloorVisited = (fx, fy, fz) => {
+            if (fz < 0 || fz >= size) return false;
+            const fVal = this.maze.get(fx, fy, fz);
+            return fVal === this.mazeGen.TYPES.VISITED || fVal === this.mazeGen.TYPES.START || fVal === this.mazeGen.TYPES.ELEVATOR_VISITED || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
+        };
+
+        const drawElevatorBox = (cx, cy, w, h, H, hUp, hDown, isVisited, isRevealed, opacity) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+
+            const colorUp = isRevealed ? '#ffffff' : (isVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED);
+            const colorDown = isRevealed ? '#ffffff' : (isVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED);
+
+            if (hUp && hDown) {
+                // Bidirectional: Left half is Down (pink/magenta), Right half is Up (cyan/blue)
+                
+                // Top Face
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - H - h);
+                ctx.lineTo(cx - w, cy - H);
+                ctx.lineTo(cx, cy - H + h);
+                ctx.lineTo(cx, cy - H);
+                ctx.closePath();
+                ctx.fillStyle = colorDown;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - H - h);
+                ctx.lineTo(cx, cy - H);
+                ctx.lineTo(cx, cy - H + h);
+                ctx.lineTo(cx + w, cy - H);
+                ctx.closePath();
+                ctx.fillStyle = colorUp;
+                ctx.fill();
+
+                // Side Faces
+                ctx.beginPath();
+                ctx.moveTo(cx - w, cy);
+                ctx.lineTo(cx, cy + h);
+                ctx.lineTo(cx, cy + h - H);
+                ctx.lineTo(cx - w, cy - H);
+                ctx.closePath();
+                ctx.fillStyle = colorDown;
+                ctx.fill();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + h);
+                ctx.lineTo(cx + w, cy);
+                ctx.lineTo(cx + w, cy - H);
+                ctx.lineTo(cx, cy + h - H);
+                ctx.closePath();
+                ctx.fillStyle = colorUp;
+                ctx.fill();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+            } else {
+                const color = hUp ? colorUp : colorDown;
+
+                // Top Face
+                ctx.beginPath();
+                ctx.moveTo(cx - w, cy - H);
+                ctx.lineTo(cx, cy + h - H);
+                ctx.lineTo(cx + w, cy - H);
+                ctx.lineTo(cx, cy - h - H);
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+
+                // Side Faces
+                ctx.beginPath();
+                ctx.moveTo(cx - w, cy);
+                ctx.lineTo(cx, cy + h);
+                ctx.lineTo(cx, cy + h - H);
+                ctx.lineTo(cx - w, cy - H);
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + h);
+                ctx.lineTo(cx + w, cy);
+                ctx.lineTo(cx + w, cy - H);
+                ctx.lineTo(cx, cy + h - H);
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+            }
+
+            ctx.restore();
+        };
+
+        const drawFloorCells = (z, opacity) => {
+            const TYPES = this.mazeGen.TYPES;
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const val = this.maze.get(x, y, z);
+                    const coords = getIsoCoords(x, y, z);
+
+                    const isTeleport = val === TYPES.TELEPORT;
+                    const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
+                    const isVisited = val === TYPES.VISITED || val === TYPES.START || val === TYPES.ELEVATOR_VISITED || isTeleportDiscovered;
+                    const isKnown = (val === TYPES.PATH || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
+                    const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
+
+                    const isKey = val === TYPES.KEY;
+                    const isExit = val === TYPES.EXIT;
+
+                    if (val === TYPES.WALL) {
+                        if (this.isNearVisited(x, y, z)) {
+                            const subW = tileWidthHalf * 0.45;
+                            const subH = tileHeightHalf * 0.45;
+                            const boxH = tileHeight * 0.25;
+                            const color = 'rgba(0, 255, 0, 0.7)'; // matrix green
+
+                            const offsets = [
+                                { dx: -0.23, dy: -0.23 },
+                                { dx: 0.23, dy: -0.23 },
+                                { dx: -0.23, dy: 0.23 },
+                                { dx: 0.23, dy: 0.23 }
+                            ];
+
+                            for (const offset of offsets) {
+                                const subCoords = getIsoCoords(x + offset.dx, y + offset.dy, z);
+                                drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, opacity);
+                            }
+                        }
+                        continue;
+                    }
+
+                    const isVisible = isVisited || isKnown || isRevealedPath || isKey || isExit;
+
+                    if (isVisible) {
+                        const H = 1.5;
+                        const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== TYPES.WALL;
+                        const hDown = z > 0 && this.maze.get(x, y, z - 1) !== TYPES.WALL;
+                        
+                        const isCursorOnCell = this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z;
+                        const showSpecial = isVisited || isRevealedPath;
+                        const isElevator = showSpecial && (hUp || hDown);
+
+                        if (isElevator) {
+                            drawElevatorBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, hUp, hDown, isVisited, isRevealedPath, opacity);
+                        } else {
+                            let color = '#222222';
+
+                            if (isRevealedPath) {
+                                color = '#ffffff';
+                            } else if (isExit) {
+                                const isUnlocked = this.keysCollected === this.totalKeys;
+                                color = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
+                            } else if (isVisited) {
+                                if (val === TYPES.START) {
+                                    color = CONFIG.COLORS.START;
+                                } else {
+                                    color = '#444444';
+                                }
+                            } else if (isKnown) {
+                                if (isCursorOnCell) {
+                                    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120);
+                                    color = `rgb(${Math.floor(31 + 224 * pulse)}, ${Math.floor(58 + 197 * pulse)}, ${Math.floor(82 + 173 * pulse)})`;
+                                } else {
+                                    color = '#1f3a52';
+                                }
+                            } else if (isKey) {
+                                color = '#111111'; // dark tile under unvisited keys
+                            }
+
+                            drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity);
+                        }
+
+                        if (isKey) {
+                            drawKey(coords.x, coords.y - H, opacity);
+                        }
+
+                        if (isTeleportDiscovered) {
+                            const isInactive = this.inactiveTeleportPos && 
+                                               this.inactiveTeleportPos.x === x && 
+                                               this.inactiveTeleportPos.y === y && 
+                                               this.inactiveTeleportPos.z === z;
+                            let teleportColor = CONFIG.COLORS.TELEPORT;
+                            if (isInactive) {
+                                teleportColor = CONFIG.COLORS.TELEPORT_INACTIVE;
+                            }
+                            drawTeleport(coords.x, coords.y - H, teleportColor, opacity, isCursorOnCell);
+                        }
+
+                        if (x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z) {
+                            drawPlayer(coords.x, coords.y - H, opacity);
+                        }
+
+                        for (const h of this.hunters) {
+                            if (x === Math.floor(h.x) && y === Math.floor(h.y) && z === Math.floor(h.z)) {
+                                drawHunter(coords.x, coords.y - H, opacity);
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        const drawShafts = (z, opacity) => {
+            const TYPES = this.mazeGen.TYPES;
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val === TYPES.WALL) continue;
+
+                    const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
+                    const isShaftVisited = val === TYPES.ELEVATOR_VISITED;
+                    const isShaftKnown = (val === 1) && (isFloorVisited(x, y, z - 1) || isFloorVisited(x, y, z + 1));
+
+                    if (isShaftVisited || isShaftKnown || isRevealedPath) {
+                        const coordsBottom = getIsoCoords(x, y, z - 1);
+                        coordsBottom.y -= 1.5; // sit exactly on top of lower floor's box
+                        
+                        const coordsTop = getIsoCoords(x, y, z + 1);
+
+                        let color = CONFIG.COLORS.PATH_KNOWN;
+                        if (isRevealedPath) {
+                            color = '#ffffff';
+                        } else if (isShaftVisited) {
+                            color = CONFIG.COLORS.PATH_VISITED;
+                        }
+
+                        const isSelected = this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z;
+                        let colColor = color;
+                        let colOpacity = opacity;
+
+                        if (isSelected) {
+                            const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120);
+                            colOpacity = 0.4 + 0.6 * pulse;
+                            colColor = '#ffffff';
+                        }
+
+                        const hexToRgb = (hex) => {
+                            const clean = hex.replace('#', '');
+                            const num = parseInt(clean, 16);
+                            const r = (num >> 16) & 255;
+                            const g = (num >> 8) & 255;
+                            const b = num & 255;
+                            return `${r}, ${g}, ${b}`;
+                        };
+
+                        const rgbStr = hexToRgb(colColor);
+
+                        const colW = tileWidthHalf * 0.25;
+                        
+                        ctx.save();
+                        ctx.globalAlpha = colOpacity;
+
+                        // Create transparency gradient from bottom to top
+                        const grad = ctx.createLinearGradient(0, coordsBottom.y, 0, coordsTop.y);
+                        grad.addColorStop(0, `rgba(${rgbStr}, 0.15)`);
+                        grad.addColorStop(0.2, `rgba(${rgbStr}, 0.65)`);
+                        grad.addColorStop(0.5, `rgba(${rgbStr}, 0.95)`);
+                        grad.addColorStop(0.8, `rgba(${rgbStr}, 0.65)`);
+                        grad.addColorStop(1, `rgba(${rgbStr}, 0.15)`);
+                        
+                        // Left face
+                        ctx.beginPath();
+                        ctx.moveTo(coordsBottom.x - colW, coordsBottom.y);
+                        ctx.lineTo(coordsBottom.x, coordsBottom.y + colW/2);
+                        ctx.lineTo(coordsTop.x, coordsTop.y + colW/2);
+                        ctx.lineTo(coordsTop.x - colW, coordsTop.y);
+                        ctx.closePath();
+                        ctx.fillStyle = grad;
+                        ctx.fill();
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                        ctx.fill();
+
+                        // Right face
+                        ctx.beginPath();
+                        ctx.moveTo(coordsBottom.x, coordsBottom.y + colW/2);
+                        ctx.lineTo(coordsBottom.x + colW, coordsBottom.y);
+                        ctx.lineTo(coordsTop.x + colW, coordsTop.y);
+                        ctx.lineTo(coordsTop.x, coordsTop.y + colW/2);
+                        ctx.closePath();
+                        ctx.fillStyle = grad;
+                        ctx.fill();
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                        ctx.fill();
+
+                        ctx.restore();
+                    }
+                }
+            }
+        };
+
+        const drawKey = (cx, cy, opacity) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            const bounce = Math.sin(performance.now() / 200) * 3 - 6;
+            const y = cy + bounce;
+            ctx.beginPath();
+            ctx.moveTo(cx, y - 5);
+            ctx.lineTo(cx + 4, y);
+            ctx.lineTo(cx, y + 5);
+            ctx.lineTo(cx - 4, y);
+            ctx.closePath();
+            ctx.fillStyle = '#ffd700';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        const drawTeleport = (cx, cy, color, opacity, isSelected) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            const bounce = Math.sin(performance.now() / 250) * 2 - 4;
+            const y = cy + bounce;
+            
+            if (isSelected) {
+                // Pulse halo glow behind the teleport
+                ctx.save();
+                const pulseScale = 1.0 + 0.35 * (0.5 + 0.5 * Math.sin(performance.now() / 100));
+                ctx.beginPath();
+                ctx.arc(cx, y, 7 * pulseScale, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.fill();
+                ctx.restore();
+            }
+
+            ctx.beginPath();
+            ctx.arc(cx, y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = isSelected ? '#ffffff' : color;
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        const drawPlayer = (cx, cy, opacity) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.beginPath();
+            ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
+            ctx.fillStyle = CONFIG.COLORS.PLAYER;
+            ctx.fill();
+            ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        const drawHunter = (cx, cy, opacity) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            const pulse = 4 + Math.sin(performance.now() / 100) * 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy - 3, pulse, 0, Math.PI * 2);
+            ctx.fillStyle = CONFIG.COLORS.HUNTER;
+            ctx.fill();
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        const getFloorOpacity = (fz) => {
+            const dist = Math.abs(fz - visualZ);
+            if (dist <= 2) {
+                return 1.0 - (dist / 2) * (1.0 - 0.35);
+            } else if (dist < 4) {
+                return 0.35 * (1.0 - (dist - 2) / 2);
+            }
+            return 0;
+        };
+
+        // Draw all visible floors and connecting shafts in correct order (Painter's Algorithm)
+        for (let z = 1; z < size; z += 2) {
+            if (z - 1 >= 0) {
+                // Only draw shafts connected to the active floor (activeZ - 1 and activeZ + 1)
+                if (z - 1 === activeZ - 1 || z - 1 === activeZ + 1) {
+                    const opBelow = getFloorOpacity(z - 2);
+                    const opActive = getFloorOpacity(z);
+                    const shaftOpacity = Math.max(opBelow, opActive) * 0.8;
+                    if (shaftOpacity > 0.01) {
+                        drawShafts(z - 1, shaftOpacity);
+                    }
+                }
+            }
+
+            const floorOpacity = getFloorOpacity(z);
+            if (floorOpacity > 0.01) {
+                if (z === activeZ) {
+                    drawGrid(floorOpacity);
+                }
+                drawFloorCells(z, floorOpacity);
+            }
+        }
+
+        // Draw Cursor
+        const elements = this.getInteractiveElements(activeZ);
+
+        // Draw floating indicative dots on interactive shafts so user knows where to hover
+        elements.forEach(el => {
+            if (el.type === 'shaft') {
+                const coords = getIsoCoords(el.x, el.y, el.z);
+                const isSelected = this.mapCursor.x === el.x && this.mapCursor.y === el.y && this.mapCursor.z === el.z;
+                ctx.save();
+                const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 150);
+                ctx.beginPath();
+                ctx.arc(coords.x, coords.y, 3.0 + pulse * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = isSelected ? '#ffffff' : '#00ffff';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.restore();
+            }
+        });
+
+        const isPlayerPos = this.mapCursor.x === Math.floor(this.player.x) && 
+                            this.mapCursor.y === Math.floor(this.player.y) && 
+                            this.mapCursor.z === this.player.z;
+        const hasInteractiveCursor = isPlayerPos || elements.some(e => e.x === this.mapCursor.x && e.y === this.mapCursor.y && e.z === this.mapCursor.z);
+        if (hasInteractiveCursor) {
+            const cursorCoords = getIsoCoords(this.mapCursor.x, this.mapCursor.y, this.mapCursor.z);
+            const bounce = Math.sin(performance.now() / 150) * 4;
+
+            // Draw shadow on the floor tile
+            ctx.save();
+            const shadowScale = 1.0 - bounce / 16;
+            const floorCoords = getIsoCoords(this.mapCursor.x, this.mapCursor.y, activeZ);
+            ctx.translate(floorCoords.x, floorCoords.y);
+            ctx.scale(1, 0.5);
+            ctx.beginPath();
+            ctx.arc(0, 0, 8 * shadowScale, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 0, 0, ${0.55 * shadowScale})`;
+            ctx.fill();
+            ctx.restore();
+
+            // Draw cursor arrow bouncing above
+            ctx.save();
+            const cx = cursorCoords.x;
+            const cy = cursorCoords.y - tileHeight - 12 + bounce;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx - 6, cy - 8);
+            ctx.lineTo(cx - 3, cy - 8);
+            ctx.lineTo(cx - 3, cy - 16);
+            ctx.lineTo(cx + 3, cy - 16);
+            ctx.lineTo(cx + 3, cy - 8);
+            ctx.lineTo(cx + 6, cy - 8);
+            ctx.closePath();
+            ctx.fillStyle = '#00ffff';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Draw Floor Indicators Line on the right side
+        const rightPadding = 45;
+        const startYLine = height / 3;
+        const endYLine = (height / 3) * 2;
+        const lineX = width - rightPadding;
+
+        // 1. Draw Background Track Line (Dark cyan)
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.25)';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(lineX, startYLine);
+        ctx.lineTo(lineX, endYLine);
+        ctx.stroke();
+        
+        // Draw track ticks / notches
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+        ctx.lineWidth = 1.5;
+        for (let y = startYLine; y <= endYLine; y += (endYLine - startYLine) / 6) {
+            ctx.beginPath();
+            ctx.moveTo(lineX - 5, y);
+            ctx.lineTo(lineX + 5, y);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // 2. Draw Active Sliding Indicator (smoothly sliding dot)
+        const centerYTrack = (startYLine + endYLine) / 2;
+        const slotHeight = (endYLine - startYLine) / 2;
+        const visualDiff = visualZ - activeZ;
+        const sliderY = centerYTrack - (visualDiff / 2) * slotHeight;
+
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#00ffff';
+        ctx.beginPath();
+        ctx.arc(lineX, sliderY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        this.floorClickRects = [];
+
+        // Define the three fixed positions
+        const positions = [
+            { floor: activeZ + 2, y: startYLine, label: `${(activeZ + 2 + 1) / 2}F`, valid: activeZ + 2 <= size - 2 },
+            { floor: activeZ, y: centerYTrack, label: `${(activeZ + 1) / 2}F`, valid: true },
+            { floor: activeZ - 2, y: endYLine, label: `${(activeZ - 2 + 1) / 2}F`, valid: activeZ - 2 >= 1 }
+        ];
+
+        positions.forEach(pos => {
+            if (!pos.valid) return;
+
+            const rectW = 60;
+            const rectH = 36;
+            const rectX = lineX - rectW - 15; // float to the left of the line
+            const rectY = pos.y - rectH / 2;
+
+            const isActive = pos.floor === activeZ;
+
+            ctx.save();
+
+            // Apply glow to the active box
+            if (isActive) {
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 12;
+            }
+
+            // Draw sci-fi corner-cut container shape
+            ctx.beginPath();
+            ctx.moveTo(rectX + 6, rectY);
+            ctx.lineTo(rectX + rectW, rectY);
+            ctx.lineTo(rectX + rectW, rectY + rectH - 6);
+            ctx.lineTo(rectX + rectW - 6, rectY + rectH);
+            ctx.lineTo(rectX, rectY + rectH);
+            ctx.lineTo(rectX, rectY + 6);
+            ctx.closePath();
+
+            // Fill and Stroke (glassmorphic style)
+            ctx.fillStyle = isActive ? 'rgba(0, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.6)';
+            ctx.strokeStyle = isActive ? '#00ffff' : 'rgba(0, 255, 255, 0.35)';
+            ctx.lineWidth = isActive ? 2 : 1;
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore(); // remove shadow configuration
+
+            // Draw a subtle cyan connecting notch pointing to the vertical track line
+            ctx.strokeStyle = isActive ? '#00ffff' : 'rgba(0, 255, 255, 0.35)';
+            ctx.lineWidth = isActive ? 2 : 1;
+            ctx.beginPath();
+            ctx.moveTo(rectX + rectW, pos.y);
+            ctx.lineTo(lineX - 2, pos.y);
+            ctx.stroke();
+
+            // Draw Header Text ("LEVEL")
+            ctx.fillStyle = isActive ? '#00ffff' : 'rgba(255, 255, 255, 0.5)';
+            ctx.font = 'bold 8px Courier New';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('LEVEL', rectX + rectW / 2, rectY + 6);
+
+            // Draw Value Text ("1F")
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 15px Courier New';
+            ctx.textBaseline = 'top';
+            ctx.fillText(pos.label, rectX + rectW / 2, rectY + 16);
+
+            this.floorClickRects.push({
+                floor: pos.floor,
+                x: rectX,
+                y: rectY,
+                w: rectW + 15, // cover click area up to the line
+                h: rectH
+            });
+        });
+    }
 }
+
