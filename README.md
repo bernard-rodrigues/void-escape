@@ -11,6 +11,9 @@ A 3D maze exploration simulator with a cyberpunk theme, vertical navigation chal
 - **Procedural Generation:** Configure the maze size (`Maze Degree`) and complexity (`Branching Factor`).
 - **Deterministic Maps (Seeds):** Define a custom seed value in the configuration file to generate the exact same maze structure across playthroughs.
 - **Multiple Enemies:** Hunters that scale with difficulty and track your footsteps once they cross your heat trail.
+- **Safe Mode:** A practice mode configuration that disables hostile entities, lets you explore the labyrinth peacefully, and keeps teleports active forever.
+- **Gamepad Support:** Full input integration allowing player movement, camera rotations, zoom controls, and menu navigation using standard Gamepads.
+- **Localization System:** Seamless translation (English and Portuguese) of all system text, dialogue boxes, and contextual warnings.
 - **Dual Map System:**
   - **2D Map:** Tactical navigation, floor by floor, featuring a real-time hunter status marquee and proximity detector.
   - **3D Hologram:** Complete orbital spatial view showing elevator connections and known teleports.
@@ -23,10 +26,17 @@ A 3D maze exploration simulator with a cyberpunk theme, vertical navigation chal
 2.  **Objective:** Reach the **green block** (Exit) while avoiding the **purple dots** (Enemies).
 3.  **Exploration:** Use elevators (▲/▼) to transit between floors or activate teleports to create restore checkpoints.
 
-### Controls
+### Keyboard Controls
 - **WASD / Arrow Keys:** Move and Rotate.
 - **Q / E or PgUp / PgDn:** Go Up or Down floors / Use Teleports.
 - **M:** Toggle 3D Holographic Map.
+
+### Gamepad Controls
+- **Left Analog / D-Pad:** Move and Rotate.
+- **Right Analog:** Rotate and Zoom 3D camera.
+- **LB / RB:** Cycle active teleports in Map.
+- **A / Y:** Confirm selection / Trigger action.
+- **Start:** Toggle Pause menu.
 
 ## 🛠️ Technologies Used
 
@@ -60,6 +70,7 @@ npm test
 - [input.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/input.js): Input coordinator mapping keyboard listeners and mobile swipe gestures.
 - [ui.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/ui.js): HUD manager updating labels, progress bars, and the threat marquee.
 - [save.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/save.js): LocalStorage coordinator encoding the maze matrix (in Base64) and runtime states.
+- [translations.js](file:///C:/Users/bernard.rodrigues/Documents/Desenvolvimento/Pessoal/void-escape/translations.js): i18n localizations storage for multi-language dialogue mappings.
 
 ---
 Developed as a high-fidelity prototype for procedural exploration systems.
