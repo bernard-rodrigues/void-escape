@@ -45,6 +45,9 @@ export class Engine {
         this.seed = savedState ? savedState.seed : (CONFIG.SEED !== null && CONFIG.SEED !== undefined ? CONFIG.SEED : Date.now());
         this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
         this.maze = this.mazeGen.generate();
+        this.isResumedFromSave = !!savedState;
+        this.mapCompletion100Triggered = false;
+        this.hunterOnSameFloorDetected = false;
 
         this.wallImage = new Image();
         this.wallImage.onload = () => {
@@ -497,6 +500,7 @@ export class Engine {
 
         // Restore revealed paths
         this.revealedPathSet = new Set(snapshot.revealedPathSet);
+        this.mapCompletion100Triggered = snapshot.mapCompletion100Triggered || false;
 
         // Mark that this session was loaded from a save (so Continue remains available
         // until the player reaches a new teleport or dies)
@@ -1051,6 +1055,11 @@ export class Engine {
         const percent = this.getMapVisitedPercentage();
         this.ui.updateVisitedPercent(percent);
 
+        if (percent === 100 && !this.mapCompletion100Triggered) {
+            this.ui.showInfoBanner(getTranslation('msgWorldSaved'));
+            this.mapCompletion100Triggered = true;
+        }
+
         // Check for pathfinder rewards!
         this.checkPathfinderRewards(percent);
     }
@@ -1071,7 +1080,7 @@ export class Engine {
             this.pathfinderRewardsGranted = expectedRewards;
 
             this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
-            this.ui.showInfoBanner("Just found a pathfinder!");
+            this.ui.showInfoBanner(getTranslation('msgFoundPathfinder'));
             
             // Save state immediately
             saveGame(this);
@@ -1531,6 +1540,18 @@ export class Engine {
 
         if (this.isPaused) return;
 
+        if (!this.isIntroPlaying) {
+            const hasHunterOnSameFloor = this.hunters.some(h => h.state !== 'SLEEP' && h.z === this.player.z);
+            if (hasHunterOnSameFloor) {
+                if (!this.hunterOnSameFloorDetected) {
+                    this.ui.showInfoBanner(getTranslation('msgDidYouHearThat'));
+                    this.hunterOnSameFloorDetected = true;
+                }
+            } else {
+                this.hunterOnSameFloorDetected = false;
+            }
+        }
+
         if (this.hunters.some(h => h.state === 'SLEEP')) {
             const percent = this.getMapVisitedPercentage();
             if (percent >= 10) {
@@ -1748,6 +1769,23 @@ export class Engine {
                 const finalGridIdxX = Math.floor(this.player.x);
                 const finalGridIdxY = Math.floor(this.player.y);
                 const z = this.player.z;
+
+                const cellChanged = (finalGridIdxX !== oldGridX || finalGridIdxY !== oldGridY);
+                if (cellChanged) {
+                    const oldVal = this.maze.get(oldGridX, oldGridY, z);
+                    const oldIsVisited = oldVal === this.mazeGen.TYPES.VISITED || oldVal === this.mazeGen.TYPES.START || oldVal === this.mazeGen.TYPES.TELEPORT;
+                    if (oldIsVisited) {
+                        const hUp = z + 1 < this.mazeGen.size && this.maze.get(finalGridIdxX, finalGridIdxY, z + 1) !== this.mazeGen.TYPES.WALL;
+                        const hDown = z - 1 >= 0 && this.maze.get(finalGridIdxX, finalGridIdxY, z - 1) !== this.mazeGen.TYPES.WALL;
+                        if (hUp && hDown) {
+                            this.ui.showInfoBanner(getTranslation('msgWhichWay'));
+                        } else if (hUp) {
+                            this.ui.showInfoBanner(getTranslation('msgElevatorUp'));
+                        } else if (hDown) {
+                            this.ui.showInfoBanner(getTranslation('msgElevatorDown'));
+                        }
+                    }
+                }
                 
                 const markOrCollect = (gx, gy, gz) => {
                     const val = this.maze.get(gx, gy, gz);
@@ -1886,7 +1924,11 @@ export class Engine {
                     for (const hunter of this.hunters) {
                         const cellVal = this.maze.get(hunter.x, hunter.y, hunter.z);
                         if (cellVal === this.mazeGen.TYPES.VISITED || cellVal === this.mazeGen.TYPES.START || cellVal === this.mazeGen.TYPES.EXIT) {
+                            const oldState = hunter.state;
                             hunter.state = 'TRACKING';
+                            if (oldState !== 'TRACKING') {
+                                this.ui.showInfoBanner(getTranslation('msgIWasDetected'));
+                            }
                         } else {
                             hunter.state = 'WANDERING';
                             hunter.pathToTarget = [];
@@ -1903,7 +1945,11 @@ export class Engine {
 
             for (const hunter of this.hunters) {
                 if (hunter.state === 'SLEEP') continue;
+                const oldState = hunter.state;
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
+                if (hunter.state === 'TRACKING' && oldState !== 'TRACKING') {
+                    this.ui.showInfoBanner(getTranslation('msgIWasDetected'));
+                }
                 if (hunter.state === 'TRACKING' || hunter.state === 'TELEPORT_TRACKING') trackingCount++;
                 const sameFloor = hunter.z === this.player.z;
                 let isNear = false;
@@ -3533,6 +3579,10 @@ export class Engine {
                 bottomHud.classList.remove('intro-hidden');
                 bottomHud.classList.add('intro-reveal');
                 setTimeout(() => bottomHud.classList.remove('intro-reveal'), 700);
+            }
+
+            if (!this.isResumedFromSave) {
+                this.ui.showInfoBanner(getTranslation('msgWhereAmI'));
             }
         }, 600);
     }

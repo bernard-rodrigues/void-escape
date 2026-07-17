@@ -22,3 +22,14 @@ test('i18n translations - fallback for unknown keys', () => {
     const result = getTranslation(unknownKey);
     assert.strictEqual(result, unknownKey);
 });
+
+test('i18n translations - issue #33 dialogue keys exist', () => {
+    assert.strictEqual(getTranslation('msgWhereAmI'), 'Where am I?');
+    assert.strictEqual(getTranslation('msgElevatorUp'), 'Up?');
+    assert.strictEqual(getTranslation('msgElevatorDown'), 'Down?');
+    assert.strictEqual(getTranslation('msgWhichWay'), 'Which way?');
+    assert.strictEqual(getTranslation('msgDidYouHearThat'), 'Did you hear that?');
+    assert.strictEqual(getTranslation('msgIWasDetected'), 'Damn! I was detected.');
+    assert.strictEqual(getTranslation('msgFoundPathfinder'), 'Found a pathfinder!');
+    assert.strictEqual(getTranslation('msgWorldSaved'), 'World saved. What now?');
+});
