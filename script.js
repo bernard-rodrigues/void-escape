@@ -175,62 +175,7 @@ window.addEventListener('touchmove', (e) => {
     }
 }, { passive: false });
 
-// Unified Menu Keyboard & Gamepad Navigation System
-let menuFocusIndex = 0;
-let lastActiveScreen = null;
 
-function getActiveMenuElements() {
-    const startMenu = document.getElementById('start-menu');
-    const pauseScreen = document.getElementById('pause-screen');
-    const victoryScreen = document.getElementById('victory-screen');
-    const gameOverScreen = document.getElementById('game-over-screen');
-
-    if (startMenu && !startMenu.classList.contains('hidden') && startMenu.style.display !== 'none') {
-        const list = [];
-        const degreeInput = document.getElementById('maze-degree');
-        const safeModeCheckbox = document.getElementById('safe-mode');
-        const startBtn = document.getElementById('start-btn');
-        const continueBtn = document.getElementById('continue-btn-menu');
-
-        if (degreeInput) list.push(degreeInput);
-        if (safeModeCheckbox) list.push(safeModeCheckbox);
-        if (startBtn) list.push(startBtn);
-        if (continueBtn && continueBtn.style.display !== 'none') list.push(continueBtn);
-
-        return list;
-    }
-
-    if (pauseScreen && !pauseScreen.classList.contains('hidden')) {
-        const list = [];
-        const resumeBtn = document.getElementById('resume-btn');
-        const menuBtn = document.getElementById('menu-btn-pause');
-        if (resumeBtn) list.push(resumeBtn);
-        if (menuBtn) list.push(menuBtn);
-        return list;
-    }
-
-    if (victoryScreen && !victoryScreen.classList.contains('hidden')) {
-        const list = [];
-        const restartBtn = document.getElementById('restart-btn-victory');
-        const menuBtn = document.getElementById('menu-btn-victory');
-        if (restartBtn) list.push(restartBtn);
-        if (menuBtn) list.push(menuBtn);
-        return list;
-    }
-
-    if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
-        const list = [];
-        const continueBtn = document.getElementById('continue-btn-death');
-        const retryBtn = document.getElementById('retry-btn-death');
-        const menuBtn = document.getElementById('menu-btn-death');
-        if (continueBtn && continueBtn.style.display !== 'none') list.push(continueBtn);
-        if (retryBtn) list.push(retryBtn);
-        if (menuBtn) list.push(menuBtn);
-        return list;
-    }
-
-    return [];
-}
 
 // Unified Menu Keyboard & Gamepad Navigation System
 let menuFocusIndex = 0;
