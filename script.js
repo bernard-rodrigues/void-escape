@@ -232,6 +232,64 @@ function getActiveMenuElements() {
     return [];
 }
 
+// Unified Menu Keyboard & Gamepad Navigation System
+let menuFocusIndex = 0;
+let lastActiveScreen = null;
+let hasMenuNavigated = false;
+
+function getActiveMenuElements() {
+    const startMenu = document.getElementById('start-menu');
+    const pauseScreen = document.getElementById('pause-screen');
+    const victoryScreen = document.getElementById('victory-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+
+    if (startMenu && !startMenu.classList.contains('hidden') && startMenu.style.display !== 'none') {
+        const list = [];
+        const degreeInput = document.getElementById('maze-degree');
+        const safeModeCheckbox = document.getElementById('safe-mode');
+        const startBtn = document.getElementById('start-btn');
+        const continueBtn = document.getElementById('continue-btn-menu');
+
+        if (degreeInput) list.push(degreeInput);
+        if (safeModeCheckbox) list.push(safeModeCheckbox);
+        if (startBtn) list.push(startBtn);
+        if (continueBtn && continueBtn.style.display !== 'none') list.push(continueBtn);
+
+        return list;
+    }
+
+    if (pauseScreen && !pauseScreen.classList.contains('hidden')) {
+        const list = [];
+        const resumeBtn = document.getElementById('resume-btn');
+        const menuBtn = document.getElementById('menu-btn-pause');
+        if (resumeBtn) list.push(resumeBtn);
+        if (menuBtn) list.push(menuBtn);
+        return list;
+    }
+
+    if (victoryScreen && !victoryScreen.classList.contains('hidden')) {
+        const list = [];
+        const restartBtn = document.getElementById('restart-btn-victory');
+        const menuBtn = document.getElementById('menu-btn-victory');
+        if (restartBtn) list.push(restartBtn);
+        if (menuBtn) list.push(menuBtn);
+        return list;
+    }
+
+    if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
+        const list = [];
+        const continueBtn = document.getElementById('continue-btn-death');
+        const retryBtn = document.getElementById('retry-btn-death');
+        const menuBtn = document.getElementById('menu-btn-death');
+        if (continueBtn && continueBtn.style.display !== 'none') list.push(continueBtn);
+        if (retryBtn) list.push(retryBtn);
+        if (menuBtn) list.push(menuBtn);
+        return list;
+    }
+
+    return [];
+}
+
 function updateMenuFocus() {
     const elements = getActiveMenuElements();
     
@@ -243,6 +301,7 @@ function updateMenuFocus() {
     if (activeScreen !== lastActiveScreen) {
         lastActiveScreen = activeScreen;
         menuFocusIndex = 0;
+        hasMenuNavigated = false;
     }
 
     const allIds = [
@@ -262,7 +321,7 @@ function updateMenuFocus() {
     if (menuFocusIndex >= elements.length) menuFocusIndex = 0;
 
     const activeEl = elements[menuFocusIndex];
-    if (activeEl) {
+    if (activeEl && hasMenuNavigated) {
         activeEl.classList.add('menu-focused');
         activeEl.focus();
     }
@@ -274,25 +333,89 @@ window.addEventListener('keydown', (e) => {
     if (elements.length === 0) return;
 
     const key = e.key.toLowerCase();
-    const activeEl = elements[menuFocusIndex];
+    const isDirectional = ['arrowup', 'w', 'arrowdown', 's', 'arrowleft', 'a', 'arrowright', 'd'].includes(key);
 
-    if (key === 'arrowup' || key === 'w') {
-        menuFocusIndex--;
+    if (isDirectional && !hasMenuNavigated) {
+        hasMenuNavigated = true;
         updateMenuFocus();
         e.preventDefault();
-    } else if (key === 'arrowdown' || key === 's') {
-        menuFocusIndex++;
-        updateMenuFocus();
-        e.preventDefault();
-    } else if (key === 'arrowleft' || key === 'a' || key === 'arrowright' || key === 'd') {
-        if (activeEl) {
+        return;
+    }
+
+    if (!hasMenuNavigated) return;
+
+    const activeEl = elements[menuFocusIndex];
+    const isStartMenu = activeEl && activeEl.closest('#start-menu');
+
+    if (isStartMenu) {
+        if (key === 'arrowup' || key === 'w') {
+            if (activeEl.id === 'start-btn' || activeEl.id === 'continue-btn-menu') {
+                const target = elements.find(el => el.id === 'safe-mode');
+                if (target) menuFocusIndex = elements.indexOf(target);
+            } else if (activeEl.id === 'safe-mode') {
+                const target = elements.find(el => el.id === 'maze-degree');
+                if (target) menuFocusIndex = elements.indexOf(target);
+            } else if (activeEl.id === 'maze-degree') {
+                const target = elements.find(el => el.id === 'start-btn');
+                if (target) menuFocusIndex = elements.indexOf(target);
+            }
+            updateMenuFocus();
+            e.preventDefault();
+        } else if (key === 'arrowdown' || key === 's') {
             if (activeEl.id === 'maze-degree') {
-                let val = parseInt(activeEl.value);
-                if (key === 'arrowleft' || key === 'a') {
-                    activeEl.value = Math.max(3, val - 1);
-                } else {
-                    activeEl.value = Math.min(16, val + 1);
+                const target = elements.find(el => el.id === 'safe-mode');
+                if (target) menuFocusIndex = elements.indexOf(target);
+            } else if (activeEl.id === 'safe-mode') {
+                const target = elements.find(el => el.id === 'start-btn');
+                if (target) menuFocusIndex = elements.indexOf(target);
+            } else if (activeEl.id === 'start-btn' || activeEl.id === 'continue-btn-menu') {
+                const target = elements.find(el => el.id === 'maze-degree');
+                if (target) menuFocusIndex = elements.indexOf(target);
+            }
+            updateMenuFocus();
+            e.preventDefault();
+        } else if (key === 'arrowleft' || key === 'a') {
+            if (activeEl.id === 'continue-btn-menu') {
+                const target = elements.find(el => el.id === 'start-btn');
+                if (target) menuFocusIndex = elements.indexOf(target);
+                updateMenuFocus();
+                e.preventDefault();
+            } else if (activeEl.id === 'start-btn') {
+                const target = elements.find(el => el.id === 'continue-btn-menu');
+                if (target) {
+                    menuFocusIndex = elements.indexOf(target);
+                    updateMenuFocus();
                 }
+                e.preventDefault();
+            } else if (activeEl.id === 'maze-degree') {
+                let val = parseInt(activeEl.value);
+                activeEl.value = Math.max(3, val - 1);
+                activeEl.dispatchEvent(new Event('input'));
+                activeEl.dispatchEvent(new Event('change'));
+                e.preventDefault();
+            } else if (activeEl.id === 'safe-mode') {
+                activeEl.checked = !activeEl.checked;
+                activeEl.dispatchEvent(new Event('change'));
+                e.preventDefault();
+            }
+        } else if (key === 'arrowright' || key === 'd') {
+            if (activeEl.id === 'start-btn') {
+                const target = elements.find(el => el.id === 'continue-btn-menu');
+                if (target) {
+                    menuFocusIndex = elements.indexOf(target);
+                    updateMenuFocus();
+                }
+                e.preventDefault();
+            } else if (activeEl.id === 'continue-btn-menu') {
+                const target = elements.find(el => el.id === 'start-btn');
+                if (target) {
+                    menuFocusIndex = elements.indexOf(target);
+                    updateMenuFocus();
+                }
+                e.preventDefault();
+            } else if (activeEl.id === 'maze-degree') {
+                let val = parseInt(activeEl.value);
+                activeEl.value = Math.min(16, val + 1);
                 activeEl.dispatchEvent(new Event('input'));
                 activeEl.dispatchEvent(new Event('change'));
                 e.preventDefault();
@@ -302,7 +425,20 @@ window.addEventListener('keydown', (e) => {
                 e.preventDefault();
             }
         }
-    } else if (key === 'enter' || key === ' ') {
+    } else {
+        // In popup menus, buttons are horizontal side-by-side, so horizontal/vertical keys cycle left/right
+        if (key === 'arrowup' || key === 'w' || key === 'arrowleft' || key === 'a') {
+            menuFocusIndex--;
+            updateMenuFocus();
+            e.preventDefault();
+        } else if (key === 'arrowdown' || key === 's' || key === 'arrowright' || key === 'd') {
+            menuFocusIndex++;
+            updateMenuFocus();
+            e.preventDefault();
+        }
+    }
+
+    if (key === 'enter' || key === ' ') {
         if (activeEl) {
             if (activeEl.id === 'safe-mode' && key === ' ') {
                 // let browser handle space naturally
@@ -325,6 +461,7 @@ function pollGamepadMenu() {
         if (activeScreen !== lastActiveScreen) {
             lastActiveScreen = activeScreen;
             menuFocusIndex = 0;
+            hasMenuNavigated = false;
             updateMenuFocus();
         }
     } else {
@@ -362,38 +499,101 @@ function pollGamepadMenu() {
     };
 
     if (elements.length > 0) {
-        const activeEl = elements[menuFocusIndex];
+        const isDirectional = justUp || justDown || justLeft || justRight;
 
-        if (justUp) {
-            menuFocusIndex--;
+        if (isDirectional && !hasMenuNavigated) {
+            hasMenuNavigated = true;
             updateMenuFocus();
-        } else if (justDown) {
-            menuFocusIndex++;
-            updateMenuFocus();
-        } else if (justLeft || justRight) {
-            if (activeEl) {
-                if (activeEl.id === 'maze-degree') {
-                    let val = parseInt(activeEl.value);
-                    if (justLeft) {
-                        activeEl.value = Math.max(3, val - 1);
-                    } else {
-                        activeEl.value = Math.min(16, val + 1);
+        } else if (hasMenuNavigated) {
+            const activeEl = elements[menuFocusIndex];
+            const isStartMenu = activeEl && activeEl.closest('#start-menu');
+
+            if (isStartMenu) {
+                if (justUp) {
+                    if (activeEl.id === 'start-btn' || activeEl.id === 'continue-btn-menu') {
+                        const target = elements.find(el => el.id === 'safe-mode');
+                        if (target) menuFocusIndex = elements.indexOf(target);
+                    } else if (activeEl.id === 'safe-mode') {
+                        const target = elements.find(el => el.id === 'maze-degree');
+                        if (target) menuFocusIndex = elements.indexOf(target);
+                    } else if (activeEl.id === 'maze-degree') {
+                        const target = elements.find(el => el.id === 'start-btn');
+                        if (target) menuFocusIndex = elements.indexOf(target);
                     }
-                    activeEl.dispatchEvent(new Event('input'));
-                    activeEl.dispatchEvent(new Event('change'));
-                } else if (activeEl.id === 'safe-mode') {
-                    activeEl.checked = !activeEl.checked;
-                    activeEl.dispatchEvent(new Event('change'));
+                    updateMenuFocus();
+                } else if (justDown) {
+                    if (activeEl.id === 'maze-degree') {
+                        const target = elements.find(el => el.id === 'safe-mode');
+                        if (target) menuFocusIndex = elements.indexOf(target);
+                    } else if (activeEl.id === 'safe-mode') {
+                        const target = elements.find(el => el.id === 'start-btn');
+                        if (target) menuFocusIndex = elements.indexOf(target);
+                    } else if (activeEl.id === 'start-btn' || activeEl.id === 'continue-btn-menu') {
+                        const target = elements.find(el => el.id === 'maze-degree');
+                        if (target) menuFocusIndex = elements.indexOf(target);
+                    }
+                    updateMenuFocus();
+                } else if (justLeft) {
+                    if (activeEl.id === 'continue-btn-menu') {
+                        const target = elements.find(el => el.id === 'start-btn');
+                        if (target) menuFocusIndex = elements.indexOf(target);
+                        updateMenuFocus();
+                    } else if (activeEl.id === 'start-btn') {
+                        const target = elements.find(el => el.id === 'continue-btn-menu');
+                        if (target) {
+                            menuFocusIndex = elements.indexOf(target);
+                            updateMenuFocus();
+                        }
+                    } else if (activeEl.id === 'maze-degree') {
+                        let val = parseInt(activeEl.value);
+                        activeEl.value = Math.max(3, val - 1);
+                        activeEl.dispatchEvent(new Event('input'));
+                        activeEl.dispatchEvent(new Event('change'));
+                    } else if (activeEl.id === 'safe-mode') {
+                        activeEl.checked = !activeEl.checked;
+                        activeEl.dispatchEvent(new Event('change'));
+                    }
+                } else if (justRight) {
+                    if (activeEl.id === 'start-btn') {
+                        const target = elements.find(el => el.id === 'continue-btn-menu');
+                        if (target) {
+                            menuFocusIndex = elements.indexOf(target);
+                            updateMenuFocus();
+                        }
+                    } else if (activeEl.id === 'continue-btn-menu') {
+                        const target = elements.find(el => el.id === 'start-btn');
+                        if (target) {
+                            menuFocusIndex = elements.indexOf(target);
+                            updateMenuFocus();
+                        }
+                    } else if (activeEl.id === 'maze-degree') {
+                        let val = parseInt(activeEl.value);
+                        activeEl.value = Math.min(16, val + 1);
+                        activeEl.dispatchEvent(new Event('input'));
+                        activeEl.dispatchEvent(new Event('change'));
+                    } else if (activeEl.id === 'safe-mode') {
+                        activeEl.checked = !activeEl.checked;
+                        activeEl.dispatchEvent(new Event('change'));
+                    }
+                }
+            } else {
+                // Popup screens
+                if (justUp || justLeft) {
+                    menuFocusIndex--;
+                    updateMenuFocus();
+                } else if (justDown || justRight) {
+                    menuFocusIndex++;
+                    updateMenuFocus();
                 }
             }
-        }
 
-        const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
-        const justPressed = (btnIdx) => isPressed(btnIdx) && !prevGamepadMenuButtons[btnIdx];
+            const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
+            const justPressed = (btnIdx) => isPressed(btnIdx) && !prevGamepadMenuButtons[btnIdx];
 
-        if (justPressed(0) || justPressed(3) || justPressed(9)) {
-            if (activeEl) {
-                activeEl.click();
+            if (justPressed(0) || justPressed(3) || justPressed(9)) {
+                if (activeEl) {
+                    activeEl.click();
+                }
             }
         }
     }

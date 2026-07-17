@@ -1854,3 +1854,10 @@ body:has(#map3d-container:not(.hidden)) #mobile-zoom-btn {
     transform: scale(1.01);
 }
 
+/* Safe mode slider outline feedback */
+#safe-mode.menu-focused + .slider {
+    outline: 2px solid var(--clr-neon) !important;
+    box-shadow: 0 0 14px var(--clr-neon) !important;
+    border-color: var(--clr-neon) !important;
+}
+
