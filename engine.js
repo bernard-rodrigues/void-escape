@@ -118,6 +118,34 @@ export class Engine {
         const startGridZ = this.player.z;
         this.discoveredTeleports.add(`${startGridX},${startGridY},${startGridZ}`);
 
+        // Scan all teleport coordinates in the maze
+        this.allTeleports = [];
+        const mazeSize = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+        for (let z = 1; z < mazeSize; z += 2) {
+            for (let y = 0; y < mazeSize; y++) {
+                for (let x = 0; x < mazeSize; x++) {
+                    if (this.maze.get(x, y, z) === TYPES.TELEPORT) {
+                        this.allTeleports.push({ x, y, z });
+                    }
+                }
+            }
+        }
+        // Sort deterministically (z first, then y, then x)
+        this.allTeleports.sort((a, b) => {
+            if (a.z !== b.z) return a.z - b.z;
+            if (a.y !== b.y) return a.y - b.y;
+            return a.x - b.x;
+        });
+
+        this.selectedTeleportIndex = this.allTeleports.findIndex(
+            t => t.x === startGridX && t.y === startGridY && t.z === startGridZ
+        );
+        if (this.selectedTeleportIndex === -1) this.selectedTeleportIndex = 0;
+
+        this.teleportConfirmModalActive = false;
+        this.teleportModalSelection = 'go'; // 'go' or 'cancel'
+
         this.teleportMeshes = [];
         this.isTeleportMode = false;
         this.teleportCooldownTicks = 0;
@@ -543,6 +571,15 @@ export class Engine {
         this.handleKeyDownExtra = e => {
             const key = e.key.toLowerCase();
             if (key === 'escape') {
+                if (this.isMap3DActive) {
+                    if (this.isTeleportMode) {
+                        this.toggleTeleportMap(false);
+                    } else {
+                        this.toggleMap3D();
+                    }
+                    e.preventDefault();
+                    return;
+                }
                 this.togglePause();
                 return;
             }
@@ -559,7 +596,70 @@ export class Engine {
             }
 
             if (this.isMap3DActive && !this.isIntroPlaying) {
-                // Change Floor
+                // Teleport Mode keys
+                if (this.isTeleportMode) {
+                    if (this.teleportConfirmModalActive) {
+                        if (key === 'a' || key === 'arrowleft' || key === 'd' || key === 'arrowright') {
+                            this.teleportModalSelection = this.teleportModalSelection === 'go' ? 'cancel' : 'go';
+                            e.preventDefault();
+                        }
+                        if (key === 'enter' || key === ' ' || key === 'y') {
+                            if (this.teleportModalSelection === 'go') {
+                                const targetT = this.allTeleports[this.selectedTeleportIndex];
+                                this.teleportTo(targetT.x, targetT.y, targetT.z);
+                                this.toggleTeleportMap(false);
+                            } else {
+                                this.teleportConfirmModalActive = false;
+                            }
+                            e.preventDefault();
+                        }
+                        if (key === 'escape' || key === 'backspace') {
+                            this.teleportConfirmModalActive = false;
+                            e.preventDefault();
+                        }
+                        return;
+                    }
+
+                    const selectable = this.getSelectableTeleportIndices();
+                    if (selectable.length > 0) {
+                        let currentIdx = selectable.indexOf(this.selectedTeleportIndex);
+                        if (key === 'a' || key === 'arrowleft') {
+                            currentIdx = (currentIdx - 1 + selectable.length) % selectable.length;
+                            this.selectedTeleportIndex = selectable[currentIdx];
+                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            this.activeMapFloor = targetT.z;
+                            this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
+                            e.preventDefault();
+                        }
+                        if (key === 'd' || key === 'arrowright') {
+                            currentIdx = (currentIdx + 1) % selectable.length;
+                            this.selectedTeleportIndex = selectable[currentIdx];
+                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            this.activeMapFloor = targetT.z;
+                            this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
+                            e.preventDefault();
+                        }
+                        if (key === 'enter' || key === ' ' || key === 'y') {
+                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            const px = Math.floor(this.player.x);
+                            const py = Math.floor(this.player.y);
+                            const pz = this.player.z;
+                            const isCurrent = targetT && targetT.x === px && targetT.y === py && targetT.z === pz;
+                            if (!isCurrent) {
+                                this.teleportConfirmModalActive = true;
+                                this.teleportModalSelection = 'go';
+                            }
+                            e.preventDefault();
+                        }
+                    }
+                    if (key === 'escape' || key === 'backspace') {
+                        this.toggleTeleportMap(false);
+                        e.preventDefault();
+                    }
+                    return;
+                }
+
+                // Normal Map Mode keys
                 if (key === 'q' || key === 'pagedown') {
                     if (this.activeMapFloor - 2 >= 1) {
                         this.activeMapFloor -= 2;
@@ -573,7 +673,6 @@ export class Engine {
                     e.preventDefault();
                 }
 
-                // Move Cursor
                 if (key === 'a' || key === 'arrowleft') {
                     this.navigateCursor('left');
                     e.preventDefault();
@@ -591,35 +690,14 @@ export class Engine {
                     e.preventDefault();
                 }
 
-                // Confirm Selection (Space or Enter)
-                if (key === 'enter' || key === ' ') {
+                if (key === 'enter' || key === ' ' || key === 'y') {
                     const x = this.mapCursor.x;
                     const y = this.mapCursor.y;
                     const z = this.mapCursor.z;
                     const elements = this.getInteractiveElements(this.activeMapFloor);
                     const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
                     if (isInteractive) {
-                        if (this.isTeleportMode) {
-                            const targetTeleport = elements.find(el => el.x === x && el.y === y && el.z === z && el.type === 'teleport');
-                            if (targetTeleport) {
-                                const isTargetInactive = this.inactiveTeleportPos && 
-                                                         this.inactiveTeleportPos.x === x && 
-                                                         this.inactiveTeleportPos.y === y && 
-                                                         this.inactiveTeleportPos.z === z;
-                                const px = Math.floor(this.player.x);
-                                const py = Math.floor(this.player.y);
-                                const pz = this.player.z;
-                                const isCurrentPos = x === px && y === py && z === pz;
-
-                                if (isCurrentPos) {
-                                    this.toggleTeleportMap(false);
-                                } else if (!isTargetInactive) {
-                                    this.teleportTo(x, y, z);
-                                }
-                            }
-                        } else {
-                            this.triggerPathReveal(x, y, z);
-                        }
+                        this.triggerPathReveal(x, y, z);
                     }
                     e.preventDefault();
                 }
@@ -1014,6 +1092,22 @@ export class Engine {
         });
     }
 
+    getSelectableTeleportIndices() {
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+        return this.allTeleports.map((t, idx) => ({ t, idx })).filter(item => {
+            const coordsStr = `${item.t.x},${item.t.y},${item.t.z}`;
+            const isDiscovered = this.discoveredTeleports.has(coordsStr);
+            const isInactive = this.inactiveTeleportPos && 
+                               item.t.x === this.inactiveTeleportPos.x && 
+                               item.t.y === this.inactiveTeleportPos.y && 
+                               item.t.z === this.inactiveTeleportPos.z;
+            const isCurrentPos = item.t.x === px && item.t.y === py && item.t.z === pz;
+            return isDiscovered && !isInactive && !isCurrentPos;
+        }).map(item => item.idx);
+    }
+
     updateGamepad(dt) {
         const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
         const gp = gamepads[0] || gamepads.find(g => g !== null);
@@ -1082,62 +1176,95 @@ export class Engine {
 
             this.prevGamepadStick = { left, right, up, down };
 
+            if (this.isTeleportMode) {
+                if (this.teleportConfirmModalActive) {
+                    if (justLeft || justPressed(14) || justRight || justPressed(15)) {
+                        this.teleportModalSelection = this.teleportModalSelection === 'go' ? 'cancel' : 'go';
+                    }
+                    if (justPressed(0) || justPressed(3) || justPressed(2)) { // A, Y, or X
+                        if (this.teleportModalSelection === 'go') {
+                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            this.teleportTo(targetT.x, targetT.y, targetT.z);
+                            this.toggleTeleportMap(false);
+                        } else {
+                            this.teleportConfirmModalActive = false;
+                        }
+                    }
+                    if (justPressed(1)) { // B button
+                        this.teleportConfirmModalActive = false;
+                    }
+                } else {
+                    const selectable = this.getSelectableTeleportIndices();
+                    if (selectable.length > 0) {
+                        let currentIdx = selectable.indexOf(this.selectedTeleportIndex);
+                        if (justLeft || justPressed(14)) {
+                            currentIdx = (currentIdx - 1 + selectable.length) % selectable.length;
+                            this.selectedTeleportIndex = selectable[currentIdx];
+                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            this.activeMapFloor = targetT.z;
+                            this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
+                        }
+                        if (justRight || justPressed(15)) {
+                            currentIdx = (currentIdx + 1) % selectable.length;
+                            this.selectedTeleportIndex = selectable[currentIdx];
+                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            this.activeMapFloor = targetT.z;
+                            this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
+                        }
+                        if (justPressed(0) || justPressed(3) || justPressed(2)) { // A, Y, or X
+                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            const px = Math.floor(this.player.x);
+                            const py = Math.floor(this.player.y);
+                            const pz = this.player.z;
+                            const isCurrent = targetT && targetT.x === px && targetT.y === py && targetT.z === pz;
+                            if (!isCurrent) {
+                                this.teleportConfirmModalActive = true;
+                                this.teleportModalSelection = 'go';
+                            }
+                        }
+                    }
+                    if (justPressed(1) || justPressed(8)) {
+                        this.toggleTeleportMap(false);
+                    }
+                }
+
+                this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+                return;
+            }
+
+            // Normal Map Mode Controls
             if (justLeft || justPressed(14)) this.navigateCursor('left');
             if (justRight || justPressed(15)) this.navigateCursor('right');
             if (justUp || justPressed(12)) this.navigateCursor('up');
             if (justDown || justPressed(13)) this.navigateCursor('down');
 
-            // Floor transition with A (Button 0) and Y (Button 3)
-            if (justPressed(0)) { // A button
+            // Floor transition with Bumpers or A (Button 0)
+            if (justPressed(0) || justPressed(4)) { // A or Left Bumper -> Floor Down
                 if (this.activeMapFloor - 2 >= 1) {
                     this.activeMapFloor -= 2;
                 }
             }
-            if (justPressed(3)) { // Y button
+            if (justPressed(5)) { // Right Bumper -> Floor Up
                 if (this.activeMapFloor + 2 <= this.mazeGen.size - 2) {
                     this.activeMapFloor += 2;
                 }
             }
 
-            // Confirm selection with X (Button 2)
-            if (justPressed(2)) {
+            // Confirm selection / trigger pathfinder with Y (Button 3) or X (Button 2)
+            if (justPressed(3) || justPressed(2)) {
                 const x = this.mapCursor.x;
                 const y = this.mapCursor.y;
                 const z = this.mapCursor.z;
                 const elements = this.getInteractiveElements(this.activeMapFloor);
                 const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
                 if (isInteractive) {
-                    if (this.isTeleportMode) {
-                        const targetTeleport = elements.find(el => el.x === x && el.y === y && el.z === z && el.type === 'teleport');
-                        if (targetTeleport) {
-                            const isTargetInactive = this.inactiveTeleportPos && 
-                                                     this.inactiveTeleportPos.x === x && 
-                                                     this.inactiveTeleportPos.y === y && 
-                                                     this.inactiveTeleportPos.z === z;
-                            const px = Math.floor(this.player.x);
-                            const py = Math.floor(this.player.y);
-                            const pz = this.player.z;
-                            const isCurrentPos = x === px && y === py && z === pz;
-
-                            if (isCurrentPos) {
-                                this.toggleTeleportMap(false);
-                            } else if (!isTargetInactive) {
-                                this.teleportTo(x, y, z);
-                            }
-                        }
-                    } else {
-                        this.triggerPathReveal(x, y, z);
-                    }
+                    this.triggerPathReveal(x, y, z);
                 }
             }
 
             // Exit Map with B (Button 1) or View (Button 8)
             if (justPressed(1) || justPressed(8)) {
-                if (this.isTeleportMode) {
-                    this.toggleTeleportMap(false);
-                } else {
-                    this.toggleMap3D();
-                }
+                this.toggleMap3D();
             }
 
             this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
@@ -3376,10 +3503,47 @@ export class Engine {
         
         if (show) {
             this.ui.setMap3DVisible(true);
-            this.build3DMap();
-            this.updateRendererSize();
+            
+            // Re-center active floor and cursor to player position
+            this.activeMapFloor = this.player.z;
+            this.visualActiveFloor = this.player.z;
+            this.mapCursor = {
+                x: Math.floor(this.player.x),
+                y: Math.floor(this.player.y),
+                z: this.player.z
+            };
+
+            // Re-sync selectedTeleportIndex to the current player position
+            const px = Math.floor(this.player.x);
+            const py = Math.floor(this.player.y);
+            const pz = this.player.z;
+            const currentIdx = this.allTeleports.findIndex(
+                t => t.x === px && t.y === py && t.z === pz
+            );
+            if (currentIdx !== -1) {
+                this.selectedTeleportIndex = currentIdx;
+            }
+
+            // Hide WebGL and show Isometric 2D
+            if (this.renderer && this.renderer.domElement) {
+                this.renderer.domElement.style.display = 'none';
+            }
+            const instEl = document.getElementById('map3d-instructions');
+            if (instEl) instEl.style.display = 'none';
+
+            if (!this.isometricCanvas) {
+                this.initIsometricCanvas();
+            } else {
+                this.isometricCanvas.style.display = 'block';
+            }
+            
+            this.teleportConfirmModalActive = false;
         } else {
             this.ui.setMap3DVisible(false);
+            if (this.isometricCanvas) {
+                this.isometricCanvas.style.display = 'none';
+            }
+            this.teleportConfirmModalActive = false;
         }
     }
 
@@ -3675,6 +3839,19 @@ export class Engine {
         // Click handler
         this.isometricCanvas.addEventListener('click', (e) => this.handleIsometricClick(e));
 
+        // Touch handler
+        this.isometricCanvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                const touch = e.touches[0];
+                const dummyEvent = {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                };
+                this.handleIsometricClick(dummyEvent);
+                e.preventDefault();
+            }
+        }, { passive: false });
+
         // Hover handler
         this.isometricCanvas.addEventListener('mousemove', (e) => {
             if (!this.isMap3DActive || this.isIntroPlaying) return;
@@ -3683,42 +3860,76 @@ export class Engine {
             const clickX = e.clientX - rect.left;
             const clickY = e.clientY - rect.top;
 
-            const size = this.mazeGen.size;
-            const activeZ = this.activeMapFloor;
+            this.isometricCanvas.style.cursor = 'default';
 
-            let tileWidth = (rect.width * 0.7) / size;
-            tileWidth = Math.max(20, Math.min(48, tileWidth));
-            const tileWidthHalf = tileWidth / 2;
-            const tileHeightHalf = tileWidth / 4;
-            const floorOffset = tileWidthHalf * 5;
-
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-
-            const floorsToTest = [];
-            if (activeZ + 2 <= size - 2) floorsToTest.push(activeZ + 2);
-            if (activeZ + 1 < size) floorsToTest.push(activeZ + 1);
-            floorsToTest.push(activeZ);
-            if (activeZ - 1 >= 0) floorsToTest.push(activeZ - 1);
-            if (activeZ - 2 >= 1) floorsToTest.push(activeZ - 2);
-
-            for (const z of floorsToTest) {
-                const Y_offset_adjusted = centerY - (z - activeZ) * floorOffset;
-                const A = (clickX - centerX) / tileWidthHalf;
-                const B = (clickY - Y_offset_adjusted) / tileHeightHalf;
-
-                const x = Math.round((A + B) / 2);
-                const y = Math.round((B - A) / 2);
-
-                if (x >= 0 && x < size && y >= 0 && y < size) {
-                    const elements = this.getInteractiveElements(activeZ);
-                    const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
-                    if (isInteractive) {
-                        this.mapCursor = { x, y, z };
-                        return;
+            // 1. Check Teleport Mode Hover
+            if (this.isTeleportMode) {
+                if (this.teleportConfirmModalActive && this.teleportModalClickRects) {
+                    for (const r of this.teleportModalClickRects) {
+                        if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
+                            this.teleportModalSelection = r.selection;
+                            this.isometricCanvas.style.cursor = 'pointer';
+                            return;
+                        }
+                    }
+                } else if (this.teleportDotsClickRects) {
+                    const selectable = this.getSelectableTeleportIndices();
+                    for (const r of this.teleportDotsClickRects) {
+                        if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
+                            if (selectable.includes(r.index)) {
+                                this.selectedTeleportIndex = r.index;
+                                const targetT = this.allTeleports[r.index];
+                                this.activeMapFloor = targetT.z;
+                                this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
+                                this.isometricCanvas.style.cursor = 'pointer';
+                                return;
+                            }
+                        }
                     }
                 }
             }
+
+            // 2. Normal Map Hover (Only outside teleport mode)
+            if (!this.isTeleportMode) {
+                const size = this.mazeGen.size;
+                const activeZ = this.activeMapFloor;
+
+                let tileWidth = (rect.width * 0.7) / size;
+                tileWidth = Math.max(20, Math.min(48, tileWidth));
+                const tileWidthHalf = tileWidth / 2;
+                const tileHeightHalf = tileWidth / 4;
+                const floorOffset = tileWidthHalf * 5;
+
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+
+                const floorsToTest = [];
+                if (activeZ + 2 <= size - 2) floorsToTest.push(activeZ + 2);
+                if (activeZ + 1 < size) floorsToTest.push(activeZ + 1);
+                floorsToTest.push(activeZ);
+                if (activeZ - 1 >= 0) floorsToTest.push(activeZ - 1);
+                if (activeZ - 2 >= 1) floorsToTest.push(activeZ - 2);
+
+                for (const z of floorsToTest) {
+                    const Y_offset_adjusted = centerY - (z - activeZ) * floorOffset;
+                    const A = (clickX - centerX) / tileWidthHalf;
+                    const B = (clickY - Y_offset_adjusted) / tileHeightHalf;
+
+                    const x = Math.round((A + B) / 2);
+                    const y = Math.round((B - A) / 2);
+
+                    if (x >= 0 && x < size && y >= 0 && y < size) {
+                        const elements = this.getInteractiveElements(activeZ);
+                        const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
+                        if (isInteractive) {
+                            this.mapCursor = { x, y, z };
+                            this.isometricCanvas.style.cursor = 'pointer';
+                            return;
+                        }
+                    }
+                }
+            }
+
         });
     }
 
@@ -3728,6 +3939,48 @@ export class Engine {
         const rect = this.isometricCanvas.getBoundingClientRect();
         const clickX = event.clientX - rect.left;
         const clickY = event.clientY - rect.top;
+
+        // Teleport Selection Click Checks
+        if (this.isTeleportMode) {
+            if (this.teleportConfirmModalActive) {
+                if (this.teleportModalClickRects) {
+                    for (const r of this.teleportModalClickRects) {
+                        if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
+                            if (r.selection === 'go') {
+                                const targetT = this.allTeleports[this.selectedTeleportIndex];
+                                this.teleportTo(targetT.x, targetT.y, targetT.z);
+                                this.toggleTeleportMap(false);
+                            } else {
+                                this.teleportConfirmModalActive = false;
+                            }
+                            return;
+                        }
+                    }
+                }
+                // Click outside modal cancels it
+                this.teleportConfirmModalActive = false;
+                return;
+            }
+
+            if (this.teleportDotsClickRects) {
+                const match = this.teleportDotsClickRects.find(r => clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h);
+                if (match) {
+                    const selectable = this.getSelectableTeleportIndices();
+                    if (selectable.includes(match.index)) {
+                        if (this.selectedTeleportIndex === match.index) {
+                            this.teleportConfirmModalActive = true;
+                            this.teleportModalSelection = 'go';
+                        } else {
+                            this.selectedTeleportIndex = match.index;
+                            const targetT = this.allTeleports[match.index];
+                            this.activeMapFloor = targetT.z;
+                            this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
+                        }
+                    }
+                    return;
+                }
+            }
+        }
 
         // 1. Check if clicked on a floor box
         if (this.floorClickRects) {
@@ -3772,27 +4025,23 @@ export class Engine {
                 const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
                 
                 if (isInteractive) {
-                    this.mapCursor = { x, y, z };
-                    
                     if (this.isTeleportMode) {
                         const targetTeleport = elements.find(el => el.x === x && el.y === y && el.z === z && el.type === 'teleport');
                         if (targetTeleport) {
-                            const isTargetInactive = this.inactiveTeleportPos && 
-                                                     this.inactiveTeleportPos.x === x && 
-                                                     this.inactiveTeleportPos.y === y && 
-                                                     this.inactiveTeleportPos.z === z;
-                            const px = Math.floor(this.player.x);
-                            const py = Math.floor(this.player.y);
-                            const pz = this.player.z;
-                            const isCurrentPos = x === px && y === py && z === pz;
-
-                            if (isCurrentPos) {
-                                this.toggleTeleportMap(false);
-                            } else if (!isTargetInactive) {
-                                this.teleportTo(x, y, z);
+                            const index = this.allTeleports.findIndex(t => t.x === x && t.y === y && t.z === z);
+                            const selectable = this.getSelectableTeleportIndices();
+                            if (index !== -1 && selectable.includes(index)) {
+                                if (this.selectedTeleportIndex === index) {
+                                    this.teleportConfirmModalActive = true;
+                                    this.teleportModalSelection = 'go';
+                                } else {
+                                    this.selectedTeleportIndex = index;
+                                    this.mapCursor = { x, y, z };
+                                }
                             }
                         }
                     } else {
+                        this.mapCursor = { x, y, z };
                         this.triggerPathReveal(x, y, z);
                     }
                     return;
@@ -3973,7 +4222,7 @@ export class Engine {
                     const isShaftVisited = val === TYPES.ELEVATOR_VISITED;
                     const isShaftKnown = (val === 1) && (isFloorVisited(x, y, z - 1) || isFloorVisited(x, y, z + 1));
 
-                    if (isShaftKnown || isShaftVisited) {
+                    if (isShaftKnown && !isShaftVisited && isFloorVisited(x, y, activeZ)) {
                         elements.push({ x, y, z, type: 'shaft' });
                     }
                 }
@@ -4237,6 +4486,8 @@ export class Engine {
                             } else if (isExit) {
                                 const isUnlocked = this.keysCollected === this.totalKeys;
                                 color = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
+                            } else if (isTeleportDiscovered) {
+                                color = '#ffd700';
                             } else if (isVisited) {
                                 if (val === TYPES.START) {
                                     color = CONFIG.COLORS.START;
@@ -4298,7 +4549,7 @@ export class Engine {
                     const isShaftVisited = val === TYPES.ELEVATOR_VISITED;
                     const isShaftKnown = (val === 1) && (isFloorVisited(x, y, z - 1) || isFloorVisited(x, y, z + 1));
 
-                    if (isShaftVisited || isShaftKnown || isRevealedPath) {
+                    if (isRevealedPath || isFloorVisited(x, y, activeZ)) {
                         const coordsBottom = getIsoCoords(x, y, z - 1);
                         coordsBottom.y -= 1.5; // sit exactly on top of lower floor's box
                         
@@ -4660,6 +4911,289 @@ export class Engine {
                 h: rectH
             });
         });
+
+        // 3. Draw Pathfinder HUD Panel (Normal Map Mode only)
+        if (!this.isTeleportMode) {
+            const rectX = 25;
+            const rectY = 30;
+            const rectW = 120;
+            const rectH = 36;
+
+            ctx.save();
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 6;
+
+            ctx.beginPath();
+            ctx.moveTo(rectX + 6, rectY);
+            ctx.lineTo(rectX + rectW, rectY);
+            ctx.lineTo(rectX + rectW, rectY + rectH - 6);
+            ctx.lineTo(rectX + rectW - 6, rectY + rectH);
+            ctx.lineTo(rectX, rectY + rectH);
+            ctx.lineTo(rectX, rectY + 6);
+            ctx.closePath();
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
+            ctx.font = "bold 8px 'Roboto', sans-serif";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('PATHFINDERS', rectX + rectW / 2, rectY + 5);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = "bold 13px 'Roboto', sans-serif";
+            ctx.textBaseline = 'top';
+            ctx.fillText(`${this.pathfindersRemaining} / ${this.totalPathfinders}`, rectX + rectW / 2, rectY + 16);
+        }
+
+        // 3. Draw Teleport Header Banner
+        if (this.isTeleportMode) {
+            const bannerW = 180;
+            const bannerH = 38;
+            const bannerX = width / 2 - bannerW / 2;
+            const bannerY = 30;
+
+            ctx.save();
+            ctx.shadowColor = '#ff8c00';
+            ctx.shadowBlur = 12;
+
+            ctx.beginPath();
+            ctx.moveTo(bannerX + 8, bannerY);
+            ctx.lineTo(bannerX + bannerW - 8, bannerY);
+            ctx.lineTo(bannerX + bannerW, bannerY + 8);
+            ctx.lineTo(bannerX + bannerW, bannerY + bannerH - 8);
+            ctx.lineTo(bannerX + bannerW - 8, bannerY + bannerH);
+            ctx.lineTo(bannerX + 8, bannerY + bannerH);
+            ctx.lineTo(bannerX, bannerY + bannerH - 8);
+            ctx.lineTo(bannerX, bannerY + 8);
+            ctx.closePath();
+
+            ctx.fillStyle = 'rgba(255, 140, 0, 0.22)';
+            ctx.strokeStyle = '#ff8c00';
+            ctx.lineWidth = 2.5;
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = "bold 15px 'Roboto', sans-serif";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('TELEPORT', width / 2, bannerY + bannerH / 2);
+        }
+
+        // 3. Draw Teleport Selection Dots UI Dock
+        if (this.isTeleportMode) {
+            const spacing = 28;
+            const numTeleports = this.allTeleports.length;
+            const totalDotsWidth = (numTeleports - 1) * spacing;
+            const dotY = height - 50;
+            const startX = width / 2 - totalDotsWidth / 2;
+
+            // Draw glassmorphic dock container background
+            const dockW = totalDotsWidth + 50;
+            const dockH = 34;
+            const dockX = width / 2 - dockW / 2;
+            const dockYPos = dotY - dockH / 2;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(dockX + 6, dockYPos);
+            ctx.lineTo(dockX + dockW - 6, dockYPos);
+            ctx.lineTo(dockX + dockW, dockYPos + 6);
+            ctx.lineTo(dockX + dockW, dockYPos + dockH - 6);
+            ctx.lineTo(dockX + dockW - 6, dockYPos + dockH);
+            ctx.lineTo(dockX + 6, dockYPos + dockH);
+            ctx.lineTo(dockX, dockYPos + dockH - 6);
+            ctx.lineTo(dockX, dockYPos + 6);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.25)';
+            ctx.lineWidth = 1;
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            this.teleportDotsClickRects = [];
+            const selectable = this.getSelectableTeleportIndices();
+
+            this.allTeleports.forEach((t, idx) => {
+                const dotX = startX + idx * spacing;
+                const coordsStr = `${t.x},${t.y},${t.z}`;
+                const isDiscovered = this.discoveredTeleports.has(coordsStr);
+                const isSelected = (idx === this.selectedTeleportIndex);
+                const isPlayerHere = (t.x === Math.floor(this.player.x) && t.y === Math.floor(this.player.y) && t.z === this.player.z);
+                const isInactive = this.inactiveTeleportPos && 
+                                   (t.x === this.inactiveTeleportPos.x && t.y === this.inactiveTeleportPos.y && t.z === this.inactiveTeleportPos.z);
+
+                ctx.save();
+
+                if (!isDiscovered) {
+                    // Locked/Undiscovered Dot (Grey/Lock representation)
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(100, 100, 100, 0.45)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                    ctx.stroke();
+                } else if (isInactive) {
+                    // Inactive Dot (crossed/faded)
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, 4.5, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 45, 0, 0.2)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255, 45, 0, 0.4)';
+                    ctx.lineWidth = 1.2;
+                    ctx.stroke();
+                } else {
+                    // Active Discovered Dot
+                    if (isSelected) {
+                        // Bouncing/glowing highlight
+                        ctx.shadowColor = '#00ffff';
+                        ctx.shadowBlur = 8;
+                        const pulse = 1.0 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() / 120));
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, 9 * pulse, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(0, 255, 255, 0.18)';
+                        ctx.fill();
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, isSelected ? 6.5 : 4.5, 0, Math.PI * 2);
+                    ctx.fillStyle = isSelected ? '#ffffff' : '#00b3ff';
+                    ctx.fill();
+                    ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
+                    ctx.lineWidth = isSelected ? 1.5 : 1;
+                    ctx.stroke();
+
+                    // Mini inner core if player is on it
+                    if (isPlayerHere) {
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, isSelected ? 2.5 : 1.8, 0, Math.PI * 2);
+                        ctx.fillStyle = '#39ff14'; // glowing green core
+                        ctx.fill();
+                    }
+                }
+
+                ctx.restore();
+
+                this.teleportDotsClickRects.push({
+                    x: dotX - 12,
+                    y: dotY - 12,
+                    w: 24,
+                    h: 24,
+                    index: idx
+                });
+            });
+
+            // 4. Draw Teleport Confirmation Modal Overlay
+            if (this.teleportConfirmModalActive) {
+                // Dim screen background
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(0, 0, width, height);
+
+                const modalW = 280;
+                const modalH = 135;
+                const modalX = width / 2 - modalW / 2;
+                const modalY = height / 2 - modalH / 2;
+
+                ctx.save();
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 14;
+                ctx.beginPath();
+                ctx.moveTo(modalX + 10, modalY);
+                ctx.lineTo(modalX + modalW - 10, modalY);
+                ctx.lineTo(modalX + modalW, modalY + 10);
+                ctx.lineTo(modalX + modalW, modalY + modalH - 10);
+                ctx.lineTo(modalX + modalW - 10, modalY + modalH);
+                ctx.lineTo(modalX + 10, modalY + modalH);
+                ctx.lineTo(modalX, modalY + modalH - 10);
+                ctx.lineTo(modalX, modalY + 10);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(10, 18, 30, 0.94)';
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 2;
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+
+                // Modal Title
+                ctx.fillStyle = '#00ffff';
+                ctx.font = "bold 12px 'Roboto', sans-serif";
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText('TELEPORTATION LINK', width / 2, modalY + 14);
+
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(modalX + 15, modalY + 28);
+                ctx.lineTo(modalX + modalW - 15, modalY + 28);
+                ctx.stroke();
+
+                // Modal Message details
+                const targetT = this.allTeleports[this.selectedTeleportIndex];
+                ctx.fillStyle = '#ffffff';
+                ctx.font = "bold 12px 'Roboto', sans-serif";
+                ctx.fillText(`Jump to Sector ${((targetT.z + 1) / 2)}F?`, width / 2, modalY + 44);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.font = "11px 'Roboto', sans-serif";
+                ctx.fillText(`Target Grid: (${targetT.x}, ${targetT.y})`, width / 2, modalY + 62);
+
+                // GO / CANCEL Buttons
+                const buttonW = 85;
+                const buttonH = 26;
+                const btnGoX = width / 2 - buttonW - 12;
+                const btnGoY = modalY + 86;
+                const btnCancelX = width / 2 + 12;
+                const btnCancelY = modalY + 86;
+
+                this.teleportModalClickRects = [
+                    { x: btnGoX, y: btnGoY, w: buttonW, h: buttonH, selection: 'go' },
+                    { x: btnCancelX, y: btnCancelY, w: buttonW, h: buttonH, selection: 'cancel' }
+                ];
+
+                const drawModalButton = (bx, by, label, selectionVal) => {
+                    const isSel = (this.teleportModalSelection === selectionVal);
+                    ctx.save();
+                    if (isSel) {
+                        ctx.shadowColor = '#00ffff';
+                        ctx.shadowBlur = 8;
+                    }
+                    ctx.beginPath();
+                    ctx.moveTo(bx + 4, by);
+                    ctx.lineTo(bx + buttonW - 4, by);
+                    ctx.lineTo(bx + buttonW, by + 4);
+                    ctx.lineTo(bx + buttonW, by + buttonH - 4);
+                    ctx.lineTo(bx + buttonW - 4, by + buttonH);
+                    ctx.lineTo(bx + 4, by + buttonH);
+                    ctx.lineTo(bx, by + buttonH - 4);
+                    ctx.lineTo(bx, by + 4);
+                    ctx.closePath();
+                    
+                    ctx.fillStyle = isSel ? 'rgba(0, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.6)';
+                    ctx.strokeStyle = isSel ? '#00ffff' : 'rgba(0, 255, 255, 0.35)';
+                    ctx.lineWidth = isSel ? 2 : 1;
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+
+                    ctx.fillStyle = isSel ? '#ffffff' : '#00ffff';
+                    ctx.font = "bold 11px 'Roboto', sans-serif";
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(label, bx + buttonW / 2, by + buttonH / 2);
+                };
+
+                drawModalButton(btnGoX, btnGoY, 'GO', 'go');
+                drawModalButton(btnCancelX, btnCancelY, 'CANCEL', 'cancel');
+            }
+        }
     }
 }
 

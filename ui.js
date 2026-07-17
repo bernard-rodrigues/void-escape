@@ -264,11 +264,7 @@ export class UIManager {
      */
     setTeleportWarning(visible) {
         if (this.uiTeleportWarning) {
-            if (visible) {
-                this.uiTeleportWarning.classList.remove('hidden');
-            } else {
-                this.uiTeleportWarning.classList.add('hidden');
-            }
+            this.uiTeleportWarning.classList.add('hidden');
         }
     }
 

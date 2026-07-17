@@ -1451,14 +1451,13 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
     left: 50%;
     transform: translateX(-50%);
     color: var(--clr-teleport);
-    font-size: calc(var(--h-unit) * 2.5);
-    font-size: calc(var(--d-h-unit) * 2.5);
+    font-size: calc(var(--h-unit) * 2.8);
+    font-size: calc(var(--d-h-unit) * 2.8);
     font-weight: bold;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-family: monospace;
+    letter-spacing: 0.15em;
+    font-family: 'Roboto', sans-serif;
     z-index: 1005;
-    animation: pulse-orange 1s infinite;
     pointer-events: none;
     text-align: center;
 }
