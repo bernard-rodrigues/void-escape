@@ -1840,3 +1840,17 @@ body:has(#map3d-container:not(.hidden)) #mobile-zoom-btn {
     display: none !important;
 }
 
+/* Custom focus outline for menu navigation */
+.menu-focused {
+    outline: 2px solid var(--clr-neon) !important;
+    box-shadow: 0 0 14px var(--clr-neon) !important;
+    transform: scale(1.025);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* Adjust outline behavior for slider and checkbox containers */
+.switch.menu-focused,
+.control-group input[type="range"].menu-focused {
+    transform: scale(1.01);
+}
+

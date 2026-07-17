@@ -174,3 +174,233 @@ window.addEventListener('touchmove', (e) => {
         }
     }
 }, { passive: false });
+
+// Unified Menu Keyboard & Gamepad Navigation System
+let menuFocusIndex = 0;
+let lastActiveScreen = null;
+
+function getActiveMenuElements() {
+    const startMenu = document.getElementById('start-menu');
+    const pauseScreen = document.getElementById('pause-screen');
+    const victoryScreen = document.getElementById('victory-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+
+    if (startMenu && !startMenu.classList.contains('hidden') && startMenu.style.display !== 'none') {
+        const list = [];
+        const degreeInput = document.getElementById('maze-degree');
+        const safeModeCheckbox = document.getElementById('safe-mode');
+        const startBtn = document.getElementById('start-btn');
+        const continueBtn = document.getElementById('continue-btn-menu');
+
+        if (degreeInput) list.push(degreeInput);
+        if (safeModeCheckbox) list.push(safeModeCheckbox);
+        if (startBtn) list.push(startBtn);
+        if (continueBtn && continueBtn.style.display !== 'none') list.push(continueBtn);
+
+        return list;
+    }
+
+    if (pauseScreen && !pauseScreen.classList.contains('hidden')) {
+        const list = [];
+        const resumeBtn = document.getElementById('resume-btn');
+        const menuBtn = document.getElementById('menu-btn-pause');
+        if (resumeBtn) list.push(resumeBtn);
+        if (menuBtn) list.push(menuBtn);
+        return list;
+    }
+
+    if (victoryScreen && !victoryScreen.classList.contains('hidden')) {
+        const list = [];
+        const restartBtn = document.getElementById('restart-btn-victory');
+        const menuBtn = document.getElementById('menu-btn-victory');
+        if (restartBtn) list.push(restartBtn);
+        if (menuBtn) list.push(menuBtn);
+        return list;
+    }
+
+    if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
+        const list = [];
+        const continueBtn = document.getElementById('continue-btn-death');
+        const retryBtn = document.getElementById('retry-btn-death');
+        const menuBtn = document.getElementById('menu-btn-death');
+        if (continueBtn && continueBtn.style.display !== 'none') list.push(continueBtn);
+        if (retryBtn) list.push(retryBtn);
+        if (menuBtn) list.push(menuBtn);
+        return list;
+    }
+
+    return [];
+}
+
+function updateMenuFocus() {
+    const elements = getActiveMenuElements();
+    
+    // Reset index if active screen changed
+    let activeScreen = null;
+    if (elements.length > 0) {
+        activeScreen = elements[0].closest('section');
+    }
+    if (activeScreen !== lastActiveScreen) {
+        lastActiveScreen = activeScreen;
+        menuFocusIndex = 0;
+    }
+
+    const allIds = [
+        'maze-degree', 'safe-mode', 'start-btn', 'continue-btn-menu',
+        'resume-btn', 'menu-btn-pause',
+        'restart-btn-victory', 'menu-btn-victory',
+        'continue-btn-death', 'retry-btn-death', 'menu-btn-death'
+    ];
+    allIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('menu-focused');
+    });
+
+    if (elements.length === 0) return;
+
+    if (menuFocusIndex < 0) menuFocusIndex = elements.length - 1;
+    if (menuFocusIndex >= elements.length) menuFocusIndex = 0;
+
+    const activeEl = elements[menuFocusIndex];
+    if (activeEl) {
+        activeEl.classList.add('menu-focused');
+        activeEl.focus();
+    }
+}
+
+// Keyboard events
+window.addEventListener('keydown', (e) => {
+    const elements = getActiveMenuElements();
+    if (elements.length === 0) return;
+
+    const key = e.key.toLowerCase();
+    const activeEl = elements[menuFocusIndex];
+
+    if (key === 'arrowup' || key === 'w') {
+        menuFocusIndex--;
+        updateMenuFocus();
+        e.preventDefault();
+    } else if (key === 'arrowdown' || key === 's') {
+        menuFocusIndex++;
+        updateMenuFocus();
+        e.preventDefault();
+    } else if (key === 'arrowleft' || key === 'a' || key === 'arrowright' || key === 'd') {
+        if (activeEl) {
+            if (activeEl.id === 'maze-degree') {
+                let val = parseInt(activeEl.value);
+                if (key === 'arrowleft' || key === 'a') {
+                    activeEl.value = Math.max(3, val - 1);
+                } else {
+                    activeEl.value = Math.min(16, val + 1);
+                }
+                activeEl.dispatchEvent(new Event('input'));
+                activeEl.dispatchEvent(new Event('change'));
+                e.preventDefault();
+            } else if (activeEl.id === 'safe-mode') {
+                activeEl.checked = !activeEl.checked;
+                activeEl.dispatchEvent(new Event('change'));
+                e.preventDefault();
+            }
+        }
+    } else if (key === 'enter' || key === ' ') {
+        if (activeEl) {
+            if (activeEl.id === 'safe-mode' && key === ' ') {
+                // let browser handle space naturally
+            } else {
+                activeEl.click();
+                e.preventDefault();
+            }
+        }
+    }
+});
+
+// Gamepad polling loop for menus
+let prevGamepadMenuButtons = [];
+let prevGamepadMenuAxes = { x: 0, y: 0 };
+
+function pollGamepadMenu() {
+    const elements = getActiveMenuElements();
+    if (elements.length > 0) {
+        const activeScreen = elements[0].closest('section');
+        if (activeScreen !== lastActiveScreen) {
+            lastActiveScreen = activeScreen;
+            menuFocusIndex = 0;
+            updateMenuFocus();
+        }
+    } else {
+        lastActiveScreen = null;
+    }
+
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
+    if (!gp) {
+        requestAnimationFrame(pollGamepadMenu);
+        return;
+    }
+
+    const deadzone = 0.4;
+    const axisX = gp.axes[0];
+    const axisY = gp.axes[1];
+    let up = axisY < -deadzone;
+    let down = axisY > deadzone;
+    let left = axisX < -deadzone;
+    let right = axisX > deadzone;
+
+    if (gp.buttons[12] && gp.buttons[12].pressed) up = true;
+    if (gp.buttons[13] && gp.buttons[13].pressed) down = true;
+    if (gp.buttons[14] && gp.buttons[14].pressed) left = true;
+    if (gp.buttons[15] && gp.buttons[15].pressed) right = true;
+
+    const justUp = up && prevGamepadMenuAxes.y >= -deadzone;
+    const justDown = down && prevGamepadMenuAxes.y <= deadzone;
+    const justLeft = left && prevGamepadMenuAxes.x >= -deadzone;
+    const justRight = right && prevGamepadMenuAxes.x <= deadzone;
+
+    prevGamepadMenuAxes = {
+        x: left ? -1 : (right ? 1 : 0),
+        y: up ? -1 : (down ? 1 : 0)
+    };
+
+    if (elements.length > 0) {
+        const activeEl = elements[menuFocusIndex];
+
+        if (justUp) {
+            menuFocusIndex--;
+            updateMenuFocus();
+        } else if (justDown) {
+            menuFocusIndex++;
+            updateMenuFocus();
+        } else if (justLeft || justRight) {
+            if (activeEl) {
+                if (activeEl.id === 'maze-degree') {
+                    let val = parseInt(activeEl.value);
+                    if (justLeft) {
+                        activeEl.value = Math.max(3, val - 1);
+                    } else {
+                        activeEl.value = Math.min(16, val + 1);
+                    }
+                    activeEl.dispatchEvent(new Event('input'));
+                    activeEl.dispatchEvent(new Event('change'));
+                } else if (activeEl.id === 'safe-mode') {
+                    activeEl.checked = !activeEl.checked;
+                    activeEl.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+
+        const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
+        const justPressed = (btnIdx) => isPressed(btnIdx) && !prevGamepadMenuButtons[btnIdx];
+
+        if (justPressed(0) || justPressed(3) || justPressed(9)) {
+            if (activeEl) {
+                activeEl.click();
+            }
+        }
+    }
+
+    prevGamepadMenuButtons = gp.buttons.map(b => b.pressed);
+    requestAnimationFrame(pollGamepadMenu);
+}
+
+// Start Gamepad Polling
+requestAnimationFrame(pollGamepadMenu);
