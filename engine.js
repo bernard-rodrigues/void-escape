@@ -3850,20 +3850,22 @@ export class Engine {
             this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
         }
 
-        const nTicks = Math.floor(this.degree * 1.5) + 3;
-        this.teleportCooldownTicks = nTicks;
-        this.inactiveTeleportPos = { x, y, z };
+        if (!this.isSafeMode) {
+            const nTicks = Math.floor(this.degree * 1.5) + 3;
+            this.teleportCooldownTicks = nTicks;
+            this.inactiveTeleportPos = { x, y, z };
 
-        this.ui.updateCooldownTimer(this.teleportCooldownTicks);
-        this.ui.showInfoBanner(getTranslation('msgOopsNoisyShit'));
+            this.ui.updateCooldownTimer(this.teleportCooldownTicks);
+            this.ui.showInfoBanner(getTranslation('msgOopsNoisyShit'));
 
-        for (const hunter of this.hunters) {
-            hunter.state = 'TELEPORT_TRACKING';
-            const path = hunter.findPathToTarget({ x, y, z }, this.maze, this.mazeGen.TYPES);
-            if (path) {
-                hunter.pathToTarget = path;
-            } else {
-                hunter.pathToTarget = [];
+            for (const hunter of this.hunters) {
+                hunter.state = 'TELEPORT_TRACKING';
+                const path = hunter.findPathToTarget({ x, y, z }, this.maze, this.mazeGen.TYPES);
+                if (path) {
+                    hunter.pathToTarget = path;
+                } else {
+                    hunter.pathToTarget = [];
+                }
             }
         }
         
