@@ -81,7 +81,7 @@ export const TRANSLATIONS = {
 
         // 3D Map Interface Instructions
         map3dInstructions: "Drag to rotate | Scroll to zoom | M to return",
-        teleportWarning: "CLICK ON A TELEPORT POINT",
+        teleportWarning: "TELEPORT",
 
         // Mobile Buttons
         map: "MAP",

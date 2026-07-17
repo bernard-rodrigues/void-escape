@@ -92,7 +92,8 @@ export function saveGame(engine) {
             totalKeys: engine.totalKeys,
             // Pathfinder state
             totalPathfinders: engine.totalPathfinders,
-            pathfindersRemaining: engine.pathfindersRemaining
+            pathfindersRemaining: engine.pathfindersRemaining,
+            pathfinderRewardsGranted: engine.pathfinderRewardsGranted !== undefined ? engine.pathfinderRewardsGranted : 0
         };
 
         localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));
