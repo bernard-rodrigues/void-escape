@@ -26,6 +26,12 @@ body {
     font-family: 'Roboto', sans-serif;
     overflow: hidden;
     touch-action: manipulation;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
 }
 
 .hidden {
@@ -528,8 +534,6 @@ body {
 .popup-container.victory {
     border-color: var(--clr-victory);
     color: var(--clr-victory);
-    box-shadow: 0 0 calc(var(--h-unit) * 3) rgba(0, 255, 102, 0.25);
-    box-shadow: 0 0 calc(var(--d-h-unit) * 3) rgba(0, 255, 102, 0.25);
 }
 
 .popup-container.victory h1 {
@@ -552,8 +556,6 @@ body {
 
 #victory-completion-rate {
     color: var(--clr-victory);
-    text-shadow: 0 0 calc(var(--h-unit) * 1) rgba(0, 255, 102, 0.4);
-    text-shadow: 0 0 calc(var(--d-h-unit) * 1) rgba(0, 255, 102, 0.4);
 }
 
 #game-over-screen {
@@ -574,8 +576,6 @@ body {
 .popup-container.death {
     border-color: var(--clr-hazard);
     color: var(--clr-hazard);
-    box-shadow: 0 0 calc(var(--h-unit) * 3) rgba(255, 0, 85, 0.25);
-    box-shadow: 0 0 calc(var(--d-h-unit) * 3) rgba(255, 0, 85, 0.25);
 }
 
 .popup-container.death h1 {
@@ -654,7 +654,6 @@ body {
     background: rgba(10, 10, 10, 0.75);
     border: calc(var(--h-unit) * 0.2) solid var(--clr-border);
     border: calc(var(--d-h-unit) * 0.2) solid var(--clr-border);
-    box-shadow: 0 0 calc(var(--h-unit) * 1.5) rgba(0, 255, 255, 0.15);
     border-radius: calc(var(--h-unit) * 0.8);
     backdrop-filter: blur(8px);
     width: calc(var(--h-unit) * 14);
@@ -770,7 +769,7 @@ body {
 .key-indicator-dot.collected {
     background-color: #ffd700;
     border-color: #fff;
-    box-shadow: 0 0 10px #ffd700, inset 0 0 2px #fff;
+    box-shadow: inset 0 0 2px #fff;
 }
 
 #main-2d-canvas {
@@ -924,7 +923,6 @@ body {
     background: rgba(10, 10, 10, 0.75);
     border: calc(var(--h-unit) * 0.2) solid var(--clr-border);
     border: calc(var(--d-h-unit) * 0.2) solid var(--clr-border);
-    box-shadow: 0 0 calc(var(--h-unit) * 1.5) rgba(0, 255, 255, 0.15);
     border-radius: calc(var(--h-unit) * 0.8);
     backdrop-filter: blur(8px);
     padding: calc(var(--h-unit) * 1.5);
@@ -1012,33 +1010,10 @@ body {
     cursor: grabbing;
 }
 
-#map3d-instructions {
-    position: absolute;
-    bottom: calc(var(--h-unit) * 3);
-    bottom: calc(var(--d-h-unit) * 3);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--clr-neon-dim);
-    padding: var(--h-unit) calc(var(--h-unit) * 2);
-    padding: var(--d-h-unit) calc(var(--d-h-unit) * 2);
-    border: calc(var(--h-unit) * 0.1) solid var(--clr-neon);
-    border: calc(var(--d-h-unit) * 0.1) solid var(--clr-neon);
-    border-radius: calc(var(--h-unit) * 2);
-    border-radius: calc(var(--d-h-unit) * 2);
-    color: var(--clr-neon);
-    font-size: calc(var(--h-unit) * 1.5);
-    font-size: calc(var(--d-h-unit) * 1.5);
-    pointer-events: none;
-    text-transform: uppercase;
-    letter-spacing: calc(var(--h-unit) * 0.1);
-    letter-spacing: calc(var(--d-h-unit) * 0.1);
-}
-
 #controls-hint {
     background: rgba(10, 10, 10, 0.75);
     border: calc(var(--h-unit) * 0.2) solid var(--clr-border);
     border: calc(var(--d-h-unit) * 0.2) solid var(--clr-border);
-    box-shadow: 0 0 calc(var(--h-unit) * 1.5) rgba(0, 255, 255, 0.15);
     border-radius: calc(var(--h-unit) * 0.8);
     backdrop-filter: blur(8px);
     padding: calc(var(--h-unit) * 1.5);
@@ -1232,8 +1207,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
         gap: calc(var(--d-h-unit) * 1.2);
         margin-bottom: calc(var(--h-unit) * 15); /* Margem no bottom para não bater nos mobile controls fixos */
         margin-bottom: calc(var(--d-h-unit) * 15);
-        box-shadow: 0 0 calc(var(--h-unit) * 1) rgba(0, 255, 255, 0.1);
-        box-shadow: 0 0 calc(var(--d-h-unit) * 1) rgba(0, 255, 255, 0.1);
         box-sizing: border-box;
     }
     #left-hud-panel .hud-item-group {
@@ -1288,8 +1261,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
         background: rgba(10, 10, 10, 0.75);
         border: calc(var(--h-unit) * 0.2) solid var(--clr-border);
         border: calc(var(--d-h-unit) * 0.2) solid var(--clr-border);
-        box-shadow: 0 0 calc(var(--h-unit) * 1) rgba(0, 255, 255, 0.1);
-        box-shadow: 0 0 calc(var(--d-h-unit) * 1) rgba(0, 255, 255, 0.1);
         border-radius: calc(var(--h-unit) * 0.8);
         border-radius: calc(var(--d-h-unit) * 0.8);
         backdrop-filter: blur(8px);
@@ -1442,24 +1413,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
         font-size: calc(var(--h-unit) * 2);
         font-size: calc(var(--d-h-unit) * 2);
     }
-}
-
-#teleport-warning {
-    position: fixed;
-    top: calc(var(--h-unit) * 10);
-    top: calc(var(--d-h-unit) * 10);
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--clr-teleport);
-    font-size: calc(var(--h-unit) * 2.8);
-    font-size: calc(var(--d-h-unit) * 2.8);
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    font-family: 'Roboto', sans-serif;
-    z-index: 1005;
-    pointer-events: none;
-    text-align: center;
 }
 
 #info-banner {
@@ -1634,12 +1587,7 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
         margin-top: calc(var(--h-unit) * 3);
         margin-top: calc(var(--d-h-unit) * 3);
     }
-    #teleport-warning {
-        top: calc(var(--h-unit) * 2);
-        top: calc(var(--d-h-unit) * 2);
-        font-size: calc(var(--h-unit) * 2);
-        font-size: calc(var(--d-h-unit) * 2);
-    }
+
     #teleport-info {
         top: calc(var(--h-unit) * 6);
         top: calc(var(--d-h-unit) * 6);
@@ -1787,8 +1735,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
 .popup-container.pause {
     border-color: #ff9f00; /* Neon Amber/Orange for Pause screen */
     color: #ff9f00;
-    box-shadow: 0 0 calc(var(--h-unit) * 3) rgba(255, 159, 0, 0.25);
-    box-shadow: 0 0 calc(var(--d-h-unit) * 3) rgba(255, 159, 0, 0.25);
 }
 
 .popup-container.pause h1 {
@@ -1877,5 +1823,24 @@ body:has(#map3d-container:not(.hidden)) #mobile-down,
 body:has(#map3d-container:not(.hidden)) #mobile-up,
 body:has(#map3d-container:not(.hidden)) #mobile-zoom-btn {
     display: none !important;
+}
+
+/* Custom focus outline for menu navigation */
+.menu-focused {
+    outline: 2px solid var(--clr-neon) !important;
+    transform: scale(1.025);
+    transition: transform 0.1s ease;
+}
+
+/* Adjust outline behavior for slider and checkbox containers */
+.switch.menu-focused,
+.control-group input[type="range"].menu-focused {
+    transform: scale(1.01);
+}
+
+/* Safe mode slider outline feedback */
+#safe-mode.menu-focused + .slider {
+    outline: 2px solid var(--clr-neon) !important;
+    border-color: var(--clr-neon) !important;
 }
 

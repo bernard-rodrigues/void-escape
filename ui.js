@@ -12,7 +12,6 @@ export class UIManager {
         this.uiProximeterContainer = document.getElementById('proximeter-container');
         this.uiProximeterCells = document.querySelectorAll('.proximeter-cell');
         this.uiProximeterBar = document.querySelector('.proximeter-bar');
-        this.uiTeleportWarning = document.getElementById('teleport-warning');
         this.uiVictoryScreen = document.getElementById('victory-screen');
         this.uiGameOverScreen = document.getElementById('game-over-screen');
         this.uiMobileUp = document.getElementById('mobile-up');
@@ -124,7 +123,6 @@ export class UIManager {
         if (this.uiMobileControls) this.uiMobileControls.classList.add('hidden');
         if (this.uiMobilePauseBtn) this.uiMobilePauseBtn.classList.add('hidden');
         if (this.uiMap3dContainer) this.uiMap3dContainer.classList.add('hidden');
-        if (this.uiTeleportWarning) this.uiTeleportWarning.classList.add('hidden');
         if (this.uiProximeterContainer) this.uiProximeterContainer.classList.add('hidden');
         if (this.uiProximeterBar) this.uiProximeterBar.classList.remove('critical-alert');
         this.uiProximeterCells.forEach(cell => cell.classList.remove('active'));
@@ -262,11 +260,7 @@ export class UIManager {
     /**
      * Toggle visibility of instruction to click on a teleport destination.
      */
-    setTeleportWarning(visible) {
-        if (this.uiTeleportWarning) {
-            this.uiTeleportWarning.classList.add('hidden');
-        }
-    }
+    setTeleportWarning(visible) {}
 
     /**
      * Update hazardous warning status (hunters converging or tracking player).
