@@ -156,6 +156,17 @@ window.onload = () => {
             if (currentGame) currentGame.togglePause();
         };
     }
+
+    // Mobile teleport exit button
+    const mobileTeleportExitBtn = document.getElementById('mobile-teleport-exit-btn');
+    if (mobileTeleportExitBtn) {
+        mobileTeleportExitBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (currentGame && currentGame.isTeleportMode) {
+                currentGame.toggleTeleportMap(false);
+            }
+        };
+    }
 };
 
 // Prevent browser page zoom via Ctrl + Wheel shortcut

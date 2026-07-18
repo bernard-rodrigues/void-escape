@@ -244,6 +244,10 @@ export class Hunter {
                 }
 
                 const cellVal = matrix.get(nx, ny, nz);
+                if (cellVal === types.EXIT) {
+                    continue;
+                }
+
                 if (cellVal !== types.WALL) {
                     if (d.dz !== 0) {
                         const midZ = cz + d.dz / 2;

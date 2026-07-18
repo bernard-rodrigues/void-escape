@@ -111,3 +111,52 @@ test('Pathfinder Limit - State save and load preservation', () => {
     assert.strictEqual(engine.ui.hudRemaining, 1);
     assert.strictEqual(engine.ui.hudTotal, 4);
 });
+
+test('Pathfinder Limit - triggerPathReveal animation cooldown and clear old trails', () => {
+    class CooldownEngine {
+        constructor() {
+            this.pathRevealInterval = null;
+            this.pathfinderBlockedUntil = 0;
+            this.revealedPathSet = new Set(['1,1,1', '1,2,1']);
+            this.pathfindersRemaining = 3;
+            this.ui = { showInfoBanner() {}, updatePathfindersHUD() {} };
+        }
+        
+        triggerPathReveal(tx, ty, tz) {
+            if (this.pathRevealInterval || (this.pathfinderBlockedUntil && Date.now() < this.pathfinderBlockedUntil)) {
+                return;
+            }
+
+            if (this.pathfindersRemaining <= 0) return;
+
+            if (this.pathRevealInterval) {
+                this.pathRevealInterval = null;
+            }
+            this.revealedPathSet.clear();
+            
+            this.pathfindersRemaining--;
+            this.pathRevealInterval = 123;
+        }
+        
+        finishAnimation() {
+            this.pathRevealInterval = null;
+            this.pathfinderBlockedUntil = Date.now() + 600;
+        }
+    }
+    
+    const engine = new CooldownEngine();
+    
+    engine.triggerPathReveal(3, 3, 1);
+    assert.strictEqual(engine.revealedPathSet.size, 0);
+    assert.strictEqual(engine.pathfindersRemaining, 2);
+    assert.ok(engine.pathRevealInterval);
+    
+    engine.triggerPathReveal(4, 4, 1);
+    assert.strictEqual(engine.pathfindersRemaining, 2);
+    
+    engine.finishAnimation();
+    assert.ok(Date.now() < engine.pathfinderBlockedUntil);
+    
+    engine.triggerPathReveal(4, 4, 1);
+    assert.strictEqual(engine.pathfindersRemaining, 2);
+});

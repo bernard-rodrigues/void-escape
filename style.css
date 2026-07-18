@@ -1741,8 +1741,8 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
     color: #ff9f00;
 }
 
-/* --- Mobile Floating Pause Button --- */
-#mobile-pause-btn {
+/* --- Mobile Floating Pause Button & Teleport Exit Button --- */
+#mobile-pause-btn, #mobile-teleport-exit-btn {
     position: absolute;
     top: calc(var(--h-unit) * 2);
     top: calc(var(--d-h-unit) * 2);
@@ -1763,14 +1763,18 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    z-index: 100;
+    z-index: 150;
     transition: background-color 0.2s, transform 0.1s;
     padding: 0;
 }
 
-#mobile-pause-btn:active {
+#mobile-pause-btn:active, #mobile-teleport-exit-btn:active {
     background: rgba(0, 255, 200, 0.3);
     transform: scale(0.9);
+}
+
+#mobile-teleport-exit-btn:not(.hidden) {
+    display: flex !important;
 }
 
 @media (orientation: portrait) {
@@ -1779,6 +1783,9 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
     }
     #mobile-pause-btn {
         display: flex; /* Shown on mobile portrait */
+    }
+    #mobile-teleport-exit-btn:not(.hidden) {
+        display: flex !important; /* Shown on mobile portrait when active */
     }
     
     .end-game-btns {

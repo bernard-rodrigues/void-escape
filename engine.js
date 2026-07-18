@@ -106,6 +106,7 @@ export class Engine {
         this.knownMeshes = [];
         this.gridMeshes = null;
         this.pathRevealInterval = null;
+        this.pathfinderBlockedUntil = 0;
 
         this.ui.initGameUI(this.isSafeMode);
         this.ui.onInfoBanner = (msg) => this.queueNotification(msg);
@@ -259,11 +260,16 @@ export class Engine {
         const py = Math.floor(this.player.y);
         const pz = this.player.z;
 
-        // Gather all unvisited path cells (TYPES.PATH) on playable floors (odd z indices)
+        const startX = Math.floor(this.mazeGen.startPos.x);
+        const startY = Math.floor(this.mazeGen.startPos.y);
+        const startZ = this.mazeGen.startPos.z;
+
+        // Gather all unvisited path cells (TYPES.PATH) on playable floors (odd z indices), excluding starting safe point
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
-                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH && z % 2 !== 0) {
+                    const isStartPos = (x === startX && y === startY && z === startZ);
+                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH && z % 2 !== 0 && !isStartPos) {
                         candidates.push({ x, y, z });
                     }
                 }
@@ -271,12 +277,14 @@ export class Engine {
         }
 
         if (candidates.length === 0) {
-            // Fallback: if no unvisited path cells exist, use visited ones that are not the player cell and are on playable floors
+            // Fallback: if no unvisited path cells exist, use visited ones that are not the player cell, starting cell, and are on playable floors
             for (let x = 0; x < size; x++) {
                 for (let y = 0; y < size; y++) {
                     for (let z = 0; z < size; z++) {
                         const val = this.maze.get(x, y, z);
-                        if (val !== this.mazeGen.TYPES.WALL && z % 2 !== 0 && (x !== px || y !== py || z !== pz)) {
+                        const isStartPos = (x === startX && y === startY && z === startZ);
+                        const isExit = (val === this.mazeGen.TYPES.EXIT);
+                        if (val !== this.mazeGen.TYPES.WALL && !isExit && z % 2 !== 0 && (x !== px || y !== py || z !== pz) && !isStartPos) {
                             candidates.push({ x, y, z });
                         }
                     }
@@ -2092,6 +2100,8 @@ export class Engine {
         this.isMap3DActive = !this.isMap3DActive;
         this.isTeleportMode = false;
         this.ui.setTeleportWarning(false);
+        const telExitBtn = document.getElementById('mobile-teleport-exit-btn');
+        if (telExitBtn) telExitBtn.classList.add('hidden');
         if (this.isMap3DActive) {
             this.ui.setMap3DVisible(true);
             
@@ -3617,7 +3627,10 @@ export class Engine {
         
         this.ui.setTeleportWarning(show);
         
+        const telExitBtn = document.getElementById('mobile-teleport-exit-btn');
+        
         if (show) {
+            if (telExitBtn) telExitBtn.classList.remove('hidden');
             if (this.ui.uiMobileControls) this.ui.uiMobileControls.classList.add('hidden');
             this.ui.setMap3DVisible(true);
             
@@ -3659,6 +3672,7 @@ export class Engine {
             
             this.teleportConfirmModalActive = false;
         } else {
+            if (telExitBtn) telExitBtn.classList.add('hidden');
             if (this.ui.uiMobileControls) this.ui.uiMobileControls.classList.remove('hidden');
             this.ui.setMap3DVisible(false);
             if (this.isometricCanvas) {
@@ -3813,6 +3827,10 @@ export class Engine {
     }
 
     triggerPathReveal(tx, ty, tz) {
+        if (this.pathRevealInterval || (this.pathfinderBlockedUntil && Date.now() < this.pathfinderBlockedUntil)) {
+            return;
+        }
+
         if (this.pathfindersRemaining <= 0) {
             this.ui.showInfoBanner(getTranslation('msgNoPathfindersRemaining'));
             return;
@@ -3822,6 +3840,7 @@ export class Engine {
             clearInterval(this.pathRevealInterval);
             this.pathRevealInterval = null;
         }
+        this.revealedPathSet.clear();
 
         const isExitClicked = this.maze.get(tx, ty, tz) === this.mazeGen.TYPES.EXIT;
         if (isExitClicked) {
@@ -3906,6 +3925,7 @@ export class Engine {
             } else {
                 clearInterval(this.pathRevealInterval);
                 this.pathRevealInterval = null;
+                this.pathfinderBlockedUntil = Date.now() + 600;
             }
         }, 120);
     }
@@ -4285,7 +4305,7 @@ export class Engine {
             }
         }
 
-        // 2. Map screen coordinate to isometric cell
+        // 2. Geometry calculations
         const size = this.mazeGen.size;
         const activeZ = this.activeMapFloor;
 
@@ -4298,6 +4318,41 @@ export class Engine {
 
         const centerX = rect.width / 2 + this.mapPanOffsetX;
         const centerY = rect.height / 2 + this.mapPanOffsetY;
+
+        const getIsoCoords = (x, y, z) => {
+            const px = (x - y) * tileWidthHalf + centerX;
+            const py = (x + y) * tileHeightHalf - (z - activeZ) * floorOffset + centerY;
+            return { x: px, y: py };
+        };
+
+        // If in teleport mode, block all map cell clicks
+        if (this.isTeleportMode) {
+            return;
+        }
+
+        // Check if clicked close to any interactive shaft dot (generous target for mobile)
+        const elements = this.getInteractiveElements(activeZ);
+        const shaftElements = elements.filter(el => el.type === 'shaft');
+        let closestShaft = null;
+        let minShaftDist = Infinity;
+        const maxShaftClickRadius = 35; 
+        
+        for (const el of shaftElements) {
+            const coords = getIsoCoords(el.x, el.y, el.z);
+            const dx = clickX - coords.x;
+            const dy = clickY - coords.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < minShaftDist) {
+                minShaftDist = dist;
+                closestShaft = el;
+            }
+        }
+        
+        if (closestShaft && minShaftDist <= maxShaftClickRadius) {
+            this.mapCursor = { x: closestShaft.x, y: closestShaft.y, z: closestShaft.z };
+            this.triggerPathReveal(closestShaft.x, closestShaft.y, closestShaft.z);
+            return;
+        }
 
         const floorsToTest = [];
         if (activeZ + 2 <= size - 2) floorsToTest.push(activeZ + 2);
@@ -5086,11 +5141,11 @@ export class Engine {
                 ctx.save();
                 const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 150);
                 ctx.beginPath();
-                ctx.arc(coords.x, coords.y, 3.0 + pulse * 1.5, 0, Math.PI * 2);
+                ctx.arc(coords.x, coords.y, 7.5 + pulse * 2.5, 0, Math.PI * 2);
                 ctx.fillStyle = isSelected ? '#ffffff' : '#00ffff';
                 ctx.fill();
                 ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
                 ctx.restore();
             }
@@ -5320,15 +5375,15 @@ export class Engine {
 
         // 3. Draw Teleport Selection Dots UI Dock
         if (this.isTeleportMode) {
-            const spacing = 36;
+            const spacing = 52;
             const numTeleports = this.allTeleports.length;
             const totalDotsWidth = (numTeleports - 1) * spacing;
-            const dotY = height - 55;
+            const dotY = height - 60;
             const startX = width / 2 - totalDotsWidth / 2;
 
             // Draw glassmorphic dock container background
             const dockW = totalDotsWidth + 60;
-            const dockH = 44;
+            const dockH = 58;
             const dockX = width / 2 - dockW / 2;
             const dockYPos = dotY - dockH / 2;
 
@@ -5367,7 +5422,7 @@ export class Engine {
                 if (!isDiscovered) {
                     // Locked/Undiscovered Dot (Grey/Lock representation)
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, 9, 0, Math.PI * 2);
                     ctx.fillStyle = 'rgba(100, 100, 100, 0.45)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -5375,7 +5430,7 @@ export class Engine {
                 } else if (isInactive) {
                     // Inactive Dot (crossed/faded)
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, 6.5, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, 10, 0, Math.PI * 2);
                     ctx.fillStyle = 'rgba(255, 45, 0, 0.2)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 45, 0, 0.4)';
@@ -5387,13 +5442,13 @@ export class Engine {
                         // Bouncing/glowing highlight
                         const pulse = 1.0 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() / 120));
                         ctx.beginPath();
-                        ctx.arc(dotX, dotY, 13 * pulse, 0, Math.PI * 2);
+                        ctx.arc(dotX, dotY, 20 * pulse, 0, Math.PI * 2);
                         ctx.fillStyle = 'rgba(0, 255, 255, 0.18)';
                         ctx.fill();
                     }
 
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, isSelected ? 9 : 6, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, isSelected ? 14 : 9, 0, Math.PI * 2);
                     ctx.fillStyle = isSelected ? '#ffffff' : '#00b3ff';
                     ctx.fill();
                     ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
@@ -5403,7 +5458,7 @@ export class Engine {
                     // Mini inner core if player is on it
                     if (isPlayerHere) {
                         ctx.beginPath();
-                        ctx.arc(dotX, dotY, isSelected ? 4 : 2.5, 0, Math.PI * 2);
+                        ctx.arc(dotX, dotY, isSelected ? 6 : 4, 0, Math.PI * 2);
                         ctx.fillStyle = '#39ff14'; // glowing green core
                         ctx.fill();
                     }
@@ -5412,10 +5467,10 @@ export class Engine {
                 ctx.restore();
 
                 this.teleportDotsClickRects.push({
-                    x: dotX - 16,
-                    y: dotY - 16,
-                    w: 32,
-                    h: 32,
+                    x: dotX - 24,
+                    y: dotY - 24,
+                    w: 48,
+                    h: 48,
                     index: idx
                 });
             });

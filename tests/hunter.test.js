@@ -74,6 +74,32 @@ test('Hunter - Avoid player starting safe position', () => {
     assert.strictEqual(hasAlternate, true, 'Hunter should route to normal paths');
 });
 
+test('Hunter - Avoid exit cell', () => {
+    const mockMaze = { startPos: { x: 1, y: 1, z: 1 } };
+    const hunter = new Hunter(mockMaze, { x: 3, y: 3, z: 1 }, 0);
+    
+    const size = 5;
+    const matrix = new Int8Array(size * size * size);
+    matrix.size = size;
+    matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
+    matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+    
+    const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4 };
+    
+    // Neighbors around (3,3,1): (3,4,1) is EXIT, (3,2,1) is normal PATH
+    matrix.set(3, 3, 1, TYPES.PATH);
+    matrix.set(3, 4, 1, TYPES.EXIT); 
+    matrix.set(3, 2, 1, TYPES.PATH);
+    
+    const neighbors = hunter.getValidNeighbors(matrix, TYPES);
+    
+    const hasExit = neighbors.some(n => n.x === 3 && n.y === 4 && n.z === 1);
+    assert.strictEqual(hasExit, false, 'Hunter must not route into exit cell');
+    
+    const hasNormalPath = neighbors.some(n => n.x === 3 && n.y === 2 && n.z === 1);
+    assert.strictEqual(hasNormalPath, true, 'Hunter should route to normal paths');
+});
+
 test('Hunter - State transition when teleport ticks end', () => {
     const mockMaze = {
         startPos: { x: 0.5, y: 1.5, z: 1 },
