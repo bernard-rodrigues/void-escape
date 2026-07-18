@@ -122,7 +122,9 @@ body {
 #start-menu .menu-content {
     opacity: 0;
     clip-path: inset(0 50% 0 50%);
-    animation: menu-open 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    border-color: transparent;
+    animation: menu-open 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+               border-fade-in 1.5s ease-out 0.8s forwards;
 }
 
 .game-title {
@@ -182,6 +184,15 @@ body {
     to {
         clip-path: inset(0 0 0 0);
         opacity: 1;
+    }
+}
+
+@keyframes border-fade-in {
+    from {
+        border-color: transparent;
+    }
+    to {
+        border-color: var(--clr-neon);
     }
 }
 
