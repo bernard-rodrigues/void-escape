@@ -248,7 +248,7 @@ export class Hunter {
                     continue;
                 }
 
-                if (cellVal !== types.WALL) {
+                if (cellVal !== types.WALL && cellVal !== 8) {
                     if (d.dz !== 0) {
                         const midZ = cz + d.dz / 2;
                         if (matrix.get(cx, cy, midZ) === types.WALL) {

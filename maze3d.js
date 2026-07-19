@@ -21,7 +21,7 @@ export class Maze3D {
 
         this.matrix = this.initMatrix();
         
-        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6, KEY: 7 };
+        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6, KEY: 7, STATUE: 8 };
         this.startPos = { x: 0.5, y: 1.5, z: 0 };
     }
 
@@ -78,6 +78,7 @@ export class Maze3D {
         this.placeTeleports();
         this.placeKeys();
         this.applyBraid();
+        this.placeStatues();
 
         // Enrich the TypedArray with convenience O(1) coordinate mapping methods
         const size = this.size;
@@ -594,5 +595,177 @@ export class Maze3D {
             }
         }
         return false;
+    }
+
+    isDeadEndZ(x, y, z) {
+        // Only playable odd z floors, excluding start, exit, teleport, keys
+        if (x % 2 === 0 || y % 2 === 0 || z % 2 === 0) return false;
+        
+        const val = this.matrix[this._idx(x, y, z)];
+        if (val === this.TYPES.WALL || val === this.TYPES.START || val === this.TYPES.EXIT || val === this.TYPES.TELEPORT || val === this.TYPES.KEY) {
+            return false;
+        }
+        
+        // Surrounded by walls horizontally: all 4 horizontal neighbors must be walls
+        const size = this.size;
+        const horizontalDirs = [
+            { dx: 1, dy: 0 },
+            { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 },
+            { dx: 0, dy: -1 }
+        ];
+        for (const d of horizontalDirs) {
+            const nx = x + d.dx;
+            const ny = y + d.dy;
+            if (nx < 0 || nx >= size || ny < 0 || ny >= size) continue;
+            if (this.matrix[this._idx(nx, ny, z)] !== this.TYPES.WALL) {
+                return false;
+            }
+        }
+        
+        // Has an elevator in the center (vertical path below or above)
+        let hasElevator = false;
+        if (z - 1 >= 0 && this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL) {
+            hasElevator = true;
+        }
+        if (z + 1 < size && this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL) {
+            hasElevator = true;
+        }
+        
+        return hasElevator;
+    }
+
+    isSolvable() {
+        const size = this.size;
+        const start = {
+            x: Math.floor(this.startPos.x),
+            y: Math.floor(this.startPos.y),
+            z: this.startPos.z
+        };
+        
+        const keyCoords = [];
+        let exitCoord = null;
+        
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const val = this.matrix[this._idx(x, y, z)];
+                    if (val === this.TYPES.KEY) {
+                        keyCoords.push(`${x},${y},${z}`);
+                    } else if (val === this.TYPES.EXIT) {
+                        exitCoord = `${x},${y},${z}`;
+                    }
+                }
+            }
+        }
+        
+        const queue = [start];
+        const visited = new Set([`${start.x},${start.y},${start.z}`]);
+        const reachedKeys = new Set();
+        let reachedExit = false;
+        
+        while (queue.length > 0) {
+            const curr = queue.shift();
+            const currStr = `${curr.x},${curr.y},${curr.z}`;
+            
+            if (keyCoords.includes(currStr)) {
+                reachedKeys.add(currStr);
+            }
+            if (currStr === exitCoord) {
+                reachedExit = true;
+            }
+            
+            // 1. Horizontal neighbors
+            const dirs = [
+                { dx: 1, dy: 0 },
+                { dx: -1, dy: 0 },
+                { dx: 0, dy: 1 },
+                { dx: 0, dy: -1 }
+            ];
+            for (const d of dirs) {
+                const nx = curr.x + d.dx;
+                const ny = curr.y + d.dy;
+                const nz = curr.z;
+                if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                    const nStr = `${nx},${ny},${nz}`;
+                    const val = this.matrix[this._idx(nx, ny, nz)];
+                    if (val !== this.TYPES.WALL && val !== this.TYPES.STATUE && !visited.has(nStr)) {
+                        visited.add(nStr);
+                        queue.push({ x: nx, y: ny, z: nz });
+                    }
+                }
+            }
+            
+            // 2. Vertical neighbors (Elevators)
+            for (const dz of [-2, 2]) {
+                const nz = curr.z + dz;
+                if (nz >= 0 && nz < size) {
+                    const midZ = curr.z + dz / 2;
+                    const shaftVal = this.matrix[this._idx(curr.x, curr.y, midZ)];
+                    const destVal = this.matrix[this._idx(curr.x, curr.y, nz)];
+                    
+                    if (shaftVal !== this.TYPES.WALL && shaftVal !== this.TYPES.STATUE &&
+                        destVal !== this.TYPES.WALL && destVal !== this.TYPES.STATUE) {
+                        const nStr = `${curr.x},${curr.y},${nz}`;
+                        if (!visited.has(nStr)) {
+                            visited.add(nStr);
+                            queue.push({ x: curr.x, y: curr.y, z: nz });
+                        }
+                    }
+                }
+            }
+        }
+        
+        return reachedExit && (reachedKeys.size === keyCoords.length);
+    }
+
+    placeStatues() {
+        const size = this.size;
+        const candidates = [];
+        
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    if (this.isDeadEndZ(x, y, z)) {
+                        candidates.push({ x, y, z });
+                    }
+                }
+            }
+        }
+        
+        let placedCount = 0;
+        for (const cand of candidates) {
+            const originalVal = this.matrix[this._idx(cand.x, cand.y, cand.z)];
+            
+            // Save shafts states
+            const belowShaftZ = cand.z - 1;
+            const aboveShaftZ = cand.z + 1;
+            const originalBelowVal = belowShaftZ >= 0 ? this.matrix[this._idx(cand.x, cand.y, belowShaftZ)] : null;
+            const originalAboveVal = aboveShaftZ < size ? this.matrix[this._idx(cand.x, cand.y, aboveShaftZ)] : null;
+            
+            // Place statue and turn its vertical shafts into walls
+            this.matrix[this._idx(cand.x, cand.y, cand.z)] = this.TYPES.STATUE;
+            if (belowShaftZ >= 0) {
+                this.matrix[this._idx(cand.x, cand.y, belowShaftZ)] = this.TYPES.WALL;
+            }
+            if (aboveShaftZ < size) {
+                this.matrix[this._idx(cand.x, cand.y, aboveShaftZ)] = this.TYPES.WALL;
+            }
+            
+            // Validate solvability
+            if (this.isSolvable()) {
+                placedCount++;
+            } else {
+                // Revert all
+                this.matrix[this._idx(cand.x, cand.y, cand.z)] = originalVal;
+                if (belowShaftZ >= 0) {
+                    this.matrix[this._idx(cand.x, cand.y, belowShaftZ)] = originalBelowVal;
+                }
+                if (aboveShaftZ < size) {
+                    this.matrix[this._idx(cand.x, cand.y, aboveShaftZ)] = originalAboveVal;
+                }
+            }
+        }
+        return placedCount;
     }
 }

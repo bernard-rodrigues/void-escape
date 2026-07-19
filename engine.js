@@ -71,6 +71,12 @@ export class Engine {
         };
         this.keyImage.src = 'assets/images/key.svg';
         
+        this.statueImage = new Image();
+        this.statueImage.onload = () => {
+            this.staticMapCacheDirty = true;
+        };
+        this.statueImage.src = 'assets/images/statue.png';
+        
         this.player = {
             x: this.mazeGen.startPos.x,
             y: this.mazeGen.startPos.y,
@@ -1041,8 +1047,8 @@ export class Engine {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
                     const val = this.maze.get(x, y, z);
-                    // WALL and EXIT do not count towards the total corridors
-                    if (val === TYPES.WALL || val === TYPES.EXIT) {
+                    // WALL, EXIT, and STATUE do not count towards the total corridors
+                    if (val === TYPES.WALL || val === TYPES.EXIT || val === TYPES.STATUE) {
                         continue;
                     }
                     totalEligible++;
@@ -1767,7 +1773,7 @@ export class Engine {
                 
                 const isPassable = (gx, gy, gz) => {
                     const val = this.maze.get(gx, gy, gz);
-                    if (val === this.mazeGen.TYPES.WALL) return false;
+                    if (val === this.mazeGen.TYPES.WALL || val === this.mazeGen.TYPES.STATUE) return false;
                     if (val === this.mazeGen.TYPES.EXIT && this.keysCollected < this.totalKeys) {
                         this.triggerLockedExitWarning();
                         return false;
@@ -2043,12 +2049,18 @@ export class Engine {
         const currentX = Math.floor(this.player.x);
         const currentY = Math.floor(this.player.y);
         const currentZ = this.player.z;
-        const hUp = currentZ + 1 < this.mazeGen.size && this.maze.get(currentX, currentY, currentZ + 1) !== this.mazeGen.TYPES.WALL;
-        const hDown = currentZ - 1 >= 0 && this.maze.get(currentX, currentY, currentZ - 1) !== this.mazeGen.TYPES.WALL;
+        const hUp = currentZ + 1 < this.mazeGen.size && 
+                    this.maze.get(currentX, currentY, currentZ + 1) !== this.mazeGen.TYPES.WALL &&
+                    this.maze.get(currentX, currentY, currentZ + 1) !== this.mazeGen.TYPES.STATUE;
+        const hDown = currentZ - 1 >= 0 && 
+                      this.maze.get(currentX, currentY, currentZ - 1) !== this.mazeGen.TYPES.WALL &&
+                      this.maze.get(currentX, currentY, currentZ - 1) !== this.mazeGen.TYPES.STATUE;
         
         if ((delta > 0 && hUp) || (delta < 0 && hDown)) {
             const nextZ = currentZ + delta;
-            if (nextZ >= 0 && nextZ < this.mazeGen.size && this.maze.get(currentX, currentY, nextZ) !== this.mazeGen.TYPES.WALL) {
+            if (nextZ >= 0 && nextZ < this.mazeGen.size && 
+                this.maze.get(currentX, currentY, nextZ) !== this.mazeGen.TYPES.WALL &&
+                this.maze.get(currentX, currentY, nextZ) !== this.mazeGen.TYPES.STATUE) {
                 const shaftZ = currentZ + delta / 2;
                 if (this.maze.get(currentX, currentY, shaftZ) !== this.mazeGen.TYPES.ELEVATOR_VISITED) {
                     this.maze.set(currentX, currentY, shaftZ, this.mazeGen.TYPES.ELEVATOR_VISITED);
@@ -2177,6 +2189,9 @@ export class Engine {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
                     const val = this.maze.get(x, y, z);
+                    if (val === this.mazeGen.TYPES.WALL || val === this.mazeGen.TYPES.STATUE) {
+                        continue;
+                    }
 
                     // Render elevator shaft cells (even z index and not a wall)
                     const isShaft = z % 2 === 0 && val !== 0;
@@ -2467,15 +2482,16 @@ export class Engine {
         // Skip player/hunter markers during intro (scene is clean)
         if (isIntro) return;
 
-        const pMarker = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.THREE_PLAYER }));
+        const pMarker = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.THREE_PLAYER, depthWrite: false }));
+        pMarker.renderOrder = 99;
         pMarker.position.set(Math.floor(this.player.x) - size/2, (this.player.z - size/2) * this.vScale, Math.floor(this.player.y) - size/2);
         this.scene.add(pMarker);
         const hGeom = new THREE.SphereGeometry(0.4);
-        const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8 });
+        const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8, depthWrite: false });
         
         // Trail materials with lower opacities and emissivities
-        const trailMat1 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.40, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.3 });
-        const trailMat2 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.15, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.1 });
+        const trailMat1 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.40, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.3, depthWrite: false });
+        const trailMat2 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.15, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.1, depthWrite: false });
         const trailGeom = hGeom; // Reutiliza a geometria esférica do monstro
 
         for (let i = 0; i < this.hunters.length; i++) {
@@ -2489,10 +2505,14 @@ export class Engine {
             tMesh2.visible = false;
             tMesh1.visible = false;
             
+            tMesh2.renderOrder = 99;
+            tMesh1.renderOrder = 99;
+            
             this.scene.add(tMesh2);
             this.scene.add(tMesh1);
 
             const hGroup = new THREE.Group();
+            hGroup.renderOrder = 99;
             
             // Core sphere (jelly nucleus)
             const coreMesh = new THREE.Mesh(hGeom, hMat);
@@ -2510,7 +2530,8 @@ export class Engine {
                     transparent: true,
                     opacity: 0.8,
                     emissive: partColors[p % partColors.length],
-                    emissiveIntensity: 0.8
+                    emissiveIntensity: 0.8,
+                    depthWrite: false
                 });
                 const pMesh = new THREE.Mesh(partGeom, pMat);
                 
@@ -3065,6 +3086,52 @@ export class Engine {
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 const val = this.maze.get(x, y, z);
+                
+                if (val === this.mazeGen.TYPES.STATUE) {
+                    drawCellWithFade(x, y, () => {
+                        // 1. Draw floor tile first
+                        if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                        
+                        // 2. Draw ground shadow for the statue
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                        ctx.beginPath();
+                        ctx.ellipse(
+                            x * cellSize + cellSize / 2,
+                            (y + 1) * cellSize - cellSize * 0.15,
+                            cellSize * 0.35,
+                            cellSize * 0.12,
+                            0, 0, Math.PI * 2
+                        );
+                        ctx.fill();
+
+                        // 3. Draw Statue Image aligned by its bottom center
+                        if (this.statueImage.complete && this.statueImage.naturalWidth !== 0) {
+                            const aspect = this.statueImage.width / this.statueImage.height;
+                            const targetWidth = cellSize * 0.85;
+                            const targetHeight = targetWidth / aspect;
+                            const cx = x * cellSize + cellSize / 2;
+                            const bottomY = (y + 1) * cellSize - cellSize * 0.05; // slightly offset from cell bottom border
+                            ctx.drawImage(
+                                this.statueImage,
+                                cx - targetWidth / 2,
+                                bottomY - targetHeight,
+                                targetWidth,
+                                targetHeight
+                            );
+                        } else {
+                            // Fallback
+                            ctx.fillStyle = '#555555';
+                            ctx.fillRect(x * cellSize + cellSize * 0.3, y * cellSize + cellSize * 0.1, cellSize * 0.4, cellSize * 0.8);
+                        }
+                    });
+                    continue;
+                }
+
                 const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
@@ -3175,7 +3242,7 @@ export class Engine {
                     // Força a atualização do cache estático do mapa a cada frame para animar o pulso
                     hasActiveAnimations = true;
                 }
-                else if (val === 0 && this.isNearVisited(x, y, z)) {
+                else if (val === 0 && (this.isNearVisited(x, y, z) || this.isAdjacentToStatue(x, y, z))) {
                     drawCellWithFade(x, y, () => {
                         if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
                             ctx.drawImage(this.wallImage, x * cellSize, y * cellSize, cellSize, cellSize);
@@ -3205,6 +3272,26 @@ export class Engine {
                     // paths by proximity.
                     if (v === 2 || v === 3) return true;
                     if (v === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${nx},${ny},${z}`)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    isAdjacentToStatue(x, y, z) {
+        const size = this.mazeGen.size;
+        const dirs = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+            { dx: 1, dy: 1 }, { dx: -1, dy: 1 },
+            { dx: 1, dy: -1 }, { dx: -1, dy: -1 }
+        ];
+        for (const d of dirs) {
+            const nx = x + d.dx;
+            const ny = y + d.dy;
+            if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                if (this.maze.get(nx, ny, z) === this.mazeGen.TYPES.STATUE) {
+                    return true;
                 }
             }
         }
@@ -4793,7 +4880,7 @@ export class Engine {
                     const isKey = val === TYPES.KEY;
                     const isExit = val === TYPES.EXIT;
 
-                    if (val === TYPES.WALL) {
+                    if (val === TYPES.WALL || val === TYPES.STATUE) {
                         if (this.isNearVisited(x, y, z)) {
                             const subW = tileWidthHalf * 0.45;
                             const subH = tileHeightHalf * 0.45;
@@ -4831,8 +4918,12 @@ export class Engine {
 
                     if (isVisible) {
                         const H = 1.5;
-                        const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== TYPES.WALL;
-                        const hDown = z > 0 && this.maze.get(x, y, z - 1) !== TYPES.WALL;
+                        const hUp = z < size - 1 && 
+                                    this.maze.get(x, y, z + 1) !== TYPES.WALL && 
+                                    this.maze.get(x, y, z + 1) !== TYPES.STATUE;
+                        const hDown = z > 0 && 
+                                      this.maze.get(x, y, z - 1) !== TYPES.WALL && 
+                                      this.maze.get(x, y, z - 1) !== TYPES.STATUE;
                         
                         const isCursorOnCell = this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z;
                         const showSpecial = isVisited || isRevealedPath;
@@ -5026,6 +5117,39 @@ export class Engine {
             ctx.lineWidth = 1.2;
             ctx.stroke();
             ctx.restore();
+        };
+
+        const drawStatue = (cx, cy, opacity) => {
+            if (this.statueImage && this.statueImage.complete && this.statueImage.naturalWidth !== 0) {
+                // 1. Draw flat ground shadow
+                ctx.save();
+                ctx.beginPath();
+                const shadowW = tileWidthHalf * 0.70;
+                const shadowH = tileHeightHalf * 0.70;
+                ctx.ellipse(cx, cy, shadowW, shadowH, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+                ctx.fill();
+                ctx.restore();
+
+                // 2. Draw Statue aligned by its bottom center
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                const aspect = this.statueImage.width / this.statueImage.height;
+                const targetWidth = tileWidth * 0.8;
+                const targetHeight = targetWidth / aspect;
+                
+                ctx.drawImage(
+                    this.statueImage,
+                    cx - targetWidth / 2,
+                    cy - targetHeight,
+                    targetWidth,
+                    targetHeight
+                );
+                ctx.restore();
+            } else {
+                // Fallback: draw a generic gray vertical box
+                drawIsoBox(cx, cy, tileWidthHalf * 0.4, tileHeightHalf * 0.4, tileHeight * 0.8, '#555555', opacity);
+            }
         };
 
         const drawPlayer = (cx, cy, opacity) => {
