@@ -114,7 +114,8 @@ export function aStarPath(start, end, maze, size, wallType = 0, startPosToAvoid 
             if (startPosToAvoid && nx === startPosToAvoid.x && ny === startPosToAvoid.y && nz === startPosToAvoid.z) continue;
 
             // 1D Array Access
-            if (maze[nx * size * size + ny * size + nz] === wallType) continue;
+            const cellVal = maze[nx * size * size + ny * size + nz];
+            if (cellVal === wallType || cellVal === 8) continue;
 
             // For vertical movement, ensure elevator shaft exists and is passable
             if (dz !== 0) {
@@ -207,7 +208,8 @@ export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = In
             if (startPosToAvoid && nx === startPosToAvoid.x && ny === startPosToAvoid.y && nz === startPosToAvoid.z) continue;
 
             // 1D Array Access
-            if (maze[nx * size * size + ny * size + nz] === wallType) continue;
+            const cellVal = maze[nx * size * size + ny * size + nz];
+            if (cellVal === wallType || cellVal === 8) continue;
 
             // For vertical movement, ensure elevator shaft exists and is passable
             if (dz !== 0) {
@@ -263,7 +265,8 @@ export function proximeterDistance(start, end, maze, size, wallType = 0, maxDist
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
             
             // 1D Array Access
-            if (maze[nx * size * size + ny * size + nz] === wallType) continue;
+            const cellVal = maze[nx * size * size + ny * size + nz];
+            if (cellVal === wallType || cellVal === 8) continue;
 
             const neighborKey = `${nx},${ny},${nz}`;
             const isShaft = nz % 2 === 0;

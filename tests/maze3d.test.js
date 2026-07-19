@@ -86,3 +86,47 @@ test('Maze3D - Elevator constraints (no adjacent/diagonal elevators)', () => {
         }
     }
 });
+
+test('Maze3D - Statue placement in Z dead-ends and solvability', () => {
+    const mazeGen = new Maze3D(6, 0.2, 777);
+    const matrix = mazeGen.generate();
+    
+    // 1. Verify that the maze is solvable after generation
+    const solvable = mazeGen.isSolvable();
+    assert.strictEqual(solvable, true, 'Generated maze with statues must be solvable');
+    
+    // 2. Count statues placed
+    let statuesCount = 0;
+    for (let x = 0; x < mazeGen.size; x++) {
+        for (let y = 0; y < mazeGen.size; y++) {
+            for (let z = 0; z < mazeGen.size; z++) {
+                if (matrix.get(x, y, z) === mazeGen.TYPES.STATUE) {
+                    statuesCount++;
+                    
+                    // Verify it was indeed a horizontal dead-end (surrounded by walls)
+                    const horizontalDirs = [
+                        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+                        { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+                    ];
+                    for (const d of horizontalDirs) {
+                        const nx = x + d.dx, ny = y + d.dy;
+                        if (nx >= 0 && nx < mazeGen.size && ny >= 0 && ny < mazeGen.size) {
+                            assert.strictEqual(matrix.get(nx, ny, z), mazeGen.TYPES.WALL, 'Statue cell must be horizontally surrounded by walls');
+                        }
+                    }
+                    
+                    // Verify that the elevator shaft directly below or above was converted to WALL
+                    if (z - 1 >= 0) {
+                        assert.strictEqual(matrix.get(x, y, z - 1), mazeGen.TYPES.WALL, 'Below shaft must be wall');
+                    }
+                    if (z + 1 < mazeGen.size) {
+                        assert.strictEqual(matrix.get(x, y, z + 1), mazeGen.TYPES.WALL, 'Above shaft must be wall');
+                    }
+                }
+            }
+        }
+    }
+    
+    // Since we generated with seed 777, there should be some dead-ends. Let's make sure it's valid
+    console.log(`Placed ${statuesCount} statues in seeded test maze.`);
+});
