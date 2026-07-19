@@ -2537,9 +2537,13 @@ export class Engine {
         // Skip player/hunter markers during intro (scene is clean)
         if (isIntro) return;
 
-        const pMarker = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.THREE_PLAYER, depthWrite: false }));
+        const textureLoader = new THREE.TextureLoader();
+        const playerTexture = textureLoader.load('assets/images/mage_down_right.png');
+        const pMarkerMat = new THREE.SpriteMaterial({ map: playerTexture, depthWrite: false });
+        const pMarker = new THREE.Sprite(pMarkerMat);
         pMarker.renderOrder = 99;
-        pMarker.position.set(Math.floor(this.player.x) - size/2, (this.player.z - size/2) * this.vScale, Math.floor(this.player.y) - size/2);
+        pMarker.scale.set(0.9, 0.9, 1.0);
+        pMarker.position.set(Math.floor(this.player.x) - size/2, (this.player.z - size/2) * this.vScale + 0.05, Math.floor(this.player.y) - size/2);
         this.scene.add(pMarker);
         const hGeom = new THREE.SphereGeometry(0.4);
         const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8, depthWrite: false });
@@ -2883,10 +2887,16 @@ export class Engine {
             const cx = px * cellSize;
             const cy = py * cellSize;
 
+            // =========================================================
+            // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR NO MAPA 2D (MINIMAP) AQUI:
+            // =========================================================
+            const shadowX = cx - cellSize * 0.08; // <--- Subtraia mais para ir mais para a ESQUERDA
+            const shadowY = cy - cellSize * 0.08; // <--- Subtraia mais para ir mais para CIMA
+
             // Draw flat ground shadow
             ctx.save();
             ctx.beginPath();
-            ctx.arc(cx, cy, cellSize * 0.35, 0, Math.PI * 2);
+            ctx.arc(shadowX, shadowY, cellSize * 0.35, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fill();
             ctx.restore();
@@ -5240,16 +5250,47 @@ export class Engine {
         };
 
         const drawPlayer = (cx, cy, opacity) => {
+            const stateKey = `${this.playerVertical}_${this.playerSide}`;
+            const img = this.mageImages[stateKey];
+            
+            // ==========================================
+            // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR AQUI:
+            // ==========================================
+            const shadowW = tileWidthHalf * 0.55;
+            const shadowH = tileHeightHalf * 0.55;
+            const shadowX = cx - tileWidthHalf * 0.12; // <--- Subtraia mais para ir mais para a ESQUERDA
+            const shadowY = cy - tileHeightHalf * 0.12; // <--- Subtraia mais para ir mais para CIMA
+            
             ctx.save();
-            ctx.globalAlpha = opacity;
             ctx.beginPath();
-            ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
-            ctx.fillStyle = CONFIG.COLORS.PLAYER;
+            ctx.ellipse(shadowX, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
             ctx.fill();
-            ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
             ctx.restore();
+
+            if (img && img.complete) {
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                
+                const drawSize = tileWidth * 0.70; 
+                const imgW = drawSize;
+                const imgH = drawSize * (img.height / img.width);
+                
+                // Draw mage centered horizontally and sitting on the floor (no scale/squish animation here)
+                ctx.drawImage(img, cx - imgW / 2, cy - imgH, imgW, imgH);
+                ctx.restore();
+            } else {
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                ctx.beginPath();
+                ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
+                ctx.fillStyle = CONFIG.COLORS.PLAYER;
+                ctx.fill();
+                ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
+            }
         };
 
         const drawHunter = (h, cx, cy, opacity) => {
