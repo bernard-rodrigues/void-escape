@@ -1789,20 +1789,22 @@ export class Engine {
             let isMoving = false;
             if (moveX !== 0 || moveY !== 0) {
                 isMoving = true;
-                if (Math.abs(moveX) > Math.abs(moveY)) {
-                    if (moveX < 0) { // -X (up-left)
-                        this.playerSide = 'left';
-                        this.playerVertical = 'up';
-                    } else if (moveX > 0) { // +X (down-right)
-                        this.playerSide = 'right';
-                        this.playerVertical = 'down';
-                    }
-                } else { // Y is dominant or equal
-                    if (moveY < 0) { // -Y (up-right)
-                        this.playerVertical = 'up';
-                    } else if (moveY > 0) { // +Y (down-left)
-                        this.playerVertical = 'down';
-                    }
+                
+                // Determinamos o movimento dominante ou diagonal para aplicar a memória de direção
+                const threshold = 0.01;
+                const hasX = Math.abs(moveX) > threshold;
+                const hasY = Math.abs(moveY) > threshold;
+
+                if (hasX && hasY) {
+                    // Movimento diagonal: atualiza ambos
+                    this.playerSide = moveX > 0 ? 'right' : 'left';
+                    this.playerVertical = moveY > 0 ? 'down' : 'up';
+                } else if (hasX) {
+                    // Movimento horizontal puro (A/D): atualiza apenas lado horizontal, memoriza vertical
+                    this.playerSide = moveX > 0 ? 'right' : 'left';
+                } else if (hasY) {
+                    // Movimento vertical puro (W/S): atualiza apenas vertical, memoriza lado horizontal
+                    this.playerVertical = moveY > 0 ? 'down' : 'up';
                 }
             }
 
