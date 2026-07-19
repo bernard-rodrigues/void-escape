@@ -76,6 +76,27 @@ export class Engine {
             this.staticMapCacheDirty = true;
         };
         this.statueImage.src = 'assets/images/statue.png';
+
+        this.mageImages = {
+            down_left: new Image(),
+            down_right: new Image(),
+            up_left: new Image(),
+            up_right: new Image()
+        };
+        for (const key in this.mageImages) {
+            this.mageImages[key].onload = () => {
+                this.staticMapCacheDirty = true;
+            };
+            this.mageImages[key].src = `assets/images/mage_${key}.png`;
+        }
+
+        this.playerSide = 'right';
+        this.playerVertical = 'down';
+        this.playerWalkCycle = 0;
+        this.playerSquashTargetX = 1;
+        this.playerSquashTargetY = 1;
+        this.playerSquashX = 1;
+        this.playerSquashY = 1;
         
         this.player = {
             x: this.mazeGen.startPos.x,
@@ -1765,6 +1786,42 @@ export class Engine {
                 this.player.dir = Math.atan2(moveY, moveX);
             }
 
+            let isMoving = false;
+            if (moveX !== 0 || moveY !== 0) {
+                isMoving = true;
+                
+                // Determinamos o movimento dominante ou diagonal para aplicar a memória de direção
+                const threshold = 0.01;
+                const hasX = Math.abs(moveX) > threshold;
+                const hasY = Math.abs(moveY) > threshold;
+
+                if (hasX && hasY) {
+                    // Movimento diagonal: atualiza ambos
+                    this.playerSide = moveX > 0 ? 'right' : 'left';
+                    this.playerVertical = moveY > 0 ? 'down' : 'up';
+                } else if (hasX) {
+                    // Movimento horizontal puro (A/D): atualiza apenas lado horizontal, memoriza vertical
+                    this.playerSide = moveX > 0 ? 'right' : 'left';
+                } else if (hasY) {
+                    // Movimento vertical puro (W/S): atualiza apenas vertical, memoriza lado horizontal
+                    this.playerVertical = moveY > 0 ? 'down' : 'up';
+                }
+            }
+
+            if (isMoving) {
+                this.playerWalkCycle = (this.playerWalkCycle || 0) + dt * 18;
+                this.playerSquashTargetX = 1 + Math.sin(this.playerWalkCycle) * 0.15;
+                this.playerSquashTargetY = 1 - Math.sin(this.playerWalkCycle) * 0.15;
+            } else {
+                this.playerSquashTargetX = 1;
+                this.playerSquashTargetY = 1;
+            }
+
+            this.playerSquashX = this.playerSquashX || 1;
+            this.playerSquashY = this.playerSquashY || 1;
+            this.playerSquashX += (this.playerSquashTargetX - this.playerSquashX) * 0.25;
+            this.playerSquashY += (this.playerSquashTargetY - this.playerSquashY) * 0.25;
+
             if (moveX !== 0 || moveY !== 0) {
                 const oldGridX = Math.floor(this.player.x);
                 const oldGridY = Math.floor(this.player.y);
@@ -1781,14 +1838,29 @@ export class Engine {
                     return true;
                 };
 
-                const gridIdxX = Math.floor(nextX);
-                const gridIdxY = Math.floor(this.player.y);
-                if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && isPassable(gridIdxX, gridIdxY, this.player.z)) {
+                const R = 0.26; // Raio de colisão físico do jogador (evita clipping)
+                const isBoxPassable = (cx, cy, cz) => {
+                    const minGx = Math.floor(cx - R);
+                    const maxGx = Math.floor(cx + R);
+                    const minGy = Math.floor(cy - R);
+                    const maxGy = Math.floor(cy + R);
+                    for (let gx = minGx; gx <= maxGx; gx++) {
+                        for (let gy = minGy; gy <= maxGy; gy++) {
+                            if (gx < 0 || gx >= this.mazeGen.size || gy < 0 || gy >= this.mazeGen.size) {
+                                return false;
+                            }
+                            if (!isPassable(gx, gy, cz)) {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                };
+
+                if (isBoxPassable(nextX, this.player.y, this.player.z)) {
                     this.player.x = nextX;
                 }
-                const currentGridIdxX = Math.floor(this.player.x);
-                const nextGridIdxY = Math.floor(nextY);
-                if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && isPassable(currentGridIdxX, nextGridIdxY, this.player.z)) {
+                if (isBoxPassable(this.player.x, nextY, this.player.z)) {
                     this.player.y = nextY;
                 }
                 
@@ -2482,9 +2554,13 @@ export class Engine {
         // Skip player/hunter markers during intro (scene is clean)
         if (isIntro) return;
 
-        const pMarker = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({ color: CONFIG.COLORS.THREE_PLAYER, depthWrite: false }));
+        const textureLoader = new THREE.TextureLoader();
+        const playerTexture = textureLoader.load('assets/images/mage_down_right.png');
+        const pMarkerMat = new THREE.SpriteMaterial({ map: playerTexture, depthWrite: false });
+        const pMarker = new THREE.Sprite(pMarkerMat);
         pMarker.renderOrder = 99;
-        pMarker.position.set(Math.floor(this.player.x) - size/2, (this.player.z - size/2) * this.vScale, Math.floor(this.player.y) - size/2);
+        pMarker.scale.set(0.9, 0.9, 1.0);
+        pMarker.position.set(Math.floor(this.player.x) - size/2, (this.player.z - size/2) * this.vScale + 0.05, Math.floor(this.player.y) - size/2);
         this.scene.add(pMarker);
         const hGeom = new THREE.SphereGeometry(0.4);
         const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8, depthWrite: false });
@@ -2820,25 +2896,65 @@ export class Engine {
             }
         }
 
-        // 4. Draw Player (dynamic direction line and pulsating node overlay)
+        // 4. Draw Player (isometric sprite with direction memory and squash/squeeze animation)
         if (!this.deathAnimation || !this.deathAnimation.active) {
+            const stateKey = `${this.playerVertical}_${this.playerSide}`;
+            const img = this.mageImages[stateKey];
+            
+            const cx = px * cellSize;
+            const cy = py * cellSize;
+
+            // =========================================================
+            // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR NO MAPA 2D (MINIMAP) AQUI:
+            // =========================================================
+            const shadowX = cx - cellSize * 0.28; // <--- Subtraia mais para ir mais para a ESQUERDA
+            const shadowY = cy - cellSize * 0.28; // <--- Subtraia mais para ir mais para CIMA
+
+            // Draw flat ground shadow
             ctx.save();
-            ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
-            ctx.lineWidth = 1;
-            ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
-            ctx.restore();
-            
-            ctx.fillStyle = CONFIG.COLORS.PLAYER;
             ctx.beginPath();
-            ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
+            const shadowW = cellSize * 0.45; // <--- Controle a LARGURA aqui (raio horizontal)
+            const shadowH = cellSize * 0.30; // <--- Controle a ALTURA aqui (raio vertical)
+            ctx.ellipse(shadowX, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fill();
-            
-            ctx.strokeStyle = CONFIG.COLORS.PLAYER;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(px * cellSize, py * cellSize);
-            ctx.lineTo(px * cellSize + Math.cos(this.player.dir) * cellSize * 1, py * cellSize + Math.sin(this.player.dir) * cellSize * 1);
-            ctx.stroke();
+            ctx.restore();
+
+            if (img && img.complete) {
+                ctx.save();
+                
+                const drawSize = cellSize * 0.90; 
+                const imgW = drawSize;
+                const imgH = drawSize * (img.height / img.width);
+                
+                // Translate to bottom center for squishing anchor
+                ctx.translate(cx, cy);
+                ctx.scale(this.playerSquashX || 1, this.playerSquashY || 1);
+                
+                // AJUSTE O ALINHAMENTO VERTICAL VISUAL DO MAGO AQUI:
+                const offsetY = -imgH * 0.85;
+                ctx.drawImage(img, -imgW / 2, offsetY, imgW, imgH);
+                ctx.restore();
+            } else {
+                // Fallback to original ball and direction line if image is not loaded
+                ctx.save();
+                ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
+                ctx.restore();
+                
+                ctx.fillStyle = CONFIG.COLORS.PLAYER;
+                ctx.beginPath();
+                ctx.arc(cx, cy, cellSize * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = CONFIG.COLORS.PLAYER;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + Math.cos(this.player.dir) * cellSize * 1, cy + Math.sin(this.player.dir) * cellSize * 1);
+                ctx.stroke();
+            }
         }
 
         // Draw floating micro-notification box above the player
@@ -5154,16 +5270,48 @@ export class Engine {
         };
 
         const drawPlayer = (cx, cy, opacity) => {
+            const stateKey = `${this.playerVertical}_${this.playerSide}`;
+            const img = this.mageImages[stateKey];
+            
+            // ==========================================
+            // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR AQUI:
+            // ==========================================
+            const shadowW = tileWidthHalf * 0.55;
+            const shadowH = tileHeightHalf * 0.55;
+            const shadowX = cx - tileWidthHalf * 0.12; // <--- Subtraia mais para ir mais para a ESQUERDA
+            const shadowY = cy - tileHeightHalf * 0.12; // <--- Subtraia mais para ir mais para CIMA
+            
             ctx.save();
-            ctx.globalAlpha = opacity;
             ctx.beginPath();
-            ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
-            ctx.fillStyle = CONFIG.COLORS.PLAYER;
+            ctx.ellipse(shadowX, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
             ctx.fill();
-            ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
             ctx.restore();
+
+            if (img && img.complete) {
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                
+                const drawSize = tileWidth * 0.70; 
+                const imgW = drawSize;
+                const imgH = drawSize * (img.height / img.width);
+                
+                // AJUSTE O ALINHAMENTO VERTICAL VISUAL DO MAGO AQUI:
+                const offsetY = cy - imgH; // Mude para algo como: cy - imgH * 0.8 ou cy - imgH + 4 para ajustar
+                ctx.drawImage(img, cx - imgW / 2, offsetY, imgW, imgH);
+                ctx.restore();
+            } else {
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                ctx.beginPath();
+                ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
+                ctx.fillStyle = CONFIG.COLORS.PLAYER;
+                ctx.fill();
+                ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
+            }
         };
 
         const drawHunter = (h, cx, cy, opacity) => {
