@@ -1836,14 +1836,29 @@ export class Engine {
                     return true;
                 };
 
-                const gridIdxX = Math.floor(nextX);
-                const gridIdxY = Math.floor(this.player.y);
-                if (gridIdxX >= 0 && gridIdxX < this.mazeGen.size && isPassable(gridIdxX, gridIdxY, this.player.z)) {
+                const R = 0.26; // Raio de colisão físico do jogador (evita clipping)
+                const isBoxPassable = (cx, cy, cz) => {
+                    const minGx = Math.floor(cx - R);
+                    const maxGx = Math.floor(cx + R);
+                    const minGy = Math.floor(cy - R);
+                    const maxGy = Math.floor(cy + R);
+                    for (let gx = minGx; gx <= maxGx; gx++) {
+                        for (let gy = minGy; gy <= maxGy; gy++) {
+                            if (gx < 0 || gx >= this.mazeGen.size || gy < 0 || gy >= this.mazeGen.size) {
+                                return false;
+                            }
+                            if (!isPassable(gx, gy, cz)) {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                };
+
+                if (isBoxPassable(nextX, this.player.y, this.player.z)) {
                     this.player.x = nextX;
                 }
-                const currentGridIdxX = Math.floor(this.player.x);
-                const nextGridIdxY = Math.floor(nextY);
-                if (nextGridIdxY >= 0 && nextGridIdxY < this.mazeGen.size && isPassable(currentGridIdxX, nextGridIdxY, this.player.z)) {
+                if (isBoxPassable(this.player.x, nextY, this.player.z)) {
                     this.player.y = nextY;
                 }
                 
@@ -2890,13 +2905,15 @@ export class Engine {
             // =========================================================
             // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR NO MAPA 2D (MINIMAP) AQUI:
             // =========================================================
-            const shadowX = cx - cellSize * 0.08; // <--- Subtraia mais para ir mais para a ESQUERDA
-            const shadowY = cy - cellSize * 0.08; // <--- Subtraia mais para ir mais para CIMA
+            const shadowX = cx - cellSize * 0.28; // <--- Subtraia mais para ir mais para a ESQUERDA
+            const shadowY = cy - cellSize * 0.28; // <--- Subtraia mais para ir mais para CIMA
 
             // Draw flat ground shadow
             ctx.save();
             ctx.beginPath();
-            ctx.arc(shadowX, shadowY, cellSize * 0.35, 0, Math.PI * 2);
+            const shadowW = cellSize * 0.45; // <--- Controle a LARGURA aqui (raio horizontal)
+            const shadowH = cellSize * 0.30; // <--- Controle a ALTURA aqui (raio vertical)
+            ctx.ellipse(shadowX, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fill();
             ctx.restore();
@@ -2912,8 +2929,9 @@ export class Engine {
                 ctx.translate(cx, cy);
                 ctx.scale(this.playerSquashX || 1, this.playerSquashY || 1);
                 
-                // Draw mage centered horizontally and sitting on the shadow
-                ctx.drawImage(img, -imgW / 2, -imgH, imgW, imgH);
+                // AJUSTE O ALINHAMENTO VERTICAL VISUAL DO MAGO AQUI:
+                const offsetY = -imgH * 0.85;
+                ctx.drawImage(img, -imgW / 2, offsetY, imgW, imgH);
                 ctx.restore();
             } else {
                 // Fallback to original ball and direction line if image is not loaded
@@ -5276,8 +5294,9 @@ export class Engine {
                 const imgW = drawSize;
                 const imgH = drawSize * (img.height / img.width);
                 
-                // Draw mage centered horizontally and sitting on the floor (no scale/squish animation here)
-                ctx.drawImage(img, cx - imgW / 2, cy - imgH, imgW, imgH);
+                // AJUSTE O ALINHAMENTO VERTICAL VISUAL DO MAGO AQUI:
+                const offsetY = cy - imgH; // Mude para algo como: cy - imgH * 0.8 ou cy - imgH + 4 para ajustar
+                ctx.drawImage(img, cx - imgW / 2, offsetY, imgW, imgH);
                 ctx.restore();
             } else {
                 ctx.save();
