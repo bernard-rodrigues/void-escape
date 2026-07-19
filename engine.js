@@ -3882,7 +3882,8 @@ export class Engine {
                     
                     const isPlayerStart = x === start.x && y === start.y && z === start.z;
                     const isTargetEnd = x === end.x && y === end.y && z === end.z;
-                    
+                    const isClickedShaft = x === end.x && y === end.y && (z === end.z - 1 || z === end.z + 1) && z % 2 === 0;
+
                     const isWall = val === this.mazeGen.TYPES.WALL;
                     if (isWall) {
                         tempMaze[idx] = 0; // parede é sempre intransitável
@@ -3901,9 +3902,9 @@ export class Engine {
 
                     let isPassable = false;
                     if (restrictToVisited) {
-                        isPassable = isVisited || isPlayerStart || isTargetEnd;
+                        isPassable = isVisited || isPlayerStart || isTargetEnd || isClickedShaft;
                     } else {
-                        isPassable = isVisited || isKnown || isPlayerStart || isTargetEnd;
+                        isPassable = isVisited || isKnown || isPlayerStart || isTargetEnd || isClickedShaft;
                     }
 
                     tempMaze[idx] = isPassable ? 1 : 0;
@@ -3939,10 +3940,10 @@ export class Engine {
 
         let targetZ = tz;
         if (tz % 2 === 0) {
-            // Se o destino for um poço de elevador (par), redireciona para o andar jogável (ímpar) mais próximo do player
-            targetZ = Math.abs((tz - 1) - this.player.z) < Math.abs((tz + 1) - this.player.z) ? (tz - 1) : (tz + 1);
-            if (targetZ < 0) targetZ = 1;
-            if (targetZ >= this.mazeGen.size) targetZ = this.mazeGen.size - 1;
+            // Se o destino for um poço de elevador (par), redireciona para o andar jogável (ímpar) do outro lado da cabine em relação ao jogador
+            targetZ = (this.player.z < tz) ? (tz + 1) : (tz - 1);
+            if (targetZ < 1) targetZ = 1;
+            if (targetZ >= this.mazeGen.size) targetZ = this.mazeGen.size - 2;
         }
 
         const start = {
@@ -4649,7 +4650,7 @@ export class Engine {
         }
 
         for (const z of [activeZ - 1, activeZ + 1]) {
-            if (z < 0 || z >= size) continue;
+            if (z < 0 || z >= size || z - 1 < 1 || z + 1 >= size) continue;
             for (let x = 0; x < size; x++) {
                 for (let y = 0; y < size; y++) {
                     const val = this.maze.get(x, y, z);
