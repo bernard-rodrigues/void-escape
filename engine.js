@@ -76,6 +76,27 @@ export class Engine {
             this.staticMapCacheDirty = true;
         };
         this.statueImage.src = 'assets/images/statue.png';
+
+        this.mageImages = {
+            down_left: new Image(),
+            down_right: new Image(),
+            up_left: new Image(),
+            up_right: new Image()
+        };
+        for (const key in this.mageImages) {
+            this.mageImages[key].onload = () => {
+                this.staticMapCacheDirty = true;
+            };
+            this.mageImages[key].src = `assets/images/mage_${key}.png`;
+        }
+
+        this.playerSide = 'right';
+        this.playerVertical = 'down';
+        this.playerWalkCycle = 0;
+        this.playerSquashTargetX = 1;
+        this.playerSquashTargetY = 1;
+        this.playerSquashX = 1;
+        this.playerSquashY = 1;
         
         this.player = {
             x: this.mazeGen.startPos.x,
@@ -1765,6 +1786,40 @@ export class Engine {
                 this.player.dir = Math.atan2(moveY, moveX);
             }
 
+            let isMoving = false;
+            if (moveX !== 0 || moveY !== 0) {
+                isMoving = true;
+                if (Math.abs(moveX) > Math.abs(moveY)) {
+                    if (moveX < 0) { // -X (up-left)
+                        this.playerSide = 'left';
+                        this.playerVertical = 'up';
+                    } else if (moveX > 0) { // +X (down-right)
+                        this.playerSide = 'right';
+                        this.playerVertical = 'down';
+                    }
+                } else { // Y is dominant or equal
+                    if (moveY < 0) { // -Y (up-right)
+                        this.playerVertical = 'up';
+                    } else if (moveY > 0) { // +Y (down-left)
+                        this.playerVertical = 'down';
+                    }
+                }
+            }
+
+            if (isMoving) {
+                this.playerWalkCycle = (this.playerWalkCycle || 0) + dt * 18;
+                this.playerSquashTargetX = 1 + Math.sin(this.playerWalkCycle) * 0.15;
+                this.playerSquashTargetY = 1 - Math.sin(this.playerWalkCycle) * 0.15;
+            } else {
+                this.playerSquashTargetX = 1;
+                this.playerSquashTargetY = 1;
+            }
+
+            this.playerSquashX = this.playerSquashX || 1;
+            this.playerSquashY = this.playerSquashY || 1;
+            this.playerSquashX += (this.playerSquashTargetX - this.playerSquashX) * 0.25;
+            this.playerSquashY += (this.playerSquashTargetY - this.playerSquashY) * 0.25;
+
             if (moveX !== 0 || moveY !== 0) {
                 const oldGridX = Math.floor(this.player.x);
                 const oldGridY = Math.floor(this.player.y);
@@ -2820,25 +2875,56 @@ export class Engine {
             }
         }
 
-        // 4. Draw Player (dynamic direction line and pulsating node overlay)
+        // 4. Draw Player (isometric sprite with direction memory and squash/squeeze animation)
         if (!this.deathAnimation || !this.deathAnimation.active) {
+            const stateKey = `${this.playerVertical}_${this.playerSide}`;
+            const img = this.mageImages[stateKey];
+            
+            const cx = px * cellSize;
+            const cy = py * cellSize;
+
+            // Draw flat ground shadow
             ctx.save();
-            ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
-            ctx.lineWidth = 1;
-            ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
-            ctx.restore();
-            
-            ctx.fillStyle = CONFIG.COLORS.PLAYER;
             ctx.beginPath();
-            ctx.arc(px * cellSize, py * cellSize, cellSize * 0.4, 0, Math.PI * 2);
+            ctx.arc(cx, cy, cellSize * 0.35, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fill();
-            
-            ctx.strokeStyle = CONFIG.COLORS.PLAYER;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(px * cellSize, py * cellSize);
-            ctx.lineTo(px * cellSize + Math.cos(this.player.dir) * cellSize * 1, py * cellSize + Math.sin(this.player.dir) * cellSize * 1);
-            ctx.stroke();
+            ctx.restore();
+
+            if (img && img.complete) {
+                ctx.save();
+                
+                const drawSize = cellSize * 0.90; 
+                const imgW = drawSize;
+                const imgH = drawSize * (img.height / img.width);
+                
+                // Translate to bottom center for squishing anchor
+                ctx.translate(cx, cy);
+                ctx.scale(this.playerSquashX || 1, this.playerSquashY || 1);
+                
+                // Draw mage centered horizontally and sitting on the shadow
+                ctx.drawImage(img, -imgW / 2, -imgH, imgW, imgH);
+                ctx.restore();
+            } else {
+                // Fallback to original ball and direction line if image is not loaded
+                ctx.save();
+                ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
+                ctx.restore();
+                
+                ctx.fillStyle = CONFIG.COLORS.PLAYER;
+                ctx.beginPath();
+                ctx.arc(cx, cy, cellSize * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = CONFIG.COLORS.PLAYER;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + Math.cos(this.player.dir) * cellSize * 1, cy + Math.sin(this.player.dir) * cellSize * 1);
+                ctx.stroke();
+            }
         }
 
         // Draw floating micro-notification box above the player
