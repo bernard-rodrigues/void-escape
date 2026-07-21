@@ -23,14 +23,12 @@ export class UIManager {
 
         this.uiVisitedPercent = document.getElementById('visited-percent');
         
-        // Hunter status letreiro and unifed info-banner
+        // Hunter status letreiro
         this.uiHunterStatusVal = document.getElementById('hunter-status-val');
         this.uiStatusLabel = document.querySelector('#hunter-status-panel .status-label');
         this.uiMarqueeContainer = document.querySelector('.status-marquee-container');
         this.uiLegendHunter = document.getElementById('legend-hunter');
-        this.uiInfoBanner = document.getElementById('info-banner');
         this.uiCanvas = document.getElementById('main-2d-canvas');
-        this.infoBannerTimeout = null;
 
         // Keys HUD DOM bindings
         this.uiKeysCollected = document.getElementById('keys-collected-count');
@@ -227,20 +225,9 @@ export class UIManager {
      * Show custom warning banner for a short duration.
      */
     showInfoBanner(message) {
-        this.bannerMessage = message; // Salva para compatibilidade de asserções nos testes unitários
+        this.bannerMessage = message;
         if (this.onInfoBanner) {
             this.onInfoBanner(message);
-            return;
-        }
-        if (this.uiInfoBanner) {
-            this.uiInfoBanner.innerText = message;
-            this.uiInfoBanner.classList.remove('hidden');
-            if (this.infoBannerTimeout) {
-                clearTimeout(this.infoBannerTimeout);
-            }
-            this.infoBannerTimeout = setTimeout(() => {
-                if (this.uiInfoBanner) this.uiInfoBanner.classList.add('hidden');
-            }, 3000);
         }
     }
 
@@ -442,9 +429,6 @@ export class UIManager {
      * Clean up timers on game destroy.
      */
     destroy() {
-        if (this.infoBannerTimeout) {
-            clearTimeout(this.infoBannerTimeout);
-        }
         if (this.savingIndicatorTimeout) {
             clearTimeout(this.savingIndicatorTimeout);
         }

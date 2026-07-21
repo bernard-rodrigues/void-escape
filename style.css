@@ -1337,28 +1337,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
 
 }
 
-#info-banner {
-    position: fixed;
-    bottom: calc(var(--h-unit) * 8);
-    bottom: calc(var(--d-h-unit) * 8);
-    left: calc(var(--h-unit) * 4);
-    left: calc(var(--d-h-unit) * 4);
-    color: var(--clr-teleport);
-    font-size: calc(var(--h-unit) * 2);
-    font-size: calc(var(--d-h-unit) * 2);
-    font-weight: bold;
-    letter-spacing: 0.08em;
-    z-index: 600;
-    pointer-events: none;
-    font-family: monospace;
-    animation: alert-flash 1s infinite alternate;
-}
-
-@keyframes alert-flash {
-    from { opacity: 0.6; }
-    to { opacity: 1.0; }
-}
-
 /* --- Hunter Status Letreiro Panel --- */
 #hunter-status-panel {
     display: flex;
@@ -1478,15 +1456,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
         margin-bottom: calc(var(--d-h-unit) * 2.5);
         letter-spacing: calc(var(--h-unit) * 0.4);
         letter-spacing: calc(var(--d-h-unit) * 0.4);
-    }
-    #info-banner {
-        bottom: calc(var(--h-unit) * 18);
-        bottom: calc(var(--d-h-unit) * 18);
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90%;
-        text-align: center;
-        font-size: calc(var(--h-unit) * 1.8);
     }
     .menu-content, .popup-container {
         padding: calc(var(--h-unit) * 6) calc(var(--h-unit) * 2.5);
