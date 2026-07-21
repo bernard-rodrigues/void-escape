@@ -52,10 +52,18 @@ class MinHeap {
 
 // ─── Shared direction vectors ──────────────────────────────────────────────────
 
+// Unit steps in all 6 directions (used by proximeter's cell-by-cell BFS).
 const DIRS6 = [
     { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
     { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
     { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 },
+];
+
+// Elevator-aware directions: horizontal unit steps + vertical 2-cell jumps (floor-to-floor).
+const DIRS_ELEVATOR = [
+    { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+    { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+    { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 },
 ];
 
 /** 3D Manhattan distance — admissible heuristic for unit-cost grids. */
@@ -100,16 +108,10 @@ export function aStarPath(start, end, maze, size, wallType = 0, startPosToAvoid 
 
         const curG = gCost.get(curKey);
 
-        const dirs = [
-            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
-            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
-            { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 }
-        ];
-
-        for (const { dx, dy, dz } of dirs) {
+        for (const { dx, dy, dz } of DIRS_ELEVATOR) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
-            
+
             // Avoid safe start position if requested (for hunters)
             if (startPosToAvoid && nx === startPosToAvoid.x && ny === startPosToAvoid.y && nz === startPosToAvoid.z) continue;
 
@@ -194,16 +196,10 @@ export function aStarDistance(start, end, maze, size, wallType = 0, maxDist = In
             return curG;
         }
 
-        const dirs = [
-            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
-            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
-            { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 }
-        ];
-
-        for (const { dx, dy, dz } of dirs) {
+        for (const { dx, dy, dz } of DIRS_ELEVATOR) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) continue;
-            
+
             // Avoid safe start position if requested (for hunters)
             if (startPosToAvoid && nx === startPosToAvoid.x && ny === startPosToAvoid.y && nz === startPosToAvoid.z) continue;
 

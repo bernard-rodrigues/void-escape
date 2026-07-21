@@ -12,6 +12,9 @@
     --clr-teleport: #ff8c00;
     /* Pathfinder / known-path blue — also mirrored in config.js COLORS.PATH_KNOWN */
     --clr-pathfinder: #88ccff;
+    /* Panel border and muted text — used across HUD panels */
+    --clr-border: rgba(0, 255, 255, 0.2);
+    --clr-text-muted: #888;
 
     /* Scales */
     --h-unit: 1vh;
@@ -434,27 +437,6 @@ body {
     font-style: italic;
 }
 
-.control-group select {
-    width: 100%;
-    padding: var(--h-unit);
-    padding: var(--d-h-unit);
-    background: var(--clr-bg);
-    border: calc(var(--h-unit) * 0.1) solid var(--clr-neon);
-    border: calc(var(--d-h-unit) * 0.1) solid var(--clr-neon);
-    color: var(--clr-neon);
-    border-radius: calc(var(--h-unit) * 0.5);
-    border-radius: calc(var(--d-h-unit) * 0.5);
-    font-family: inherit;
-    font-size: calc(var(--h-unit) * 2);
-    font-size: calc(var(--d-h-unit) * 2);
-    cursor: pointer;
-    outline: none;
-}
-
-.control-group select option {
-    background: var(--clr-bg);
-}
-
 .menu-action-btns {
     display: flex;
     justify-content: center;
@@ -591,31 +573,6 @@ body {
 
 .popup-container.death h1 {
     color: var(--clr-hazard);
-}
-
-#hazard-warning {
-    position: fixed;
-    top: calc(var(--h-unit) * 10);
-    top: calc(var(--d-h-unit) * 10);
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--clr-hazard);
-    font-size: calc(var(--h-unit) * 3);
-    font-size: calc(var(--d-h-unit) * 3);
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: calc(var(--h-unit) * 0.5);
-    letter-spacing: calc(var(--d-h-unit) * 0.5);
-    z-index: 500;
-    animation: pulse-red 1s infinite;
-    pointer-events: none;
-    text-align: center;
-}
-
-@keyframes pulse-red {
-    0% { opacity: 0.3; transform: translateX(-50%) scale(0.95); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
-    100% { opacity: 0.3; transform: translateX(-50%) scale(0.95); }
 }
 
 .hunted-map-effect {
@@ -1378,52 +1335,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
         font-size: calc(var(--d-h-unit) * 2);
     }
 
-    #hazard-warning {
-        top: calc(var(--h-unit) * 2);
-        top: calc(var(--d-h-unit) * 2);
-        font-size: calc(var(--h-unit) * 2.5);
-        font-size: calc(var(--d-h-unit) * 2.5);
-    }
-}
-
-#nearby-warning {
-    position: fixed;
-    top: calc(var(--h-unit) * 15);
-    top: calc(var(--d-h-unit) * 15);
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--clr-hunter);
-    font-size: calc(var(--h-unit) * 2.5);
-    font-size: calc(var(--d-h-unit) * 2.5);
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: calc(var(--h-unit) * 0.3);
-    letter-spacing: calc(var(--d-h-unit) * 0.3);
-    z-index: 500;
-    animation: pulse-purple 1.5s infinite;
-    pointer-events: none;
-    text-align: center;
-}
-
-@keyframes pulse-purple {
-    0% { opacity: 0.4; transform: translateX(-50%) scale(0.98); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.02); }
-    100% { opacity: 0.4; transform: translateX(-50%) scale(0.98); }
-}
-
-@keyframes pulse-orange {
-    0% { opacity: 0.4; transform: translateX(-50%) scale(0.98); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.02); }
-    100% { opacity: 0.4; transform: translateX(-50%) scale(0.98); }
-}
-
-@media (orientation: portrait) {
-    #nearby-warning {
-        top: calc(var(--h-unit) * 6);
-        top: calc(var(--d-h-unit) * 6);
-        font-size: calc(var(--h-unit) * 2);
-        font-size: calc(var(--d-h-unit) * 2);
-    }
 }
 
 #info-banner {
@@ -1599,18 +1510,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
         margin-top: calc(var(--d-h-unit) * 3);
     }
 
-    #teleport-info {
-        top: calc(var(--h-unit) * 6);
-        top: calc(var(--d-h-unit) * 6);
-        font-size: calc(var(--h-unit) * 1.8);
-        font-size: calc(var(--d-h-unit) * 1.8);
-    }
-    #teleport-cooldown-timer {
-        top: calc(var(--h-unit) * 6);
-        top: calc(var(--d-h-unit) * 6);
-        font-size: calc(var(--h-unit) * 2);
-        font-size: calc(var(--d-h-unit) * 2);
-    }
     /* Saving indicator: centered horizontally, safely above the mobile controls bar.
        Mobile controls bar = height 12 h-unit + 0 bottom = occupies bottom 0..12 h-unit.
        We sit at bottom 14 h-unit to leave a 2-unit gap above the bar. */

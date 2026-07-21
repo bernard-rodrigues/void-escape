@@ -258,11 +258,6 @@ export class UIManager {
     }
 
     /**
-     * Toggle visibility of instruction to click on a teleport destination.
-     */
-    setTeleportWarning(visible) {}
-
-    /**
      * Update hazardous warning status (hunters converging or tracking player).
      */
     updateHazardWarning(isTracking, cooldownTicks, isSafeMode = false, isSleeping = false) {
@@ -314,11 +309,6 @@ export class UIManager {
             }
         }
     }
-
-    /**
-     * Obsolete - Cooldown is unified in updateHazardWarning marquee.
-     */
-    updateCooldownTimer(ticks) {}
 
     /**
      * Update proximeter HUD based on distance.

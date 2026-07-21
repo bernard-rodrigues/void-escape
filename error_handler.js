@@ -4,47 +4,22 @@
  * Must be loaded synchronously in the head before any other script.
  */
 
+function createErrorOverlay(text) {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(255,0,0,0.95);color:#fff;padding:30px;z-index:999999;font-family:monospace;font-size:16px;white-space:pre-wrap;box-sizing:border-box';
+    div.innerText = text;
+    document.body.appendChild(div);
+}
+
 window.onerror = function(message, source, lineno, colno, error) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.position = 'fixed';
-    errorDiv.style.top = '0';
-    errorDiv.style.left = '0';
-    errorDiv.style.width = '100vw';
-    errorDiv.style.height = '100vh';
-    errorDiv.style.background = 'rgba(255, 0, 0, 0.95)';
-    errorDiv.style.color = '#fff';
-    errorDiv.style.padding = '30px';
-    errorDiv.style.zIndex = '999999';
-    errorDiv.style.fontFamily = 'monospace';
-    errorDiv.style.fontSize = '16px';
-    errorDiv.style.whiteSpace = 'pre-wrap';
-    errorDiv.style.boxSizing = 'border-box';
-    
-    errorDiv.innerText = 'JS ERROR DETECTED:\n\n' + message + 
-                         '\n\nAt: ' + source + ' (line ' + lineno + ', col ' + colno + ')' +
-                         '\n\nStack Trace:\n' + (error ? error.stack : 'N/A');
-    
-    document.body.appendChild(errorDiv);
+    createErrorOverlay(
+        'JS ERROR DETECTED:\n\n' + message +
+        '\n\nAt: ' + source + ' (line ' + lineno + ', col ' + colno + ')' +
+        '\n\nStack Trace:\n' + (error ? error.stack : 'N/A')
+    );
     return false;
 };
 
 window.addEventListener('unhandledrejection', function(event) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style.position = 'fixed';
-    errorDiv.style.top = '0';
-    errorDiv.style.left = '0';
-    errorDiv.style.width = '100vw';
-    errorDiv.style.height = '100vh';
-    errorDiv.style.background = 'rgba(255, 0, 0, 0.95)';
-    errorDiv.style.color = '#fff';
-    errorDiv.style.padding = '30px';
-    errorDiv.style.zIndex = '999999';
-    errorDiv.style.fontFamily = 'monospace';
-    errorDiv.style.fontSize = '16px';
-    errorDiv.style.whiteSpace = 'pre-wrap';
-    errorDiv.style.boxSizing = 'border-box';
-    
-    errorDiv.innerText = 'UNHANDLED PROMISE REJECTION:\n\n' + event.reason;
-    
-    document.body.appendChild(errorDiv);
+    createErrorOverlay('UNHANDLED PROMISE REJECTION:\n\n' + event.reason);
 });
