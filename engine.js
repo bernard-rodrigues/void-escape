@@ -2969,7 +2969,7 @@ export class Engine {
             const H = cellSize * 0.48;
             
             const X = px * cellSize;
-            const Y = py * cellSize - cellSize * 0.75;
+            const Y = py * cellSize - cellSize * 1.5;
             
             let W = totalWidth;
             if (n.state === "OPENING") {
