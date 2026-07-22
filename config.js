@@ -12,6 +12,8 @@ export const CONFIG = {
     PLAYER_COLLISION_RADIUS: 0.275, // Physical collision radius for the player AABB box
     PLAYER_COLLISION_OFFSET_X: 0.0, // Offset X of the player collision box center in grid cells
     PLAYER_COLLISION_OFFSET_Y: -0.25, // Offset Y of the player collision box center in grid cells
+    PLAYER_START_X: 0.5, // Default starting X coordinate of the player in the entry cell
+    PLAYER_START_Y: 1.5, // Default starting Y coordinate of the player in the entry cell
     SHOW_COLLISION_DEBUG: false, // Set to true to draw the player's red collision boundary on the 2D map
     MOVE_SPEED_FACTOR: 2, // player is 2x faster than hunter speed
     ROT_SPEED: 3.0, // radians per second
