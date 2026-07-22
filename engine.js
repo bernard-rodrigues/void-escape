@@ -1822,11 +1822,13 @@ export class Engine {
                 };
 
                 const R = CONFIG.PLAYER_COLLISION_RADIUS; // Raio de colisão físico do jogador (evita clipping)
+                const offsetX = CONFIG.PLAYER_COLLISION_OFFSET_X || 0;
+                const offsetY = CONFIG.PLAYER_COLLISION_OFFSET_Y || 0;
                 const isBoxPassable = (cx, cy, cz) => {
-                    const minGx = Math.floor(cx - R);
-                    const maxGx = Math.floor(cx + R);
-                    const minGy = Math.floor(cy - R);
-                    const maxGy = Math.floor(cy + R);
+                    const minGx = Math.floor(cx + offsetX - R);
+                    const maxGx = Math.floor(cx + offsetX + R);
+                    const minGy = Math.floor(cy + offsetY - R);
+                    const maxGy = Math.floor(cy + offsetY + R);
                     for (let gx = minGx; gx <= maxGx; gx++) {
                         for (let gy = minGy; gy <= maxGy; gy++) {
                             if (gx < 0 || gx >= this.mazeGen.size || gy < 0 || gy >= this.mazeGen.size) {
@@ -2942,7 +2944,9 @@ export class Engine {
                 ctx.strokeStyle = '#ff0000';
                 ctx.lineWidth = 1.5;
                 const boxSize = CONFIG.PLAYER_COLLISION_RADIUS * 2 * cellSize;
-                ctx.strokeRect(cx - boxSize / 2, cy - boxSize / 2, boxSize, boxSize);
+                const drawOffsetX = (CONFIG.PLAYER_COLLISION_OFFSET_X || 0) * cellSize;
+                const drawOffsetY = (CONFIG.PLAYER_COLLISION_OFFSET_Y || 0) * cellSize;
+                ctx.strokeRect(cx + drawOffsetX - boxSize / 2, cy + drawOffsetY - boxSize / 2, boxSize, boxSize);
                 ctx.restore();
             }
         }
@@ -5302,11 +5306,19 @@ export class Engine {
 
             if (CONFIG.SHOW_COLLISION_DEBUG) {
                 ctx.save();
+                const ox = CONFIG.PLAYER_COLLISION_OFFSET_X || 0;
+                const oy = CONFIG.PLAYER_COLLISION_OFFSET_Y || 0;
+                const isoOffsetX = (ox - oy) * tileWidthHalf;
+                const isoOffsetY = (ox + oy) * tileHeightHalf;
+                
+                const icx = cx + isoOffsetX;
+                const icy = cy + isoOffsetY;
+
                 ctx.beginPath();
-                ctx.moveTo(cx, cy - CONFIG.PLAYER_COLLISION_RADIUS * tileHeight);
-                ctx.lineTo(cx + CONFIG.PLAYER_COLLISION_RADIUS * tileWidth, cy);
-                ctx.lineTo(cx, cy + CONFIG.PLAYER_COLLISION_RADIUS * tileHeight);
-                ctx.lineTo(cx - CONFIG.PLAYER_COLLISION_RADIUS * tileWidth, cy);
+                ctx.moveTo(icx, icy - CONFIG.PLAYER_COLLISION_RADIUS * tileHeight);
+                ctx.lineTo(icx + CONFIG.PLAYER_COLLISION_RADIUS * tileWidth, icy);
+                ctx.lineTo(icx, icy + CONFIG.PLAYER_COLLISION_RADIUS * tileHeight);
+                ctx.lineTo(icx - CONFIG.PLAYER_COLLISION_RADIUS * tileWidth, icy);
                 ctx.closePath();
                 ctx.strokeStyle = '#ff0000';
                 ctx.lineWidth = 1.5;
