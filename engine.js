@@ -2898,8 +2898,10 @@ export class Engine {
             // Draw flat ground shadow
             ctx.save();
             ctx.beginPath();
-            const shadowW = cellSize * 0.45; // <--- Controle a LARGURA aqui (raio horizontal)
-            const shadowH = cellSize * 0.30; // <--- Controle a ALTURA aqui (raio vertical)
+            const swFactor = CONFIG.PLAYER_SHADOW_WIDTH_FACTOR !== undefined ? CONFIG.PLAYER_SHADOW_WIDTH_FACTOR : 0.45;
+            const shFactor = CONFIG.PLAYER_SHADOW_HEIGHT_FACTOR !== undefined ? CONFIG.PLAYER_SHADOW_HEIGHT_FACTOR : 0.30;
+            const shadowW = cellSize * swFactor;
+            const shadowH = cellSize * shFactor;
             ctx.ellipse(shadowX, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fill();
