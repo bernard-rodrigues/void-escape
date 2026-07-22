@@ -4013,10 +4013,26 @@ export class Engine {
         const leftHud = document.getElementById('left-hud-panel');
         const rightHud = document.getElementById('right-hud-panel');
         const bottomHud = document.getElementById('bottom-hud-container');
-        if (mapArea) mapArea.classList.remove('hidden');
-        if (leftHud) leftHud.classList.remove('hidden');
-        if (rightHud) rightHud.classList.remove('hidden');
-        if (bottomHud) bottomHud.classList.remove('hidden');
+        if (mapArea) {
+            mapArea.classList.remove('hidden', 'intro-hidden');
+            mapArea.classList.add('intro-reveal');
+            setTimeout(() => mapArea.classList.remove('intro-reveal'), 700);
+        }
+        if (leftHud) {
+            leftHud.classList.remove('hidden', 'intro-hidden');
+            leftHud.classList.add('intro-reveal');
+            setTimeout(() => leftHud.classList.remove('intro-reveal'), 700);
+        }
+        if (rightHud) {
+            rightHud.classList.remove('hidden', 'intro-hidden');
+            rightHud.classList.add('intro-reveal');
+            setTimeout(() => rightHud.classList.remove('intro-reveal'), 700);
+        }
+        if (bottomHud) {
+            bottomHud.classList.remove('hidden', 'intro-hidden');
+            bottomHud.classList.add('intro-reveal');
+            setTimeout(() => bottomHud.classList.remove('intro-reveal'), 700);
+        }
 
         // Hide 3D view (start game in 2D)
         this.ui.setMap3DVisible(false);
