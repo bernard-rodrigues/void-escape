@@ -2907,6 +2907,28 @@ export class Engine {
             ctx.fill();
             ctx.restore();
 
+            // REDESENHAR AS PAREDES ADJACENTES QUE ESTÃO SOBRE A SOMBRA PARA OCLUÍ-LA
+            const minX = Math.max(0, Math.floor((shadowX - shadowW) / cellSize));
+            const maxX = Math.min(size - 1, Math.floor((shadowX + shadowW) / cellSize));
+            const minY = Math.max(0, Math.floor((shadowY - shadowH) / cellSize));
+            const maxY = Math.min(size - 1, Math.floor((shadowY + shadowH) / cellSize));
+
+            for (let wx = minX; wx <= maxX; wx++) {
+                for (let wy = minY; wy <= maxY; wy++) {
+                    const cellVal = this.maze.get(wx, wy, z);
+                    if (cellVal === 0 && (this.isNearVisited(wx, wy, z) || this.isAdjacentToStatue(wx, wy, z))) {
+                        ctx.save();
+                        if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.wallImage, wx * cellSize, wy * cellSize, cellSize, cellSize);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.WALL;
+                            ctx.fillRect(wx * cellSize, wy * cellSize, cellSize, cellSize);
+                        }
+                        ctx.restore();
+                    }
+                }
+            }
+
             if (img && img.complete) {
                 ctx.save();
                 
