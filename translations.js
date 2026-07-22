@@ -9,7 +9,7 @@ export const TRANSLATIONS = {
         availablePathfinders: "Available Pathfinders",
         mazeDegree: "Maze Degree",
         safeMode: "Safe Mode",
-        generateMaze: "GENERATE MAZE",
+        generateMaze: "NEW GAME",
         continue: "CONTINUE",
         degreeHint: "Controls the grid size. Higher values create larger, more complex mazes.",
         safeModeHint: "When active, no hunters will spawn in the maze.",
