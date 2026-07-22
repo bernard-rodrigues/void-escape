@@ -259,6 +259,10 @@ export class Engine {
                 storyEl.removeEventListener('click', this.handleStoryClick);
                 this.handleStoryClick = null;
             }
+            if (this.handleStoryTouch) {
+                storyEl.removeEventListener('touchstart', this.handleStoryTouch);
+                this.handleStoryTouch = null;
+            }
             storyEl.classList.add('hidden');
         }
         
@@ -2583,13 +2587,19 @@ export class Engine {
         // Skip player/hunter markers during intro (scene is clean)
         if (isIntro) return;
 
-        const textureLoader = new THREE.TextureLoader();
-        const playerTexture = textureLoader.load('assets/images/mage_down_right.png');
-        const pMarkerMat = new THREE.SpriteMaterial({ map: playerTexture, depthWrite: false });
-        const pMarker = new THREE.Sprite(pMarkerMat);
-        pMarker.renderOrder = 99;
-        pMarker.scale.set(0.9, 0.9, 1.0);
-        pMarker.position.set(Math.floor(this.player.x) - size/2, (this.player.z - size/2) * this.vScale + 0.05, Math.floor(this.player.y) - size/2);
+        const pGeom = new THREE.SphereGeometry(0.42, 16, 16);
+        const pMarkerMat = new THREE.MeshPhongMaterial({
+            color: 0xff0000,
+            emissive: 0xff0000,
+            emissiveIntensity: 0.8,
+            depthWrite: false
+        });
+        const pMarker = new THREE.Mesh(pGeom, pMarkerMat);
+        pMarker.position.set(
+            Math.floor(this.player.x) - size/2,
+            (this.player.z - size/2) * this.vScale + 0.05,
+            Math.floor(this.player.y) - size/2
+        );
         this.scene.add(pMarker);
         const hGeom = new THREE.SphereGeometry(0.4);
         const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8, depthWrite: false });
@@ -3952,8 +3962,14 @@ export class Engine {
             if (e.target.closest('#story-skip-btn')) return;
             this.triggerAdvanceStory();
         };
+        this.handleStoryTouch = (e) => {
+            if (e.target.closest('#story-skip-btn')) return;
+            this.triggerAdvanceStory();
+            e.preventDefault();
+        };
         if (storyEl) {
             storyEl.addEventListener('click', this.handleStoryClick);
+            storyEl.addEventListener('touchstart', this.handleStoryTouch, { passive: false });
         }
 
         // 3. Skip button click listener
@@ -3982,6 +3998,10 @@ export class Engine {
             storyEl.removeEventListener('click', this.handleStoryClick);
             this.handleStoryClick = null;
         }
+        if (this.handleStoryTouch && storyEl) {
+            storyEl.removeEventListener('touchstart', this.handleStoryTouch);
+            this.handleStoryTouch = null;
+        }
 
         // Enable mobile map button
         if (this.ui.uiMobileMap) {
@@ -3993,10 +4013,26 @@ export class Engine {
         const leftHud = document.getElementById('left-hud-panel');
         const rightHud = document.getElementById('right-hud-panel');
         const bottomHud = document.getElementById('bottom-hud-container');
-        if (mapArea) mapArea.classList.remove('hidden');
-        if (leftHud) leftHud.classList.remove('hidden');
-        if (rightHud) rightHud.classList.remove('hidden');
-        if (bottomHud) bottomHud.classList.remove('hidden');
+        if (mapArea) {
+            mapArea.classList.remove('hidden', 'intro-hidden');
+            mapArea.classList.add('intro-reveal');
+            setTimeout(() => mapArea.classList.remove('intro-reveal'), 700);
+        }
+        if (leftHud) {
+            leftHud.classList.remove('hidden', 'intro-hidden');
+            leftHud.classList.add('intro-reveal');
+            setTimeout(() => leftHud.classList.remove('intro-reveal'), 700);
+        }
+        if (rightHud) {
+            rightHud.classList.remove('hidden', 'intro-hidden');
+            rightHud.classList.add('intro-reveal');
+            setTimeout(() => rightHud.classList.remove('intro-reveal'), 700);
+        }
+        if (bottomHud) {
+            bottomHud.classList.remove('hidden', 'intro-hidden');
+            bottomHud.classList.add('intro-reveal');
+            setTimeout(() => bottomHud.classList.remove('intro-reveal'), 700);
+        }
 
         // Hide 3D view (start game in 2D)
         this.ui.setMap3DVisible(false);

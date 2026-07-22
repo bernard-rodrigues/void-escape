@@ -1755,10 +1755,9 @@ body:has(#map3d-container:not(.hidden)) #mobile-zoom-btn {
 }
 
 .story-image-box {
-    width: min(100%, calc(var(--h-unit) * 35));
-    width: min(100%, calc(var(--d-h-unit) * 35));
-    height: calc(var(--h-unit) * 20);
-    height: calc(var(--d-h-unit) * 20);
+    width: min(100%, calc(var(--h-unit) * 36));
+    width: min(100%, calc(var(--d-h-unit) * 36));
+    aspect-ratio: 16 / 9;
     background-color: #0b0b0b;
     border: calc(var(--h-unit) * 0.25) solid #222;
     border: calc(var(--d-h-unit) * 0.25) solid #222;
