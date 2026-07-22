@@ -124,7 +124,9 @@ export class Engine {
         this.floorClickRects = [];
         this.mapZoom = 1.0;
         this.mapPanOffsetX = 0;
-        this.mapPanOffsetY = 0;
+        this.isZoomTransitionActive = false;
+        this.zoomTransitionTimer = 0;
+
 
         this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
@@ -1577,7 +1579,9 @@ export class Engine {
                 }
             }
         } else if (n.state === "WAITING") {
-            n.waitTimer += dt;
+            if (!this.isZoomTransitionActive) {
+                n.waitTimer += dt;
+            }
             if (n.waitTimer >= 1.0) {
                 n.state = "CLOSING";
                 n.closeProgress = 1;
@@ -1598,6 +1602,14 @@ export class Engine {
             this.updateGamepad(dt);
             this.updateStory(dt);
             return;
+        }
+
+        if (this.isZoomTransitionActive) {
+            this.zoomTransitionTimer -= dt;
+            if (this.zoomTransitionTimer <= 0) {
+                this.isZoomTransitionActive = false;
+                this.zoomTransitionTimer = 0;
+            }
         }
 
         this.updateNotification(dt);
@@ -1779,7 +1791,7 @@ export class Engine {
             }
         }
 
-        if (!this.isMap3DActive) {
+        if (!this.isMap3DActive && !this.isZoomTransitionActive) {
             let moveX = 0, moveY = 0;
 
             const hunterSpeedSec = 1000 / CONFIG.HUNTER_SPEED;
@@ -2748,10 +2760,24 @@ export class Engine {
         const px = this.player.x;
         const py = this.player.y;
 
-        if (useZoom) {
+        let isZooming = useZoom || this.isZoomTransitionActive;
+        let visibleCells = useZoom ? this.zoomVisibleCells : size;
+        
+        if (this.isZoomTransitionActive) {
+            const duration = 2.0; // 2 seconds transition
+            const progress = Math.min(1.0, (duration - this.zoomTransitionTimer) / duration);
+            const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+            const easeProgress = easeOutCubic(progress);
+            
+            const startVisible = 3.0;
+            const targetVisible = useZoom ? 11.0 : size;
+            visibleCells = startVisible + (targetVisible - startVisible) * easeProgress;
+        }
+
+        if (isZooming) {
             ctx.save();
-            const scaleTransition = 11 / this.zoomVisibleCells;
-            const half = this.zoomVisibleCells / 2;
+            const scaleFactor = (useZoom ? 11 : size) / visibleCells;
+            const half = visibleCells / 2;
 
             let camX = px;
             let camY = py;
@@ -2764,7 +2790,7 @@ export class Engine {
             const centerY = ctx.canvas.height / 2;
             
             ctx.translate(centerX, centerY);
-            ctx.scale(scaleTransition, scaleTransition);
+            ctx.scale(scaleFactor, scaleFactor);
             ctx.translate(-camX * cellSize, -camY * cellSize);
         }
 
@@ -3070,7 +3096,19 @@ export class Engine {
             ctx.restore();
         }
 
-        if (useZoom) {
+        if (isZooming) {
+            ctx.restore();
+        }
+
+        // Draw black screen fade-in overlay
+        if (this.isZoomTransitionActive) {
+            const duration = 2.0;
+            const progress = Math.min(1.0, (duration - this.zoomTransitionTimer) / duration);
+            const alpha = 1.0 - progress; // goes from 1.0 to 0.0
+            
+            ctx.save();
+            ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.restore();
         }
 
@@ -3872,6 +3910,9 @@ export class Engine {
                 setTimeout(() => bottomHud.classList.remove('intro-reveal'), 700);
             }
 
+            this.isZoomTransitionActive = true;
+            this.zoomTransitionTimer = 2.0;
+
             if (!this.isResumedFromSave) {
                 this.ui.showInfoBanner(getTranslation('msgWhereAmI'));
             }
@@ -3964,6 +4005,9 @@ export class Engine {
 
         // Force static map cache generation
         this.staticMapCacheDirty = true;
+
+        this.isZoomTransitionActive = true;
+        this.zoomTransitionTimer = 2.0;
 
         if (!this.isResumedFromSave) {
             this.ui.showInfoBanner(getTranslation('msgWhereAmI'));
