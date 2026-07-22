@@ -3964,6 +3964,10 @@ export class Engine {
 
         // Force static map cache generation
         this.staticMapCacheDirty = true;
+
+        if (!this.isResumedFromSave) {
+            this.ui.showInfoBanner(getTranslation('msgWhereAmI'));
+        }
     }
 
     updateStoryImage() {
