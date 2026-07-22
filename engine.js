@@ -4007,6 +4007,7 @@ export class Engine {
         }
 
         const fullText = getTranslation(msgs[this.storyMsgIndex]);
+        const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
         if (this.storyState === "OPENING") {
             textEl.textContent = "";
@@ -4019,7 +4020,7 @@ export class Engine {
                 this.storyCharIndex = 0;
                 this.storyTypeTimer = 0;
             }
-            dialogueBox.style.transform = `scaleX(${this.storyWidthProgress})`;
+            dialogueBox.style.transform = `scaleX(${easeInOutCubic(this.storyWidthProgress)})`;
         } 
         else if (this.storyState === "TYPING") {
             dialogueBox.style.transform = "scaleX(1)";
@@ -4058,7 +4059,7 @@ export class Engine {
                     this.updateStoryImage();
                 }
             }
-            dialogueBox.style.transform = `scaleX(${this.storyCloseProgress})`;
+            dialogueBox.style.transform = `scaleX(${easeInOutCubic(this.storyCloseProgress)})`;
         }
     }
 
