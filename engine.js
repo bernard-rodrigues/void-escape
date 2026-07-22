@@ -4013,7 +4013,7 @@ export class Engine {
             textEl.textContent = "";
             if (arrowEl) arrowEl.classList.add('hidden');
 
-            this.storyWidthProgress += dt / 0.15;
+            this.storyWidthProgress += dt / 0.45;
             if (this.storyWidthProgress >= 1) {
                 this.storyWidthProgress = 1;
                 this.storyState = "TYPING";
@@ -4046,18 +4046,10 @@ export class Engine {
             textEl.textContent = "";
             if (arrowEl) arrowEl.classList.add('hidden');
 
-            this.storyCloseProgress -= dt / 0.15;
+            this.storyCloseProgress -= dt / 0.45;
             if (this.storyCloseProgress <= 0) {
                 this.storyCloseProgress = 0;
-                this.storyMsgIndex++;
-                if (this.storyMsgIndex >= msgs.length) {
-                    this.endStorytelling();
-                } else {
-                    this.storyState = "OPENING";
-                    this.storyWidthProgress = 0;
-                    this.storyCloseProgress = 1;
-                    this.updateStoryImage();
-                }
+                this.endStorytelling();
             }
             dialogueBox.style.transform = `scaleX(${easeInOutCubic(this.storyCloseProgress)})`;
         }
@@ -4075,6 +4067,11 @@ export class Engine {
         if (this.storyMsgIndex >= msgs.length) return;
         const fullText = getTranslation(msgs[this.storyMsgIndex]);
 
+        if (this.storyState === "CLOSING") {
+            this.skipStory();
+            return;
+        }
+
         if (this.storyState === "OPENING") {
             this.storyState = "TYPING";
             this.storyWidthProgress = 1;
@@ -4086,8 +4083,18 @@ export class Engine {
             const textEl = document.getElementById('story-text');
             if (textEl) textEl.textContent = fullText;
         } else if (this.storyState === "WAITING") {
-            this.storyState = "CLOSING";
-            this.storyCloseProgress = 1;
+            if (this.storyMsgIndex + 1 < msgs.length) {
+                this.storyMsgIndex++;
+                this.storyState = "TYPING";
+                this.storyCharIndex = 0;
+                this.storyTypeTimer = 0;
+                this.updateStoryImage();
+                const textEl = document.getElementById('story-text');
+                if (textEl) textEl.textContent = "";
+            } else {
+                this.storyState = "CLOSING";
+                this.storyCloseProgress = 1;
+            }
         }
     }
 
