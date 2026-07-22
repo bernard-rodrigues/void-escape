@@ -425,23 +425,6 @@ export class Engine {
         return { x: 1, y: 1, z: 1 };
     }
 
-    findNearestValid(tx, ty, tz) {
-        let best = { x: tx, y: ty, z: tz };
-        let minDist = Infinity;
-        const s = this.mazeGen.size;
-        for (let x = 0; x < s; x++) {
-            for (let y = 0; y < s; y++) {
-                for (let z = 0; z < s; z++) {
-                    if (this.maze.get(x, y, z) !== 0) {
-                        const dist = Math.abs(x - tx) + Math.abs(y - ty) + Math.abs(z - tz);
-                        if (dist < minDist) { minDist = dist; best = { x, y, z }; }
-                    }
-                }
-            }
-        }
-        return best;
-    }
-
     /**
      * Persist the current game state and briefly show a "SAVING..." indicator.
      */
@@ -2024,7 +2007,6 @@ export class Engine {
             if (this.teleportCooldownTicks > 0) {
                 this.teleportCooldownTicks--;
                 this.staticMapCacheDirty = true;
-                this.ui.updateCooldownTimer(this.teleportCooldownTicks);
                 if (this.teleportCooldownTicks === 0) {
                     this.inactiveTeleportPos = null;
                     
@@ -2183,7 +2165,6 @@ export class Engine {
     toggleMap3D() {
         this.isMap3DActive = !this.isMap3DActive;
         this.isTeleportMode = false;
-        this.ui.setTeleportWarning(false);
         const telExitBtn = document.getElementById('mobile-teleport-exit-btn');
         if (telExitBtn) telExitBtn.classList.add('hidden');
         if (this.isMap3DActive) {
@@ -3837,8 +3818,6 @@ export class Engine {
         this.isMap3DActive = show;
         this.isTeleportMode = show;
         
-        this.ui.setTeleportWarning(show);
-        
         const telExitBtn = document.getElementById('mobile-teleport-exit-btn');
         
         if (show) {
@@ -4161,7 +4140,6 @@ export class Engine {
             this.teleportCooldownTicks = nTicks;
             this.inactiveTeleportPos = { x, y, z };
 
-            this.ui.updateCooldownTimer(this.teleportCooldownTicks);
             this.ui.showInfoBanner(getTranslation('msgOopsNoisyShit'));
 
             for (const hunter of this.hunters) {
