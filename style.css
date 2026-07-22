@@ -1730,3 +1730,90 @@ body:has(#map3d-container:not(.hidden)) #mobile-zoom-btn {
     border-color: var(--clr-neon) !important;
 }
 
+#story-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: #000000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1002;
+}
+
+.story-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--h-unit) * 3);
+    gap: calc(var(--d-h-unit) * 3);
+    width: 90%;
+    max-width: 600px;
+}
+
+.story-image-box {
+    width: min(100%, calc(var(--h-unit) * 35));
+    width: min(100%, calc(var(--d-h-unit) * 35));
+    height: calc(var(--h-unit) * 20);
+    height: calc(var(--d-h-unit) * 20);
+    background-color: #0b0b0b;
+    border: calc(var(--h-unit) * 0.25) solid #222;
+    border: calc(var(--d-h-unit) * 0.25) solid #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.story-image-box::after {
+    content: attr(data-placeholder);
+    color: #444;
+    font-family: monospace;
+    font-size: calc(var(--h-unit) * 1.5);
+    font-size: calc(var(--d-h-unit) * 1.5);
+}
+
+.story-dialogue-box {
+    background-color: #000000;
+    border: calc(var(--h-unit) * 0.3) solid #00ffff;
+    border: calc(var(--d-h-unit) * 0.3) solid #00ffff;
+    color: #ffffff;
+    font-family: monospace;
+    font-weight: bold;
+    padding: calc(var(--h-unit) * 2) calc(var(--h-unit) * 3);
+    padding: calc(var(--d-h-unit) * 2) calc(var(--d-h-unit) * 3);
+    font-size: calc(var(--h-unit) * 1.8);
+    font-size: calc(var(--d-h-unit) * 1.8);
+    text-align: center;
+    width: 100%;
+    min-height: calc(var(--h-unit) * 8);
+    min-height: calc(var(--d-h-unit) * 8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+#story-skip-btn {
+    background: transparent;
+    border: calc(var(--h-unit) * 0.2) solid #555;
+    border: calc(var(--d-h-unit) * 0.2) solid #555;
+    color: #888;
+    padding: calc(var(--h-unit) * 0.8) calc(var(--h-unit) * 1.6);
+    padding: calc(var(--d-h-unit) * 0.8) calc(var(--d-h-unit) * 1.6);
+    font-family: 'Orbitron', sans-serif;
+    font-size: calc(var(--h-unit) * 1.4);
+    font-size: calc(var(--d-h-unit) * 1.4);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+}
+
+#story-skip-btn:hover {
+    border-color: #00ffff;
+    color: #ffffff;
+}
+

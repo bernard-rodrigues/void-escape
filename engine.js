@@ -148,6 +148,7 @@ export class Engine {
         this.isPaused = false;
         this.isDestroyed = false;
         this.isIntroPlaying = false;
+        this.isStoryActive = false;
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
@@ -245,6 +246,18 @@ export class Engine {
         if (this.activeContinueTimer) {
             clearTimeout(this.activeContinueTimer);
             this.activeContinueTimer = null;
+        }
+        if (this.handleStoryKeyDown) {
+            window.removeEventListener('keydown', this.handleStoryKeyDown);
+            this.handleStoryKeyDown = null;
+        }
+        const storyEl = document.getElementById('story-screen');
+        if (storyEl) {
+            if (this.handleStoryClick) {
+                storyEl.removeEventListener('click', this.handleStoryClick);
+                this.handleStoryClick = null;
+            }
+            storyEl.classList.add('hidden');
         }
         
         if (this.controls) {
@@ -828,7 +841,7 @@ export class Engine {
             this.restoreFromSave(savedState);
             this.playContinueAnimation();
         } else {
-            this.playIntroAnimation();
+            this.startStorytelling();
         }
 
         this.loop();
@@ -1198,6 +1211,21 @@ export class Engine {
         const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
         const justPressed = (btnIdx) => isPressed(btnIdx) && !wasPressed(btnIdx);
 
+        if (this.isStoryActive) {
+            if (justPressed(9)) {
+                this.skipStory();
+            } else {
+                for (let i = 0; i < gp.buttons.length; i++) {
+                    if (i !== 9 && justPressed(i)) {
+                        this.nextStoryMsg();
+                        break;
+                    }
+                }
+            }
+            this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+            return;
+        }
+
         // Start / Menu Button (Button 9): Toggle Pause
         if (justPressed(9)) {
             this.togglePause();
@@ -1565,6 +1593,11 @@ export class Engine {
 
     update(dt) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        if (this.isStoryActive) {
+            this.updateGamepad(dt);
+            return;
+        }
 
         this.updateNotification(dt);
 
@@ -3842,6 +3875,138 @@ export class Engine {
                 this.ui.showInfoBanner(getTranslation('msgWhereAmI'));
             }
         }, 600);
+    }
+
+    startStorytelling() {
+        this.isStoryActive = true;
+        this.storyMsgIndex = 0;
+
+        const storyEl = document.getElementById('story-screen');
+        if (storyEl) {
+            storyEl.classList.remove('hidden');
+        }
+
+        this.showStoryMsg();
+
+        // 1. Keyboard event listener
+        this.handleStoryKeyDown = (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'escape') {
+                this.skipStory();
+            } else {
+                this.nextStoryMsg();
+            }
+            e.preventDefault();
+        };
+        window.addEventListener('keydown', this.handleStoryKeyDown);
+
+        // 2. Click event listener on story screen (excluding SKIP button)
+        this.handleStoryClick = (e) => {
+            if (e.target.closest('#story-skip-btn')) return;
+            this.nextStoryMsg();
+        };
+        if (storyEl) {
+            storyEl.addEventListener('click', this.handleStoryClick);
+        }
+
+        // 3. Skip button click listener
+        const skipBtn = document.getElementById('story-skip-btn');
+        if (skipBtn) {
+            skipBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.skipStory();
+            };
+        }
+    }
+
+    endStorytelling() {
+        this.isStoryActive = false;
+
+        const storyEl = document.getElementById('story-screen');
+        if (storyEl) {
+            storyEl.classList.add('hidden');
+        }
+
+        if (this.handleStoryKeyDown) {
+            window.removeEventListener('keydown', this.handleStoryKeyDown);
+            this.handleStoryKeyDown = null;
+        }
+        if (this.handleStoryClick && storyEl) {
+            storyEl.removeEventListener('click', this.handleStoryClick);
+            this.handleStoryClick = null;
+        }
+
+        // Enable mobile map button
+        if (this.ui.uiMobileMap) {
+            this.ui.uiMobileMap.disabled = false;
+        }
+
+        // Ensure 2D game UI is displayed and not hidden
+        const mapArea = document.getElementById('map-area-container');
+        const leftHud = document.getElementById('left-hud-panel');
+        const rightHud = document.getElementById('right-hud-panel');
+        const bottomHud = document.getElementById('bottom-hud-container');
+        if (mapArea) mapArea.classList.remove('hidden');
+        if (leftHud) leftHud.classList.remove('hidden');
+        if (rightHud) rightHud.classList.remove('hidden');
+        if (bottomHud) bottomHud.classList.remove('hidden');
+
+        // Hide 3D view (start game in 2D)
+        this.ui.setMap3DVisible(false);
+        this.isMap3DActive = false;
+        this.isIntroPlaying = false;
+
+        // Force static map cache generation
+        this.staticMapCacheDirty = true;
+    }
+
+    showStoryMsg() {
+        const msgs = [
+            "storyMsg1",
+            "storyMsg2",
+            "storyMsg3",
+            "storyMsg4",
+            "storyMsg5",
+            "storyMsg6"
+        ];
+
+        if (this.storyMsgIndex < msgs.length) {
+            const key = msgs[this.storyMsgIndex];
+            const text = getTranslation(key);
+            const textEl = document.getElementById('story-dialogue');
+            if (textEl) {
+                textEl.textContent = text;
+            }
+
+            const imgEl = document.getElementById('story-img');
+            const imgBox = document.getElementById('story-image-canvas');
+            if (imgEl && imgBox) {
+                const imgPath = `assets/images/story_${this.storyMsgIndex + 1}.png`;
+                imgEl.src = imgPath;
+                imgEl.onerror = () => {
+                    imgEl.style.display = 'none';
+                    imgBox.setAttribute('data-placeholder', `[Image ${this.storyMsgIndex + 1}]`);
+                };
+                imgEl.onload = () => {
+                    imgEl.style.display = 'block';
+                    imgBox.removeAttribute('data-placeholder');
+                };
+            }
+        }
+    }
+
+    skipStory() {
+        this.endStorytelling();
+    }
+
+    nextStoryMsg() {
+        this.storyMsgIndex++;
+        const msgsCount = 6;
+        if (this.storyMsgIndex >= msgsCount) {
+            this.endStorytelling();
+        } else {
+            this.showStoryMsg();
+        }
     }
 
     toggleTeleportMap(show) {
