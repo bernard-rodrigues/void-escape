@@ -2890,8 +2890,10 @@ export class Engine {
             // =========================================================
             // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR NO MAPA 2D (MINIMAP) AQUI:
             // =========================================================
-            const shadowX = cx - cellSize * 0.28; // <--- Subtraia mais para ir mais para a ESQUERDA
-            const shadowY = cy - cellSize * 0.28; // <--- Subtraia mais para ir mais para CIMA
+            const ox = CONFIG.PLAYER_SHADOW_OFFSET_X !== undefined ? CONFIG.PLAYER_SHADOW_OFFSET_X : -0.28;
+            const oy = CONFIG.PLAYER_SHADOW_OFFSET_Y !== undefined ? CONFIG.PLAYER_SHADOW_OFFSET_Y : -0.28;
+            const shadowX = cx + cellSize * ox;
+            const shadowY = cy + cellSize * oy;
 
             // Draw flat ground shadow
             ctx.save();

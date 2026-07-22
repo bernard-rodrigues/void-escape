@@ -11,9 +11,11 @@ export const CONFIG = {
     TELEPORT_MAP_OPACITY: 0.25, // Opacity of non-teleport meshes when choosing teleport destination
     PLAYER_COLLISION_RADIUS: 0.275, // Physical collision radius for the player AABB box
     PLAYER_COLLISION_OFFSET_X: 0.0, // Offset X of the player collision box center in grid cells
-    PLAYER_COLLISION_OFFSET_Y: -0.25, // Offset Y of the player collision box center in grid cells
+    PLAYER_COLLISION_OFFSET_Y: -0.125, // Offset Y of the player collision box center in grid cells
     PLAYER_START_X: 0.5, // Default starting X coordinate of the player in the entry cell
-    PLAYER_START_Y: 1.5, // Default starting Y coordinate of the player in the entry cell
+    PLAYER_START_Y: 1.7, // Default starting Y coordinate of the player in the entry cell
+    PLAYER_SHADOW_OFFSET_X: -0.28, // Offset X of the player shadow center relative to cell size
+    PLAYER_SHADOW_OFFSET_Y: -0.20, // Offset Y of the player shadow center relative to cell size
     SHOW_COLLISION_DEBUG: false, // Set to true to draw the player's red collision boundary on the 2D map
     MOVE_SPEED_FACTOR: 2, // player is 2x faster than hunter speed
     ROT_SPEED: 3.0, // radians per second
