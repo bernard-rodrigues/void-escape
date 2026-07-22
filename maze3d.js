@@ -22,7 +22,11 @@ export class Maze3D {
         this.matrix = this.initMatrix();
         
         this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6, KEY: 7, STATUE: 8 };
-        this.startPos = { x: 0.5, y: 1.5, z: 0 };
+        this.startPos = {
+            x: CONFIG.PLAYER_START_X !== undefined ? CONFIG.PLAYER_START_X : 0.5,
+            y: CONFIG.PLAYER_START_Y !== undefined ? CONFIG.PLAYER_START_Y : 1.5,
+            z: 0
+        };
     }
 
     createSeededRandom(seed) {
@@ -114,7 +118,11 @@ export class Maze3D {
         const entryZ = 1 + 2 * Math.floor(this.random() * this.n);
         this.matrix[this._idx(1, 1, entryZ)] = this.TYPES.PATH;
         this.matrix[this._idx(0, 1, entryZ)] = this.TYPES.TELEPORT;
-        this.startPos = { x: 0.5, y: 1.5, z: entryZ };
+        this.startPos = {
+            x: CONFIG.PLAYER_START_X !== undefined ? CONFIG.PLAYER_START_X : 0.5,
+            y: CONFIG.PLAYER_START_Y !== undefined ? CONFIG.PLAYER_START_Y : 1.5,
+            z: entryZ
+        };
 
         const exitZ = 1 + 2 * Math.floor(this.random() * this.n);
         const lastCell = 2 * this.n - 1;
