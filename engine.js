@@ -2890,18 +2890,44 @@ export class Engine {
             // =========================================================
             // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR NO MAPA 2D (MINIMAP) AQUI:
             // =========================================================
-            const shadowX = cx - cellSize * 0.28; // <--- Subtraia mais para ir mais para a ESQUERDA
-            const shadowY = cy - cellSize * 0.28; // <--- Subtraia mais para ir mais para CIMA
+            const ox = CONFIG.PLAYER_SHADOW_OFFSET_X !== undefined ? CONFIG.PLAYER_SHADOW_OFFSET_X : -0.28;
+            const oy = CONFIG.PLAYER_SHADOW_OFFSET_Y !== undefined ? CONFIG.PLAYER_SHADOW_OFFSET_Y : -0.28;
+            const shadowX = cx + cellSize * ox;
+            const shadowY = cy + cellSize * oy;
 
             // Draw flat ground shadow
             ctx.save();
             ctx.beginPath();
-            const shadowW = cellSize * 0.45; // <--- Controle a LARGURA aqui (raio horizontal)
-            const shadowH = cellSize * 0.30; // <--- Controle a ALTURA aqui (raio vertical)
+            const swFactor = CONFIG.PLAYER_SHADOW_WIDTH_FACTOR !== undefined ? CONFIG.PLAYER_SHADOW_WIDTH_FACTOR : 0.45;
+            const shFactor = CONFIG.PLAYER_SHADOW_HEIGHT_FACTOR !== undefined ? CONFIG.PLAYER_SHADOW_HEIGHT_FACTOR : 0.30;
+            const shadowW = cellSize * swFactor;
+            const shadowH = cellSize * shFactor;
             ctx.ellipse(shadowX, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fill();
             ctx.restore();
+
+            // REDESENHAR AS PAREDES ADJACENTES QUE ESTÃO SOBRE A SOMBRA PARA OCLUÍ-LA
+            const minX = Math.max(0, Math.floor((shadowX - shadowW) / cellSize));
+            const maxX = Math.min(size - 1, Math.floor((shadowX + shadowW) / cellSize));
+            const minY = Math.max(0, Math.floor((shadowY - shadowH) / cellSize));
+            const maxY = Math.min(size - 1, Math.floor((shadowY + shadowH) / cellSize));
+
+            for (let wx = minX; wx <= maxX; wx++) {
+                for (let wy = minY; wy <= maxY; wy++) {
+                    const cellVal = this.maze.get(wx, wy, z);
+                    if (cellVal === 0 && (this.isNearVisited(wx, wy, z) || this.isAdjacentToStatue(wx, wy, z))) {
+                        ctx.save();
+                        if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.wallImage, wx * cellSize, wy * cellSize, cellSize, cellSize);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.WALL;
+                            ctx.fillRect(wx * cellSize, wy * cellSize, cellSize, cellSize);
+                        }
+                        ctx.restore();
+                    }
+                }
+            }
 
             if (img && img.complete) {
                 ctx.save();
