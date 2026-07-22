@@ -124,7 +124,9 @@ export class Engine {
         this.floorClickRects = [];
         this.mapZoom = 1.0;
         this.mapPanOffsetX = 0;
-        this.mapPanOffsetY = 0;
+        this.isZoomTransitionActive = false;
+        this.zoomTransitionTimer = 0;
+
 
         this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
@@ -148,6 +150,7 @@ export class Engine {
         this.isPaused = false;
         this.isDestroyed = false;
         this.isIntroPlaying = false;
+        this.isStoryActive = false;
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
@@ -245,6 +248,18 @@ export class Engine {
         if (this.activeContinueTimer) {
             clearTimeout(this.activeContinueTimer);
             this.activeContinueTimer = null;
+        }
+        if (this.handleStoryKeyDown) {
+            window.removeEventListener('keydown', this.handleStoryKeyDown);
+            this.handleStoryKeyDown = null;
+        }
+        const storyEl = document.getElementById('story-screen');
+        if (storyEl) {
+            if (this.handleStoryClick) {
+                storyEl.removeEventListener('click', this.handleStoryClick);
+                this.handleStoryClick = null;
+            }
+            storyEl.classList.add('hidden');
         }
         
         if (this.controls) {
@@ -828,7 +843,7 @@ export class Engine {
             this.restoreFromSave(savedState);
             this.playContinueAnimation();
         } else {
-            this.playIntroAnimation();
+            this.startStorytelling();
         }
 
         this.loop();
@@ -1198,6 +1213,21 @@ export class Engine {
         const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
         const justPressed = (btnIdx) => isPressed(btnIdx) && !wasPressed(btnIdx);
 
+        if (this.isStoryActive) {
+            if (justPressed(9)) {
+                this.skipStory();
+            } else {
+                for (let i = 0; i < gp.buttons.length; i++) {
+                    if (i !== 9 && justPressed(i)) {
+                        this.nextStoryMsg();
+                        break;
+                    }
+                }
+            }
+            this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+            return;
+        }
+
         // Start / Menu Button (Button 9): Toggle Pause
         if (justPressed(9)) {
             this.togglePause();
@@ -1549,7 +1579,9 @@ export class Engine {
                 }
             }
         } else if (n.state === "WAITING") {
-            n.waitTimer += dt;
+            if (!this.isZoomTransitionActive) {
+                n.waitTimer += dt;
+            }
             if (n.waitTimer >= 1.0) {
                 n.state = "CLOSING";
                 n.closeProgress = 1;
@@ -1565,6 +1597,20 @@ export class Engine {
 
     update(dt) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        if (this.isStoryActive) {
+            this.updateGamepad(dt);
+            this.updateStory(dt);
+            return;
+        }
+
+        if (this.isZoomTransitionActive) {
+            this.zoomTransitionTimer -= dt;
+            if (this.zoomTransitionTimer <= 0) {
+                this.isZoomTransitionActive = false;
+                this.zoomTransitionTimer = 0;
+            }
+        }
 
         this.updateNotification(dt);
 
@@ -1745,7 +1791,7 @@ export class Engine {
             }
         }
 
-        if (!this.isMap3DActive) {
+        if (!this.isMap3DActive && !this.isZoomTransitionActive) {
             let moveX = 0, moveY = 0;
 
             const hunterSpeedSec = 1000 / CONFIG.HUNTER_SPEED;
@@ -2714,10 +2760,24 @@ export class Engine {
         const px = this.player.x;
         const py = this.player.y;
 
-        if (useZoom) {
+        let isZooming = useZoom || this.isZoomTransitionActive;
+        let visibleCells = useZoom ? this.zoomVisibleCells : size;
+        
+        if (this.isZoomTransitionActive) {
+            const duration = 2.0; // 2 seconds transition
+            const progress = Math.min(1.0, (duration - this.zoomTransitionTimer) / duration);
+            const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+            const easeProgress = easeOutCubic(progress);
+            
+            const startVisible = 3.0;
+            const targetVisible = useZoom ? 11.0 : size;
+            visibleCells = startVisible + (targetVisible - startVisible) * easeProgress;
+        }
+
+        if (isZooming) {
             ctx.save();
-            const scaleTransition = 11 / this.zoomVisibleCells;
-            const half = this.zoomVisibleCells / 2;
+            const scaleFactor = (useZoom ? 11 : size) / visibleCells;
+            const half = visibleCells / 2;
 
             let camX = px;
             let camY = py;
@@ -2730,7 +2790,7 @@ export class Engine {
             const centerY = ctx.canvas.height / 2;
             
             ctx.translate(centerX, centerY);
-            ctx.scale(scaleTransition, scaleTransition);
+            ctx.scale(scaleFactor, scaleFactor);
             ctx.translate(-camX * cellSize, -camY * cellSize);
         }
 
@@ -3036,7 +3096,19 @@ export class Engine {
             ctx.restore();
         }
 
-        if (useZoom) {
+        if (isZooming) {
+            ctx.restore();
+        }
+
+        // Draw black screen fade-in overlay
+        if (this.isZoomTransitionActive) {
+            const duration = 2.0;
+            const progress = Math.min(1.0, (duration - this.zoomTransitionTimer) / duration);
+            const alpha = 1.0 - progress; // goes from 1.0 to 0.0
+            
+            ctx.save();
+            ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.restore();
         }
 
@@ -3838,10 +3910,262 @@ export class Engine {
                 setTimeout(() => bottomHud.classList.remove('intro-reveal'), 700);
             }
 
+            this.isZoomTransitionActive = true;
+            this.zoomTransitionTimer = 2.0;
+
             if (!this.isResumedFromSave) {
                 this.ui.showInfoBanner(getTranslation('msgWhereAmI'));
             }
         }, 600);
+    }
+
+    startStorytelling() {
+        this.isStoryActive = true;
+        this.storyMsgIndex = 0;
+        this.storyState = "OPENING";
+        this.storyWidthProgress = 0;
+        this.storyCloseProgress = 1;
+        this.storyCharIndex = 0;
+        this.storyTypeTimer = 0;
+
+        const storyEl = document.getElementById('story-screen');
+        if (storyEl) {
+            storyEl.classList.remove('hidden');
+        }
+
+        this.updateStoryImage();
+
+        // 1. Keyboard event listener
+        this.handleStoryKeyDown = (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'escape') {
+                this.skipStory();
+            } else {
+                this.triggerAdvanceStory();
+            }
+            e.preventDefault();
+        };
+        window.addEventListener('keydown', this.handleStoryKeyDown);
+
+        // 2. Click event listener on story screen (excluding SKIP button)
+        this.handleStoryClick = (e) => {
+            if (e.target.closest('#story-skip-btn')) return;
+            this.triggerAdvanceStory();
+        };
+        if (storyEl) {
+            storyEl.addEventListener('click', this.handleStoryClick);
+        }
+
+        // 3. Skip button click listener
+        const skipBtn = document.getElementById('story-skip-btn');
+        if (skipBtn) {
+            skipBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.skipStory();
+            };
+        }
+    }
+
+    endStorytelling() {
+        this.isStoryActive = false;
+
+        const storyEl = document.getElementById('story-screen');
+        if (storyEl) {
+            storyEl.classList.add('hidden');
+        }
+
+        if (this.handleStoryKeyDown) {
+            window.removeEventListener('keydown', this.handleStoryKeyDown);
+            this.handleStoryKeyDown = null;
+        }
+        if (this.handleStoryClick && storyEl) {
+            storyEl.removeEventListener('click', this.handleStoryClick);
+            this.handleStoryClick = null;
+        }
+
+        // Enable mobile map button
+        if (this.ui.uiMobileMap) {
+            this.ui.uiMobileMap.disabled = false;
+        }
+
+        // Ensure 2D game UI is displayed and not hidden
+        const mapArea = document.getElementById('map-area-container');
+        const leftHud = document.getElementById('left-hud-panel');
+        const rightHud = document.getElementById('right-hud-panel');
+        const bottomHud = document.getElementById('bottom-hud-container');
+        if (mapArea) mapArea.classList.remove('hidden');
+        if (leftHud) leftHud.classList.remove('hidden');
+        if (rightHud) rightHud.classList.remove('hidden');
+        if (bottomHud) bottomHud.classList.remove('hidden');
+
+        // Hide 3D view (start game in 2D)
+        this.ui.setMap3DVisible(false);
+        this.isMap3DActive = false;
+        this.isIntroPlaying = false;
+
+        // Force static map cache generation
+        this.staticMapCacheDirty = true;
+
+        this.isZoomTransitionActive = true;
+        this.zoomTransitionTimer = 2.0;
+
+        if (!this.isResumedFromSave) {
+            this.ui.showInfoBanner(getTranslation('msgWhereAmI'));
+        }
+    }
+
+    updateStoryImage() {
+        const imgEl = document.getElementById('story-img');
+        const imgBox = document.getElementById('story-image-canvas');
+        if (!imgEl || !imgBox) return;
+
+        // Reset default background style
+        imgBox.style.background = '#0b0b0b';
+
+        if (this.storyMsgIndex === 5) {
+            // Slide 6: Black background with radial gradient
+            imgEl.style.display = 'none';
+            imgBox.style.background = 'radial-gradient(circle, #222222 0%, #000000 80%)';
+            imgBox.removeAttribute('data-placeholder');
+        } else {
+            let imgPath = "";
+            if (this.storyMsgIndex === 0) {
+                imgPath = 'assets/images/presentation/1-mystical-church-of-chaos.jpg';
+            } else if (this.storyMsgIndex === 1) {
+                imgPath = 'assets/images/presentation/2-mystical-church-of-chaos.jpg';
+            } else if (this.storyMsgIndex >= 2 && this.storyMsgIndex <= 4) {
+                imgPath = 'assets/images/presentation/3-player-alone.jpg';
+            }
+
+            imgEl.src = imgPath;
+            imgEl.onerror = () => {
+                imgEl.style.display = 'none';
+                imgBox.setAttribute('data-placeholder', `[Image ${this.storyMsgIndex + 1}]`);
+            };
+            imgEl.onload = () => {
+                imgEl.style.display = 'block';
+                imgBox.removeAttribute('data-placeholder');
+            };
+        }
+    }
+
+    updateStory(dt) {
+        if (!this.isStoryActive) return;
+
+        const textEl = document.getElementById('story-text');
+        const dialogueBox = document.getElementById('story-dialogue');
+        const arrowEl = document.getElementById('story-arrow');
+
+        if (!dialogueBox || !textEl) return;
+
+        const msgs = [
+            "storyMsg1",
+            "storyMsg2",
+            "storyMsg3",
+            "storyMsg4",
+            "storyMsg5",
+            "storyMsg6"
+        ];
+
+        if (this.storyMsgIndex >= msgs.length) {
+            this.endStorytelling();
+            return;
+        }
+
+        const fullText = getTranslation(msgs[this.storyMsgIndex]);
+        const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        if (this.storyState === "OPENING") {
+            textEl.textContent = "";
+            if (arrowEl) arrowEl.classList.add('hidden');
+
+            this.storyWidthProgress += dt / 0.45;
+            if (this.storyWidthProgress >= 1) {
+                this.storyWidthProgress = 1;
+                this.storyState = "TYPING";
+                this.storyCharIndex = 0;
+                this.storyTypeTimer = 0;
+            }
+            dialogueBox.style.transform = `scaleX(${easeInOutCubic(this.storyWidthProgress)})`;
+        } 
+        else if (this.storyState === "TYPING") {
+            dialogueBox.style.transform = "scaleX(1)";
+            if (arrowEl) arrowEl.classList.add('hidden');
+
+            this.storyTypeTimer += dt;
+            if (this.storyTypeTimer >= 0.025) {
+                this.storyTypeTimer = 0;
+                this.storyCharIndex++;
+                textEl.textContent = fullText.substring(0, this.storyCharIndex);
+                
+                if (this.storyCharIndex >= fullText.length) {
+                    this.storyState = "WAITING";
+                }
+            }
+        } 
+        else if (this.storyState === "WAITING") {
+            dialogueBox.style.transform = "scaleX(1)";
+            textEl.textContent = fullText;
+            if (arrowEl) arrowEl.classList.remove('hidden');
+        } 
+        else if (this.storyState === "CLOSING") {
+            textEl.textContent = "";
+            if (arrowEl) arrowEl.classList.add('hidden');
+
+            this.storyCloseProgress -= dt / 0.45;
+            if (this.storyCloseProgress <= 0) {
+                this.storyCloseProgress = 0;
+                this.endStorytelling();
+            }
+            dialogueBox.style.transform = `scaleX(${easeInOutCubic(this.storyCloseProgress)})`;
+        }
+    }
+
+    triggerAdvanceStory() {
+        const msgs = [
+            "storyMsg1",
+            "storyMsg2",
+            "storyMsg3",
+            "storyMsg4",
+            "storyMsg5",
+            "storyMsg6"
+        ];
+        if (this.storyMsgIndex >= msgs.length) return;
+        const fullText = getTranslation(msgs[this.storyMsgIndex]);
+
+        if (this.storyState === "CLOSING") {
+            this.skipStory();
+            return;
+        }
+
+        if (this.storyState === "OPENING") {
+            this.storyState = "TYPING";
+            this.storyWidthProgress = 1;
+            this.storyCharIndex = 0;
+            this.storyTypeTimer = 0;
+        } else if (this.storyState === "TYPING") {
+            this.storyState = "WAITING";
+            this.storyCharIndex = fullText.length;
+            const textEl = document.getElementById('story-text');
+            if (textEl) textEl.textContent = fullText;
+        } else if (this.storyState === "WAITING") {
+            if (this.storyMsgIndex + 1 < msgs.length) {
+                this.storyMsgIndex++;
+                this.storyState = "TYPING";
+                this.storyCharIndex = 0;
+                this.storyTypeTimer = 0;
+                this.updateStoryImage();
+                const textEl = document.getElementById('story-text');
+                if (textEl) textEl.textContent = "";
+            } else {
+                this.storyState = "CLOSING";
+                this.storyCloseProgress = 1;
+            }
+        }
+    }
+
+    skipStory() {
+        this.endStorytelling();
     }
 
     toggleTeleportMap(show) {

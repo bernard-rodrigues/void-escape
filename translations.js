@@ -9,10 +9,16 @@ export const TRANSLATIONS = {
         availablePathfinders: "Available Pathfinders",
         mazeDegree: "Maze Degree",
         safeMode: "Safe Mode",
-        generateMaze: "GENERATE MAZE",
+        generateMaze: "NEW GAME",
         continue: "CONTINUE",
         degreeHint: "Controls the grid size. Higher values create larger, more complex mazes.",
         safeModeHint: "When active, no hunters will spawn in the maze.",
+        storyMsg1: "The mystical church of chaos worship!",
+        storyMsg2: "The greatest monument to chaos worship",
+        storyMsg3: "I am a priestess of the word of the Jelly God",
+        storyMsg4: "But Its word is a lie! The chaos is a lie!",
+        storyMsg5: "So I was condemned to exile",
+        storyMsg6: "Condemned to the void",
 
         // HUD / Game Stats (Grid 2x2)
         hudKeys: "KEYS",

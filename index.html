@@ -63,11 +63,26 @@
 
 
             <div class="menu-action-btns">
-                <button id="start-btn" data-i18n="generateMaze">GENERATE MAZE</button>
+                <button id="start-btn" data-i18n="generateMaze">NEW GAME</button>
                 <button id="continue-btn-menu" class="continue-btn" style="display:none" data-i18n="continue">CONTINUE</button>
             </div>
             
             <p class="game-credits" data-i18n="gameCredits">a game by Bernard Rodrigues</p>
+        </div>
+    </section>
+
+    <section id="story-screen" class="hidden">
+        <div class="story-container">
+            <div id="story-image-canvas" class="story-image-box">
+                <img id="story-img" src="" alt="Story Image" style="display: none; max-width: 100%; max-height: 100%;">
+            </div>
+            <div id="story-dialogue" class="story-dialogue-box">
+                <span id="story-text"></span>
+                <span id="story-arrow" class="story-arrow hidden">▼</span>
+            </div>
+            <div class="story-actions">
+                <button id="story-skip-btn">SKIP</button>
+            </div>
         </div>
     </section>
 
