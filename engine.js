@@ -1596,6 +1596,7 @@ export class Engine {
 
         if (this.isStoryActive) {
             this.updateGamepad(dt);
+            this.updateStory(dt);
             return;
         }
 
@@ -3880,13 +3881,18 @@ export class Engine {
     startStorytelling() {
         this.isStoryActive = true;
         this.storyMsgIndex = 0;
+        this.storyState = "OPENING";
+        this.storyWidthProgress = 0;
+        this.storyCloseProgress = 1;
+        this.storyCharIndex = 0;
+        this.storyTypeTimer = 0;
 
         const storyEl = document.getElementById('story-screen');
         if (storyEl) {
             storyEl.classList.remove('hidden');
         }
 
-        this.showStoryMsg();
+        this.updateStoryImage();
 
         // 1. Keyboard event listener
         this.handleStoryKeyDown = (e) => {
@@ -3894,7 +3900,7 @@ export class Engine {
             if (key === 'escape') {
                 this.skipStory();
             } else {
-                this.nextStoryMsg();
+                this.triggerAdvanceStory();
             }
             e.preventDefault();
         };
@@ -3903,7 +3909,7 @@ export class Engine {
         // 2. Click event listener on story screen (excluding SKIP button)
         this.handleStoryClick = (e) => {
             if (e.target.closest('#story-skip-btn')) return;
-            this.nextStoryMsg();
+            this.triggerAdvanceStory();
         };
         if (storyEl) {
             storyEl.addEventListener('click', this.handleStoryClick);
@@ -3960,7 +3966,32 @@ export class Engine {
         this.staticMapCacheDirty = true;
     }
 
-    showStoryMsg() {
+    updateStoryImage() {
+        const imgEl = document.getElementById('story-img');
+        const imgBox = document.getElementById('story-image-canvas');
+        if (imgEl && imgBox) {
+            const imgPath = `assets/images/story_${this.storyMsgIndex + 1}.png`;
+            imgEl.src = imgPath;
+            imgEl.onerror = () => {
+                imgEl.style.display = 'none';
+                imgBox.setAttribute('data-placeholder', `[Image ${this.storyMsgIndex + 1}]`);
+            };
+            imgEl.onload = () => {
+                imgEl.style.display = 'block';
+                imgBox.removeAttribute('data-placeholder');
+            };
+        }
+    }
+
+    updateStory(dt) {
+        if (!this.isStoryActive) return;
+
+        const textEl = document.getElementById('story-text');
+        const dialogueBox = document.getElementById('story-dialogue');
+        const arrowEl = document.getElementById('story-arrow');
+
+        if (!dialogueBox || !textEl) return;
+
         const msgs = [
             "storyMsg1",
             "storyMsg2",
@@ -3970,43 +4001,97 @@ export class Engine {
             "storyMsg6"
         ];
 
-        if (this.storyMsgIndex < msgs.length) {
-            const key = msgs[this.storyMsgIndex];
-            const text = getTranslation(key);
-            const textEl = document.getElementById('story-dialogue');
-            if (textEl) {
-                textEl.textContent = text;
-            }
+        if (this.storyMsgIndex >= msgs.length) {
+            this.endStorytelling();
+            return;
+        }
 
-            const imgEl = document.getElementById('story-img');
-            const imgBox = document.getElementById('story-image-canvas');
-            if (imgEl && imgBox) {
-                const imgPath = `assets/images/story_${this.storyMsgIndex + 1}.png`;
-                imgEl.src = imgPath;
-                imgEl.onerror = () => {
-                    imgEl.style.display = 'none';
-                    imgBox.setAttribute('data-placeholder', `[Image ${this.storyMsgIndex + 1}]`);
-                };
-                imgEl.onload = () => {
-                    imgEl.style.display = 'block';
-                    imgBox.removeAttribute('data-placeholder');
-                };
+        const fullText = getTranslation(msgs[this.storyMsgIndex]);
+
+        if (this.storyState === "OPENING") {
+            textEl.textContent = "";
+            if (arrowEl) arrowEl.classList.add('hidden');
+
+            this.storyWidthProgress += dt / 0.15;
+            if (this.storyWidthProgress >= 1) {
+                this.storyWidthProgress = 1;
+                this.storyState = "TYPING";
+                this.storyCharIndex = 0;
+                this.storyTypeTimer = 0;
             }
+            dialogueBox.style.transform = `scaleX(${this.storyWidthProgress})`;
+        } 
+        else if (this.storyState === "TYPING") {
+            dialogueBox.style.transform = "scaleX(1)";
+            if (arrowEl) arrowEl.classList.add('hidden');
+
+            this.storyTypeTimer += dt;
+            if (this.storyTypeTimer >= 0.025) {
+                this.storyTypeTimer = 0;
+                this.storyCharIndex++;
+                textEl.textContent = fullText.substring(0, this.storyCharIndex);
+                
+                if (this.storyCharIndex >= fullText.length) {
+                    this.storyState = "WAITING";
+                }
+            }
+        } 
+        else if (this.storyState === "WAITING") {
+            dialogueBox.style.transform = "scaleX(1)";
+            textEl.textContent = fullText;
+            if (arrowEl) arrowEl.classList.remove('hidden');
+        } 
+        else if (this.storyState === "CLOSING") {
+            textEl.textContent = "";
+            if (arrowEl) arrowEl.classList.add('hidden');
+
+            this.storyCloseProgress -= dt / 0.15;
+            if (this.storyCloseProgress <= 0) {
+                this.storyCloseProgress = 0;
+                this.storyMsgIndex++;
+                if (this.storyMsgIndex >= msgs.length) {
+                    this.endStorytelling();
+                } else {
+                    this.storyState = "OPENING";
+                    this.storyWidthProgress = 0;
+                    this.storyCloseProgress = 1;
+                    this.updateStoryImage();
+                }
+            }
+            dialogueBox.style.transform = `scaleX(${this.storyCloseProgress})`;
+        }
+    }
+
+    triggerAdvanceStory() {
+        const msgs = [
+            "storyMsg1",
+            "storyMsg2",
+            "storyMsg3",
+            "storyMsg4",
+            "storyMsg5",
+            "storyMsg6"
+        ];
+        if (this.storyMsgIndex >= msgs.length) return;
+        const fullText = getTranslation(msgs[this.storyMsgIndex]);
+
+        if (this.storyState === "OPENING") {
+            this.storyState = "TYPING";
+            this.storyWidthProgress = 1;
+            this.storyCharIndex = 0;
+            this.storyTypeTimer = 0;
+        } else if (this.storyState === "TYPING") {
+            this.storyState = "WAITING";
+            this.storyCharIndex = fullText.length;
+            const textEl = document.getElementById('story-text');
+            if (textEl) textEl.textContent = fullText;
+        } else if (this.storyState === "WAITING") {
+            this.storyState = "CLOSING";
+            this.storyCloseProgress = 1;
         }
     }
 
     skipStory() {
         this.endStorytelling();
-    }
-
-    nextStoryMsg() {
-        this.storyMsgIndex++;
-        const msgsCount = 6;
-        if (this.storyMsgIndex >= msgsCount) {
-            this.endStorytelling();
-        } else {
-            this.showStoryMsg();
-        }
     }
 
     toggleTeleportMap(show) {

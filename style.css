@@ -1795,6 +1795,28 @@ body:has(#map3d-container:not(.hidden)) #mobile-zoom-btn {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+    position: relative;
+    transform: scaleX(0); /* starts closed */
+}
+
+.story-arrow {
+    position: absolute;
+    bottom: calc(var(--h-unit) * 0.8);
+    right: calc(var(--h-unit) * 1.2);
+    font-size: calc(var(--h-unit) * 1.6);
+    color: #00ffff;
+    animation: storyArrowPulse 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes storyArrowPulse {
+    from {
+        opacity: 0.2;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 1.0;
+        transform: translateY(calc(var(--h-unit) * 0.4));
+    }
 }
 
 #story-skip-btn {
