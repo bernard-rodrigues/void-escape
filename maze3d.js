@@ -122,157 +122,88 @@ export class Maze3D {
         this.matrix[this._idx(2 * this.n, lastCell, exitZ)] = this.TYPES.EXIT;
     }
 
-    placeTeleports() {
-        const count = CONFIG.getTeleportCount(this.n);
-        
-        const deadEnds = [];
-        const normalPaths = [];
+    _findExitPos() {
+        for (let x = 0; x < this.size; x++)
+            for (let y = 0; y < this.size; y++)
+                for (let z = 0; z < this.size; z++)
+                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.EXIT)
+                        return { x, y, z };
+        return { x: 2 * this.n, y: 2 * this.n - 1, z: this.startPos.z };
+    }
+
+    _collectDeadEndsAndPaths() {
+        const deadEnds = [], normalPaths = [];
+        const dirs = [
+            { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
+            { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
+            { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
+        ];
         for (let x = 1; x < this.size - 1; x++) {
             for (let y = 1; y < this.size - 1; y++) {
                 for (let z = 1; z < this.size - 1; z++) {
-                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.PATH) {
-                        const hUp = z + 1 < this.size && this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL;
-                        const hDown = z - 1 >= 0 && this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL;
-                        if (!hUp && !hDown) {
-                            let openCount = 0;
-                            const dirs = [
-                                { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
-                                { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
-                                { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
-                            ];
-                            for (const d of dirs) {
-                                const nx = x + d.dx, ny = y + d.dy, nz = z + d.dz;
-                                if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && nz >= 0 && nz < this.size) {
-                                    if (this.matrix[this._idx(nx, ny, nz)] !== this.TYPES.WALL) {
-                                        openCount++;
-                                    }
-                                }
-                            }
-                            if (openCount === 1) {
-                                deadEnds.push({ x, y, z });
-                            } else {
-                                normalPaths.push({ x, y, z });
-                            }
+                    if (this.matrix[this._idx(x, y, z)] !== this.TYPES.PATH) continue;
+                    const hUp = z + 1 < this.size && this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL;
+                    const hDown = z - 1 >= 0 && this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL;
+                    if (hUp || hDown) continue;
+                    let openCount = 0;
+                    for (const d of dirs) {
+                        const nx = x + d.dx, ny = y + d.dy, nz = z + d.dz;
+                        if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && nz >= 0 && nz < this.size) {
+                            if (this.matrix[this._idx(nx, ny, nz)] !== this.TYPES.WALL) openCount++;
                         }
                     }
+                    (openCount === 1 ? deadEnds : normalPaths).push({ x, y, z });
                 }
             }
         }
-        const paths = deadEnds;
+        return { deadEnds, normalPaths };
+    }
 
+    // Fills `items` from `pool` using a greedy max-spacing algorithm with relaxing constraints.
+    // `reset=true`: resets items to empty at the start of each constraint-relaxation iteration
+    //               (primary phase — tries to fill entirely from pool).
+    // `reset=false`: keeps existing items, fills only the remainder
+    //               (fallback phase — continues with a secondary pool).
+    _greedyFill(items, pool, count, excludeTypes, reset) {
         const start = { x: 0, y: 1, z: this.startPos.z };
-        let exit = { x: 2 * this.n, y: 2 * this.n - 1, z: this.startPos.z };
-        for (let x = 0; x < this.size; x++) {
-            for (let y = 0; y < this.size; y++) {
-                for (let z = 0; z < this.size; z++) {
-                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.EXIT) {
-                        exit = { x, y, z };
-                    }
-                }
-            }
-        }
-
+        const exit = this._findExitPos();
         const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
+        let minDistToStartExit = 4, minDistToOthers = 4;
 
-        const teleports = [];
-        let minDistanceToStartExit = 4;
-        let minDistanceToOthers = 4;
+        while (items.length < count && minDistToStartExit > 0) {
+            if (reset) items.length = 0;
 
-        while (teleports.length < count && minDistanceToStartExit > 0) {
-            teleports.length = 0;
-            const candidates = paths.filter(p => {
-                const ds = getDist(p, start);
-                const de = getDist(p, exit);
-                return ds >= minDistanceToStartExit && de >= minDistanceToStartExit;
+            const candidates = pool.filter(p => {
+                if (getDist(p, start) < minDistToStartExit || getDist(p, exit) < minDistToStartExit) return false;
+                return !excludeTypes.includes(this.matrix[this._idx(p.x, p.y, p.z)]);
             });
 
-            for (let i = 0; i < count; i++) {
-                let bestCand = null;
-                let maxMinDist = -1;
-
+            while (items.length < count) {
+                let bestCand = null, maxMinDist = -1;
                 for (const c of candidates) {
-                    if (teleports.some(t => t.x === c.x && t.y === c.y && t.z === c.z)) continue;
-
-                    let minDistToOthers = Infinity;
-                    for (const t of teleports) {
-                        const d = getDist(c, t);
-                        if (d < minDistToOthers) minDistToOthers = d;
-                    }
-
-                    if (minDistToOthers >= minDistanceToOthers) {
-                        const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
-                        if (minD > maxMinDist) {
-                            maxMinDist = minD;
-                            bestCand = c;
-                        }
+                    if (items.some(k => k.x === c.x && k.y === c.y && k.z === c.z)) continue;
+                    let minD = Infinity;
+                    for (const k of items) { const d = getDist(c, k); if (d < minD) minD = d; }
+                    if (minD >= minDistToOthers) {
+                        const score = Math.min(getDist(c, start), getDist(c, exit), minD);
+                        if (score > maxMinDist) { maxMinDist = score; bestCand = c; }
                     }
                 }
-
-                if (bestCand) {
-                    teleports.push(bestCand);
-                } else {
-                    break;
-                }
+                if (bestCand) items.push(bestCand); else break;
             }
 
-            if (teleports.length < count) {
-                if (minDistanceToOthers > 1) {
-                    minDistanceToOthers--;
-                } else {
-                    minDistanceToStartExit--;
-                }
+            if (items.length < count) {
+                if (minDistToOthers > 1) minDistToOthers--; else minDistToStartExit--;
             }
         }
+    }
 
-        if (teleports.length < count) {
-            let minDistanceToStartExit = 4;
-            let minDistanceToOthers = 4;
-            while (teleports.length < count && minDistanceToStartExit > 0) {
-                const candidates = normalPaths.filter(p => {
-                    const ds = getDist(p, start);
-                    const de = getDist(p, exit);
-                    return ds >= minDistanceToStartExit && de >= minDistanceToStartExit;
-                });
-
-                for (let i = teleports.length; i < count; i++) {
-                    let bestCand = null;
-                    let maxMinDist = -1;
-
-                    for (const c of candidates) {
-                        if (teleports.some(t => t.x === c.x && t.y === c.y && t.z === c.z)) continue;
-
-                        let minDistToOthers = Infinity;
-                        for (const t of teleports) {
-                            const d = getDist(c, t);
-                            if (d < minDistToOthers) minDistToOthers = d;
-                        }
-
-                        if (minDistToOthers >= minDistanceToOthers) {
-                            const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
-                            if (minD > maxMinDist) {
-                                maxMinDist = minD;
-                                bestCand = c;
-                            }
-                        }
-                    }
-
-                    if (bestCand) {
-                        teleports.push(bestCand);
-                    } else {
-                        break;
-                    }
-                }
-
-                if (teleports.length < count) {
-                    if (minDistanceToOthers > 1) {
-                        minDistanceToOthers--;
-                    } else {
-                        minDistanceToStartExit--;
-                    }
-                }
-            }
-        }
-
+    placeTeleports() {
+        const count = CONFIG.getTeleportCount(this.n);
+        const { deadEnds, normalPaths } = this._collectDeadEndsAndPaths();
+        const teleports = [];
+        this._greedyFill(teleports, deadEnds, count, [], true);
+        if (teleports.length < count) this._greedyFill(teleports, normalPaths, count, [], false);
         for (const t of teleports) {
             this.matrix[this._idx(t.x, t.y, t.z)] = this.TYPES.TELEPORT;
         }
@@ -280,158 +211,10 @@ export class Maze3D {
 
     placeKeys() {
         const count = CONFIG.getHunterCount(this.n) * 2;
-        
-        const deadEnds = [];
-        const normalPaths = [];
-        for (let x = 1; x < this.size - 1; x++) {
-            for (let y = 1; y < this.size - 1; y++) {
-                for (let z = 1; z < this.size - 1; z++) {
-                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.PATH) {
-                        const hUp = z + 1 < this.size && this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL;
-                        const hDown = z - 1 >= 0 && this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL;
-                        if (!hUp && !hDown) {
-                            let openCount = 0;
-                            const dirs = [
-                                { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
-                                { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
-                                { dx: 0, dy: 0, dz: 1 }, { dx: 0, dy: 0, dz: -1 }
-                            ];
-                            for (const d of dirs) {
-                                const nx = x + d.dx, ny = y + d.dy, nz = z + d.dz;
-                                if (nx >= 0 && nx < this.size && ny >= 0 && ny < this.size && nz >= 0 && nz < this.size) {
-                                    if (this.matrix[this._idx(nx, ny, nz)] !== this.TYPES.WALL) {
-                                        openCount++;
-                                    }
-                                }
-                            }
-                            if (openCount === 1) {
-                                deadEnds.push({ x, y, z });
-                            } else {
-                                normalPaths.push({ x, y, z });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        const paths = deadEnds;
-        
-        const start = { x: 0, y: 1, z: this.startPos.z };
-        let exit = { x: 2 * this.n, y: 2 * this.n - 1, z: this.startPos.z };
-        for (let x = 0; x < this.size; x++) {
-            for (let y = 0; y < this.size; y++) {
-                for (let z = 0; z < this.size; z++) {
-                    if (this.matrix[this._idx(x, y, z)] === this.TYPES.EXIT) {
-                        exit = { x, y, z };
-                    }
-                }
-            }
-        }
-        
-        const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
-        
+        const { deadEnds, normalPaths } = this._collectDeadEndsAndPaths();
         const keys = [];
-        let minDistanceToStartExit = 4;
-        let minDistanceToOthers = 4;
-        
-        while (keys.length < count && minDistanceToStartExit > 0) {
-            keys.length = 0;
-            const candidates = paths.filter(p => {
-                const ds = getDist(p, start);
-                const de = getDist(p, exit);
-                const currentVal = this.matrix[this._idx(p.x, p.y, p.z)];
-                return ds >= minDistanceToStartExit && de >= minDistanceToStartExit && currentVal !== this.TYPES.TELEPORT;
-            });
-            
-            for (let i = 0; i < count; i++) {
-                let bestCand = null;
-                let maxMinDist = -1;
-                
-                for (const c of candidates) {
-                    if (keys.some(k => k.x === c.x && k.y === c.y && k.z === c.z)) continue;
-                    
-                    let minDistToOthers = Infinity;
-                    for (const k of keys) {
-                        const d = getDist(c, k);
-                        if (d < minDistToOthers) minDistToOthers = d;
-                    }
-                    
-                    if (minDistToOthers >= minDistanceToOthers) {
-                        const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
-                        if (minD > maxMinDist) {
-                            maxMinDist = minD;
-                            bestCand = c;
-                        }
-                    }
-                }
-                
-                if (bestCand) {
-                    keys.push(bestCand);
-                } else {
-                    break;
-                }
-            }
-            
-            if (keys.length < count) {
-                if (minDistanceToOthers > 1) {
-                    minDistanceToOthers--;
-                } else {
-                    minDistanceToStartExit--;
-                }
-            }
-        }
-
-        if (keys.length < count) {
-            let minDistanceToStartExit = 4;
-            let minDistanceToOthers = 4;
-            while (keys.length < count && minDistanceToStartExit > 0) {
-                const candidates = normalPaths.filter(p => {
-                    const ds = getDist(p, start);
-                    const de = getDist(p, exit);
-                    const currentVal = this.matrix[this._idx(p.x, p.y, p.z)];
-                    return ds >= minDistanceToStartExit && de >= minDistanceToStartExit && currentVal !== this.TYPES.TELEPORT;
-                });
-
-                for (let i = keys.length; i < count; i++) {
-                    let bestCand = null;
-                    let maxMinDist = -1;
-
-                    for (const c of candidates) {
-                        if (keys.some(k => k.x === c.x && k.y === c.y && k.z === c.z)) continue;
-
-                        let minDistToOthers = Infinity;
-                        for (const k of keys) {
-                            const d = getDist(c, k);
-                            if (d < minDistToOthers) minDistToOthers = d;
-                        }
-
-                        if (minDistToOthers >= minDistanceToOthers) {
-                            const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
-                            if (minD > maxMinDist) {
-                                maxMinDist = minD;
-                                bestCand = c;
-                            }
-                        }
-                    }
-
-                    if (bestCand) {
-                        keys.push(bestCand);
-                    } else {
-                        break;
-                    }
-                }
-
-                if (keys.length < count) {
-                    if (minDistanceToOthers > 1) {
-                        minDistanceToOthers--;
-                    } else {
-                        minDistanceToStartExit--;
-                    }
-                }
-            }
-        }
-
+        this._greedyFill(keys, deadEnds, count, [this.TYPES.TELEPORT], true);
+        if (keys.length < count) this._greedyFill(keys, normalPaths, count, [this.TYPES.TELEPORT], false);
         for (const k of keys) {
             this.matrix[this._idx(k.x, k.y, k.z)] = this.TYPES.KEY;
         }
