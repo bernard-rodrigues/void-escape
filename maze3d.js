@@ -224,54 +224,7 @@ export class Maze3D {
             }
         }
 
-        if (teleports.length < count) {
-            let minDistanceToStartExit = 4;
-            let minDistanceToOthers = 4;
-            while (teleports.length < count && minDistanceToStartExit > 0) {
-                const candidates = normalPaths.filter(p => {
-                    const ds = getDist(p, start);
-                    const de = getDist(p, exit);
-                    return ds >= minDistanceToStartExit && de >= minDistanceToStartExit;
-                });
 
-                for (let i = teleports.length; i < count; i++) {
-                    let bestCand = null;
-                    let maxMinDist = -1;
-
-                    for (const c of candidates) {
-                        if (teleports.some(t => t.x === c.x && t.y === c.y && t.z === c.z)) continue;
-
-                        let minDistToOthers = Infinity;
-                        for (const t of teleports) {
-                            const d = getDist(c, t);
-                            if (d < minDistToOthers) minDistToOthers = d;
-                        }
-
-                        if (minDistToOthers >= minDistanceToOthers) {
-                            const minD = Math.min(getDist(c, start), getDist(c, exit), minDistToOthers);
-                            if (minD > maxMinDist) {
-                                maxMinDist = minD;
-                                bestCand = c;
-                            }
-                        }
-                    }
-
-                    if (bestCand) {
-                        teleports.push(bestCand);
-                    } else {
-                        break;
-                    }
-                }
-
-                if (teleports.length < count) {
-                    if (minDistanceToOthers > 1) {
-                        minDistanceToOthers--;
-                    } else {
-                        minDistanceToStartExit--;
-                    }
-                }
-            }
-        }
 
         for (const t of teleports) {
             this.matrix[this._idx(t.x, t.y, t.z)] = this.TYPES.TELEPORT;
