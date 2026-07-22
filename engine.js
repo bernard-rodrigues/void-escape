@@ -3973,8 +3973,26 @@ export class Engine {
     updateStoryImage() {
         const imgEl = document.getElementById('story-img');
         const imgBox = document.getElementById('story-image-canvas');
-        if (imgEl && imgBox) {
-            const imgPath = `assets/images/story_${this.storyMsgIndex + 1}.png`;
+        if (!imgEl || !imgBox) return;
+
+        // Reset default background style
+        imgBox.style.background = '#0b0b0b';
+
+        if (this.storyMsgIndex === 5) {
+            // Slide 6: Black background with radial gradient
+            imgEl.style.display = 'none';
+            imgBox.style.background = 'radial-gradient(circle, #222222 0%, #000000 80%)';
+            imgBox.removeAttribute('data-placeholder');
+        } else {
+            let imgPath = "";
+            if (this.storyMsgIndex === 0) {
+                imgPath = 'assets/images/presentation/1-mystical-church-of-chaos.jpg';
+            } else if (this.storyMsgIndex === 1) {
+                imgPath = 'assets/images/presentation/2-mystical-church-of-chaos.jpg';
+            } else if (this.storyMsgIndex >= 2 && this.storyMsgIndex <= 4) {
+                imgPath = 'assets/images/presentation/3-player-alone.jpg';
+            }
+
             imgEl.src = imgPath;
             imgEl.onerror = () => {
                 imgEl.style.display = 'none';
