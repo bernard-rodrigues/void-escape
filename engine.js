@@ -1838,7 +1838,7 @@ export class Engine {
                     return true;
                 };
 
-                const R = 0.26; // Raio de colisão físico do jogador (evita clipping)
+                const R = CONFIG.PLAYER_COLLISION_RADIUS; // Raio de colisão físico do jogador (evita clipping)
                 const isBoxPassable = (cx, cy, cz) => {
                     const minGx = Math.floor(cx - R);
                     const maxGx = Math.floor(cx + R);
@@ -2954,6 +2954,15 @@ export class Engine {
                 ctx.moveTo(cx, cy);
                 ctx.lineTo(cx + Math.cos(this.player.dir) * cellSize * 1, cy + Math.sin(this.player.dir) * cellSize * 1);
                 ctx.stroke();
+            }
+
+            if (CONFIG.SHOW_COLLISION_DEBUG) {
+                ctx.save();
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 1.5;
+                const boxSize = CONFIG.PLAYER_COLLISION_RADIUS * 2 * cellSize;
+                ctx.strokeRect(cx - boxSize / 2, cy - boxSize / 2, boxSize, boxSize);
+                ctx.restore();
             }
         }
 
@@ -5308,6 +5317,20 @@ export class Engine {
                 ctx.fillStyle = CONFIG.COLORS.PLAYER;
                 ctx.fill();
                 ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            if (CONFIG.SHOW_COLLISION_DEBUG) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - CONFIG.PLAYER_COLLISION_RADIUS * tileHeight);
+                ctx.lineTo(cx + CONFIG.PLAYER_COLLISION_RADIUS * tileWidth, cy);
+                ctx.lineTo(cx, cy + CONFIG.PLAYER_COLLISION_RADIUS * tileHeight);
+                ctx.lineTo(cx - CONFIG.PLAYER_COLLISION_RADIUS * tileWidth, cy);
+                ctx.closePath();
+                ctx.strokeStyle = '#ff0000';
                 ctx.lineWidth = 1.5;
                 ctx.stroke();
                 ctx.restore();
