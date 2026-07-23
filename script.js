@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { Engine } from './engine.js';
 import { loadSave, hasSave, clearSave } from './save.js';
+import { localizeDOM } from './translations.js';
 
 let currentGame = null;
 
@@ -49,6 +50,7 @@ const returnToMenu = () => {
 };
 
 window.onload = () => {
+    localizeDOM();
     const degreeSlider = document.getElementById('maze-degree');
     const degreeVal = document.getElementById('degree-val');
     const hunterCount = document.getElementById('hunter-count');
