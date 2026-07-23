@@ -4715,15 +4715,15 @@ export class Engine {
                     if (Math.abs(deltaY) > 40 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
                         const size = this.mazeGen.size;
                         if (deltaY < -40) {
-                            // Swipe UP -> Floor Up
-                            if (this.activeMapFloor + 2 <= size - 2) {
-                                this.activeMapFloor += 2;
+                            // Swipe UP -> Floor Down
+                            if (this.activeMapFloor - 2 >= 1) {
+                                this.activeMapFloor -= 2;
                                 hasSwipedFloor = true;
                             }
                         } else if (deltaY > 40) {
-                            // Swipe DOWN -> Floor Down
-                            if (this.activeMapFloor - 2 >= 1) {
-                                this.activeMapFloor -= 2;
+                            // Swipe DOWN -> Floor Up
+                            if (this.activeMapFloor + 2 <= size - 2) {
+                                this.activeMapFloor += 2;
                                 hasSwipedFloor = true;
                             }
                         }
