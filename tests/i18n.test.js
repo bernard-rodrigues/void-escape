@@ -5,8 +5,12 @@ import { getTranslation, TRANSLATIONS } from '../translations.js';
 test('i18n translations - standard key retrieval', () => {
     const titleEn = getTranslation('gameTitle', {}, 'en');
     const titlePt = getTranslation('gameTitle', {}, 'ptBr');
+    const titleJa = getTranslation('gameTitle', {}, 'ja');
+    const titleEs = getTranslation('gameTitle', {}, 'es');
     assert.strictEqual(titleEn, 'VOID ESCAPE');
     assert.strictEqual(titlePt, 'VOID ESCAPE');
+    assert.strictEqual(titleJa, 'ヴォイド・エスケープ');
+    assert.strictEqual(titleEs, 'ESCAPE DEL VACÍO');
 });
 
 test('i18n translations - dynamic parameter replacement', () => {
@@ -18,6 +22,14 @@ test('i18n translations - dynamic parameter replacement', () => {
     const securedMsgPt = getTranslation('msgKeySecured', { collected: 2, total: 5 }, 'ptBr');
     assert.strictEqual(securedMsgPt, 'Chave obtida (2/5)');
 
+    // Test keySecured parameter replacement in Japanese
+    const securedMsgJa = getTranslation('msgKeySecured', { collected: 2, total: 5 }, 'ja');
+    assert.strictEqual(securedMsgJa, '鍵を入手 (2/5)');
+
+    // Test keySecured parameter replacement in Spanish
+    const securedMsgEs = getTranslation('msgKeySecured', { collected: 2, total: 5 }, 'es');
+    assert.strictEqual(securedMsgEs, 'Llave obtenida (2/5)');
+
     // Test keysRemaining parameter replacement in English
     const remainingMsgEn = getTranslation('msgKeysRemaining', { count: 3 }, 'en');
     assert.strictEqual(remainingMsgEn, '3 key(s) remaining');
@@ -25,6 +37,14 @@ test('i18n translations - dynamic parameter replacement', () => {
     // Test keysRemaining parameter replacement in Portuguese
     const remainingMsgPt = getTranslation('msgKeysRemaining', { count: 3 }, 'ptBr');
     assert.strictEqual(remainingMsgPt, '3 chave(s) restante(s)');
+
+    // Test keysRemaining parameter replacement in Japanese
+    const remainingMsgJa = getTranslation('msgKeysRemaining', { count: 3 }, 'ja');
+    assert.strictEqual(remainingMsgJa, '残り3個の鍵');
+
+    // Test keysRemaining parameter replacement in Spanish
+    const remainingMsgEs = getTranslation('msgKeysRemaining', { count: 3 }, 'es');
+    assert.strictEqual(remainingMsgEs, '3 llave(s) restante(s)');
 });
 
 test('i18n translations - fallback for unknown keys', () => {
