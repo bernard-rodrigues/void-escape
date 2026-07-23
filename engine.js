@@ -2185,6 +2185,8 @@ export class Engine {
                 const ctxOld = canvasOld.getContext('2d');
                 this.renderMapToContext(ctxOld, this.player.z);
 
+                this.player.x = currentX + CONFIG.PLAYER_START_X;
+                this.player.y = currentY + (CONFIG.PLAYER_START_Y % 1.0);
                 this.player.z = nextZ;
                 this.staticMapCacheDirty = true;
                 this.populateFullyRevealedCells(nextZ);
@@ -4514,8 +4516,8 @@ export class Engine {
 
     teleportTo(x, y, z) {
         this.skipCellAnimations = true;
-        this.player.x = x + 0.5;
-        this.player.y = y + 0.5;
+        this.player.x = x + CONFIG.PLAYER_START_X;
+        this.player.y = y + (CONFIG.PLAYER_START_Y % 1.0);
         this.player.z = z;
         this.staticMapCacheDirty = true;
         
