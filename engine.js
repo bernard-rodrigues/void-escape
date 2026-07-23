@@ -127,6 +127,12 @@ export class Engine {
         this.isZoomTransitionActive = false;
         this.zoomTransitionTimer = 0;
 
+        this.preloadedStoryImages = [];
+        this.storyImagesLoadedCount = 0;
+        this.storyImagesTotalCount = 0;
+        this.storyImagesPreloadPromise = null;
+        this.preloadStoryImages();
+
 
         this.lastFrameTime = performance.now();
         this.revealedPathSet = new Set();
@@ -287,6 +293,34 @@ export class Engine {
         if (this.ui.uiMobileMap) this.ui.uiMobileMap.onclick = null;
         
         if (this.pathRevealInterval) clearInterval(this.pathRevealInterval);
+    }
+
+    preloadStoryImages() {
+        const paths = [
+            'assets/images/presentation/1-mystical-church-of-chaos.jpg',
+            'assets/images/presentation/2-mystical-church-of-chaos.jpg',
+            'assets/images/presentation/3-the-jelly-god.jpg',
+            'assets/images/presentation/4-player-alone.jpg',
+            'assets/images/presentation/5-player-thrown.jpg'
+        ];
+
+        this.storyImagesLoadedCount = 0;
+        this.storyImagesTotalCount = paths.length;
+        this.storyImagesPreloadPromise = Promise.all(paths.map((path, idx) => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.src = path;
+                img.onload = () => {
+                    this.preloadedStoryImages[idx] = img;
+                    this.storyImagesLoadedCount++;
+                    resolve();
+                };
+                img.onerror = () => {
+                    console.warn(`Failed to preload story image: ${path}`);
+                    resolve();
+                };
+            });
+        }));
     }
 
     initHunters(degree) {
@@ -1220,10 +1254,10 @@ export class Engine {
         if (this.isStoryActive) {
             if (justPressed(9)) {
                 this.skipStory();
-            } else {
+            } else if (!this.isPreloadingActive) {
                 for (let i = 0; i < gp.buttons.length; i++) {
                     if (i !== 9 && justPressed(i)) {
-                        this.nextStoryMsg();
+                        this.triggerAdvanceStory();
                         break;
                     }
                 }
@@ -3945,36 +3979,51 @@ export class Engine {
             storyEl.classList.remove('hidden');
         }
 
-        this.updateStoryImage();
+        const loaderEl = document.getElementById('story-image-loader');
+        const dialogueBox = document.getElementById('story-dialogue');
 
-        // 1. Keyboard event listener
-        this.handleStoryKeyDown = (e) => {
-            const key = e.key.toLowerCase();
-            if (key === 'escape') {
-                this.skipStory();
-            } else {
-                this.triggerAdvanceStory();
+        this.isPreloadingActive = false;
+
+        const initStorytellingWithPreloadedImages = () => {
+            this.isPreloadingActive = false;
+            if (dialogueBox) {
+                dialogueBox.style.transform = "scaleX(0)"; // Start closed to animate smoothly
             }
-            e.preventDefault();
-        };
-        window.addEventListener('keydown', this.handleStoryKeyDown);
+            this.updateStoryImage();
 
-        // 2. Click event listener on story screen (excluding SKIP button)
-        this.handleStoryClick = (e) => {
-            if (e.target.closest('#story-skip-btn')) return;
-            this.triggerAdvanceStory();
-        };
-        this.handleStoryTouch = (e) => {
-            if (e.target.closest('#story-skip-btn')) return;
-            this.triggerAdvanceStory();
-            e.preventDefault();
-        };
-        if (storyEl) {
-            storyEl.addEventListener('click', this.handleStoryClick);
-            storyEl.addEventListener('touchstart', this.handleStoryTouch, { passive: false });
-        }
+            // 1. Keyboard event listener
+            this.handleStoryKeyDown = (e) => {
+                const key = e.key.toLowerCase();
+                if (key === 'escape') {
+                    this.skipStory();
+                } else if (!this.isPreloadingActive) {
+                    this.triggerAdvanceStory();
+                }
+                e.preventDefault();
+            };
+            window.addEventListener('keydown', this.handleStoryKeyDown);
 
-        // 3. Skip button click listener
+            // 2. Click event listener on story screen (excluding SKIP button)
+            this.handleStoryClick = (e) => {
+                if (e.target.closest('#story-skip-btn')) return;
+                if (!this.isPreloadingActive) {
+                    this.triggerAdvanceStory();
+                }
+            };
+            this.handleStoryTouch = (e) => {
+                if (e.target.closest('#story-skip-btn')) return;
+                if (!this.isPreloadingActive) {
+                    this.triggerAdvanceStory();
+                }
+                e.preventDefault();
+            };
+            if (storyEl) {
+                storyEl.addEventListener('click', this.handleStoryClick);
+                storyEl.addEventListener('touchstart', this.handleStoryTouch, { passive: false });
+            }
+        };
+
+        // Always register the skip button listener right away (even during preloading)
         const skipBtn = document.getElementById('story-skip-btn');
         if (skipBtn) {
             skipBtn.onclick = (e) => {
@@ -3982,10 +4031,28 @@ export class Engine {
                 this.skipStory();
             };
         }
+
+        if (loaderEl && dialogueBox) {
+            dialogueBox.style.transform = "scaleX(0)"; // Keep closed during loading
+            
+            if (this.storyImagesLoadedCount < this.storyImagesTotalCount) {
+                this.isPreloadingActive = true;
+                loaderEl.classList.remove('hidden');
+                
+                this.storyImagesPreloadPromise.then(() => {
+                    loaderEl.classList.add('hidden');
+                    initStorytellingWithPreloadedImages();
+                });
+                return;
+            }
+        }
+
+        initStorytellingWithPreloadedImages();
     }
 
     endStorytelling() {
         this.isStoryActive = false;
+        this.isPreloadingActive = false;
 
         const storyEl = document.getElementById('story-screen');
         if (storyEl) {
@@ -4066,29 +4133,40 @@ export class Engine {
             imgBox.style.background = 'radial-gradient(circle, #222222 0%, #000000 80%)';
             imgBox.removeAttribute('data-placeholder');
         } else {
-            let imgPath = "";
-            if (this.storyMsgIndex === 0) {
-                imgPath = 'assets/images/presentation/1-mystical-church-of-chaos.jpg';
-            } else if (this.storyMsgIndex === 1) {
-                imgPath = 'assets/images/presentation/2-mystical-church-of-chaos.jpg';
-            } else if (this.storyMsgIndex >= 2 && this.storyMsgIndex <= 4) {
-                imgPath = 'assets/images/presentation/3-player-alone.jpg';
-            }
-
-            imgEl.src = imgPath;
-            imgEl.onerror = () => {
-                imgEl.style.display = 'none';
-                imgBox.setAttribute('data-placeholder', `[Image ${this.storyMsgIndex + 1}]`);
-            };
-            imgEl.onload = () => {
+            const preloadedImg = this.preloadedStoryImages[this.storyMsgIndex];
+            if (preloadedImg) {
+                imgEl.src = preloadedImg.src;
                 imgEl.style.display = 'block';
                 imgBox.removeAttribute('data-placeholder');
-            };
+            } else {
+                let imgPath = "";
+                if (this.storyMsgIndex === 0) {
+                    imgPath = 'assets/images/presentation/1-mystical-church-of-chaos.jpg';
+                } else if (this.storyMsgIndex === 1) {
+                    imgPath = 'assets/images/presentation/2-mystical-church-of-chaos.jpg';
+                } else if (this.storyMsgIndex === 2) {
+                    imgPath = 'assets/images/presentation/3-the-jelly-god.jpg';
+                } else if (this.storyMsgIndex === 3) {
+                    imgPath = 'assets/images/presentation/4-player-alone.jpg';
+                } else if (this.storyMsgIndex === 4) {
+                    imgPath = 'assets/images/presentation/5-player-thrown.jpg';
+                }
+
+                imgEl.src = imgPath;
+                imgEl.onerror = () => {
+                    imgEl.style.display = 'none';
+                    imgBox.setAttribute('data-placeholder', `[Image ${this.storyMsgIndex + 1}]`);
+                };
+                imgEl.onload = () => {
+                    imgEl.style.display = 'block';
+                    imgBox.removeAttribute('data-placeholder');
+                };
+            }
         }
     }
 
     updateStory(dt) {
-        if (!this.isStoryActive) return;
+        if (!this.isStoryActive || this.isPreloadingActive) return;
 
         const textEl = document.getElementById('story-text');
         const dialogueBox = document.getElementById('story-dialogue');

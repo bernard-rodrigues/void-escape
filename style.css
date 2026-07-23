@@ -1775,6 +1775,29 @@ body:has(#map3d-container:not(.hidden)) #mobile-zoom-btn {
     font-size: calc(var(--d-h-unit) * 1.5);
 }
 
+.story-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--h-unit) * 1.5);
+    color: #00ffff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: calc(var(--h-unit) * 1.4);
+}
+
+.story-loader .spinner {
+    width: calc(var(--h-unit) * 3);
+    height: calc(var(--h-unit) * 3);
+    border: calc(var(--h-unit) * 0.3) solid rgba(0, 255, 255, 0.2);
+    border-top-color: #00ffff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .story-dialogue-box {
     background-color: #000000;
     border: calc(var(--h-unit) * 0.3) solid #00ffff;
