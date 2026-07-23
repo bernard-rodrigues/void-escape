@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { getTranslation } from './translations.js';
+import { getTranslation, CURRENT_LANG, localizeDOM } from './translations.js';
 
 /**
  * UIManager - Manages DOM interactions, HUD overlay, notifications, and menus.
@@ -52,19 +52,8 @@ export class UIManager {
     /**
      * Localize all elements with [data-i18n] attributes using translations.js.
      */
-    localizeDOM(lang = 'en') {
-        const elements = document.querySelectorAll('[data-i18n]');
-        elements.forEach(el => {
-            const key = el.getAttribute('data-i18n');
-            const translation = getTranslation(key, {}, lang);
-            if (translation !== key) {
-                if (el.tagName === 'INPUT' && el.type === 'button') {
-                    el.value = translation;
-                } else {
-                    el.textContent = translation;
-                }
-            }
-        });
+    localizeDOM(lang = CURRENT_LANG) {
+        localizeDOM(lang);
     }
 
     /**
