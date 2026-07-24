@@ -1,0 +1,8 @@
+node_modules/
+dist/
+PROPOSTA_MUDANCA.md
+*.py
+*.pyc
+*.old.html
+migrate.js
+fix-tests.js
