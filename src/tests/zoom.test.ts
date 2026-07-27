@@ -68,14 +68,14 @@ test('Minimap Zoom - Smooth transition LERP updates', () => {
 
 test('Minimap Zoom - Bypassed for smaller mazes', () => {
     // Helper reproducing zoom eligibility logic
-    const isZoomAllowed = (size) => size > 11;
+    const isZoomAllowed = (size) => size > 7;
 
-    // Size <= 11 (degree <= 5) -> zoom should not be allowed
+    // Size <= 7 (degree <= 3) -> zoom should not be allowed
     assert.strictEqual(isZoomAllowed(5), false);   // degree 2
     assert.strictEqual(isZoomAllowed(7), false);   // degree 3
-    assert.strictEqual(isZoomAllowed(11), false);  // degree 5
 
-    // Size > 11 (degree > 5) -> zoom allowed
+    // Size > 7 (degree > 3) -> zoom allowed
+    assert.strictEqual(isZoomAllowed(9), true);    // degree 4
+    assert.strictEqual(isZoomAllowed(11), true);   // degree 5
     assert.strictEqual(isZoomAllowed(13), true);   // degree 6
-    assert.strictEqual(isZoomAllowed(17), true);   // degree 8
 });

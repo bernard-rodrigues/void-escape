@@ -815,7 +815,7 @@ export class Engine {
         this.handleKeyboardDetection = () => {
             if (this.lastInputDevice !== 'keyboard') {
                 this.lastInputDevice = 'keyboard';
-                this.ui.updateControlsHint('keyboard', this.mazeGen.size > 11);
+                this.ui.updateControlsHint('keyboard', this.mazeGen.size > 7);
             }
         };
 
@@ -902,16 +902,16 @@ export class Engine {
 
         this.loop();
 
-        // Hides zoom controls if the maze size <= 11 (degree <= 5)
+        // Hides zoom controls if the maze size <= 7 (degree <= 3)
         const size = this.mazeGen.size;
         const mobileZoomBtn = document.getElementById('mobile-zoom-btn');
-        if (size <= 11) {
+        if (size <= 7) {
             if (mobileZoomBtn) mobileZoomBtn.classList.add('hidden');
         } else {
             if (mobileZoomBtn) mobileZoomBtn.classList.remove('hidden');
         }
 
-        this.ui.updateControlsHint(this.lastInputDevice, size > 11);
+        this.ui.updateControlsHint(this.lastInputDevice, size > 7);
     }
 
     hideCanvasInstant() {
@@ -1236,7 +1236,7 @@ export class Engine {
 
         if (isGamepadActive && this.lastInputDevice !== 'gamepad') {
             this.lastInputDevice = 'gamepad';
-            this.ui.updateControlsHint('gamepad', this.mazeGen.size > 11);
+            this.ui.updateControlsHint('gamepad', this.mazeGen.size > 7);
         }
 
         // 1. Movement axes (Left Analog / D-pad)
@@ -4408,7 +4408,7 @@ export class Engine {
     }
 
     toggleZoom() {
-        if (this.mazeGen.size <= 11) return;
+        if (this.mazeGen.size <= 7) return;
         this.isZoomActive = !this.isZoomActive;
         this.staticMapCacheDirty = true;
         
