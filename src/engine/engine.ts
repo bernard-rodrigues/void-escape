@@ -36,6 +36,9 @@ function moveTowards(current, target, maxDelta) {
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
 export class Engine {
+    isMouseOrTouchDetected!: boolean;
+    teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
+
     constructor(degree, branchingFactor, savedState = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
         this.branchingFactor = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
@@ -208,6 +211,8 @@ export class Engine {
 
         this.teleportConfirmModalActive = false;
         this.teleportModalSelection = 'go'; // 'go' or 'cancel'
+        this.isMouseOrTouchDetected = false;
+        this.teleportGoBtnClickRect = null;
 
         this.teleportMeshes = [];
         this.isTeleportMode = false;
@@ -753,9 +758,9 @@ export class Engine {
                             const py = Math.floor(this.player.y);
                             const pz = this.player.z;
                             const isCurrent = targetT && targetT.x === px && targetT.y === py && targetT.z === pz;
-                            if (!isCurrent) {
-                                this.teleportConfirmModalActive = true;
-                                this.teleportModalSelection = 'go';
+                            if (targetT && !isCurrent) {
+                                this.teleportTo(targetT.x, targetT.y, targetT.z);
+                                this.toggleTeleportMap(false);
                             }
                             e.preventDefault();
                         }
@@ -817,6 +822,7 @@ export class Engine {
                 this.lastInputDevice = 'keyboard';
                 this.ui.updateControlsHint('keyboard', this.mazeGen.size > 11);
             }
+            this.isMouseOrTouchDetected = false;
         };
 
         window.addEventListener('keydown', this.handleKeyDownExtra);
@@ -1234,9 +1240,12 @@ export class Engine {
             (gp.axes[3] !== undefined && Math.abs(gp.axes[3]) > deadzone) ||
             gp.buttons.some(b => b.pressed);
 
-        if (isGamepadActive && this.lastInputDevice !== 'gamepad') {
-            this.lastInputDevice = 'gamepad';
-            this.ui.updateControlsHint('gamepad', this.mazeGen.size > 11);
+        if (isGamepadActive) {
+            this.isMouseOrTouchDetected = false;
+            if (this.lastInputDevice !== 'gamepad') {
+                this.lastInputDevice = 'gamepad';
+                this.ui.updateControlsHint('gamepad', this.mazeGen.size > 11);
+            }
         }
 
         // 1. Movement axes (Left Analog / D-pad)
@@ -1388,9 +1397,9 @@ export class Engine {
                             const py = Math.floor(this.player.y);
                             const pz = this.player.z;
                             const isCurrent = targetT && targetT.x === px && targetT.y === py && targetT.z === pz;
-                            if (!isCurrent) {
-                                this.teleportConfirmModalActive = true;
-                                this.teleportModalSelection = 'go';
+                            if (targetT && !isCurrent) {
+                                this.teleportTo(targetT.x, targetT.y, targetT.z);
+                                this.toggleTeleportMap(false);
                             }
                         }
                     }
@@ -4314,6 +4323,7 @@ export class Engine {
         const telExitBtn = document.getElementById('mobile-teleport-exit-btn');
         
         if (show) {
+            this.isMouseOrTouchDetected = false;
             if (telExitBtn) telExitBtn.classList.remove('hidden');
             if (this.ui.uiMobileControls) this.ui.uiMobileControls.classList.add('hidden');
             this.ui.setMap3DVisible(true);
@@ -4666,6 +4676,14 @@ export class Engine {
         // Click handler
         this.isometricCanvas.addEventListener('click', (e) => this.handleIsometricClick(e));
 
+        const detectMouseOrTouch = () => {
+            if (!this.isMouseOrTouchDetected) {
+                this.isMouseOrTouchDetected = true;
+            }
+        };
+        this.isometricCanvas.addEventListener('mousemove', detectMouseOrTouch);
+        this.isometricCanvas.addEventListener('pointerdown', detectMouseOrTouch);
+
         // Touch gestures handler (Pinch zoom, vertical swipe to change floors, drag to pan)
         let initialTouchDist = null;
         let initialZoom = null;
@@ -4826,6 +4844,12 @@ export class Engine {
                 if (!this.teleportConfirmModalActive && this.teleportDotsClickRects && this.teleportDotsClickRects.some(r => clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h)) {
                     return;
                 }
+                if (this.isMouseOrTouchDetected && !this.teleportConfirmModalActive && this.teleportGoBtnClickRect) {
+                    const r = this.teleportGoBtnClickRect;
+                    if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
+                        return;
+                    }
+                }
             }
 
             isDragging = true;
@@ -4860,6 +4884,13 @@ export class Engine {
 
             // 1. Check Teleport Mode Hover
             if (this.isTeleportMode) {
+                if (this.isMouseOrTouchDetected && !this.teleportConfirmModalActive && this.teleportGoBtnClickRect) {
+                    const r = this.teleportGoBtnClickRect;
+                    if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
+                        this.isometricCanvas.style.cursor = 'pointer';
+                        return;
+                    }
+                }
                 if (this.teleportConfirmModalActive && this.teleportModalClickRects) {
                     for (const r of this.teleportModalClickRects) {
                         if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
@@ -4959,20 +4990,31 @@ export class Engine {
                 return;
             }
 
+            if (this.isMouseOrTouchDetected && !this.teleportConfirmModalActive && this.teleportGoBtnClickRect) {
+                const r = this.teleportGoBtnClickRect;
+                if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
+                    const targetT = this.allTeleports[this.selectedTeleportIndex];
+                    const px = Math.floor(this.player.x);
+                    const py = Math.floor(this.player.y);
+                    const pz = this.player.z;
+                    const isCurrent = targetT && targetT.x === px && targetT.y === py && targetT.z === pz;
+                    if (targetT && !isCurrent) {
+                        this.teleportTo(targetT.x, targetT.y, targetT.z);
+                        this.toggleTeleportMap(false);
+                    }
+                    return;
+                }
+            }
+
             if (this.teleportDotsClickRects) {
                 const match = this.teleportDotsClickRects.find(r => clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h);
                 if (match) {
                     const selectable = this.getSelectableTeleportIndices();
                     if (selectable.includes(match.index)) {
-                        if (this.selectedTeleportIndex === match.index) {
-                            this.teleportConfirmModalActive = true;
-                            this.teleportModalSelection = 'go';
-                        } else {
-                            this.selectedTeleportIndex = match.index;
-                            const targetT = this.allTeleports[match.index];
-                            this.activeMapFloor = targetT.z;
-                            this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
-                        }
+                        this.selectedTeleportIndex = match.index;
+                        const targetT = this.allTeleports[match.index];
+                        this.activeMapFloor = targetT.z;
+                        this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
                     }
                     return;
                 }
@@ -6154,13 +6196,17 @@ export class Engine {
             const numTeleports = this.allTeleports.length;
             const totalDotsWidth = (numTeleports - 1) * spacing;
             const dotY = height - 60;
-            const startX = width / 2 - totalDotsWidth / 2;
 
-            // Draw glassmorphic dock container background
-            const dockW = totalDotsWidth + 60;
+            const showGoBtn = this.isMouseOrTouchDetected && !this.teleportConfirmModalActive;
+            const goBtnW = 54;
+            const goBtnH = 28;
+
+            const extraW = showGoBtn ? 70 : 0;
+            const dockW = totalDotsWidth + 60 + extraW;
             const dockH = 58;
             const dockX = width / 2 - dockW / 2;
             const dockYPos = dotY - dockH / 2;
+            const startX = dockX + 30;
 
             ctx.save();
             ctx.beginPath();
@@ -6249,6 +6295,41 @@ export class Engine {
                     index: idx
                 });
             });
+
+            if (showGoBtn) {
+                const goBtnX = startX + totalDotsWidth + 15;
+                const goBtnY = dotY - goBtnH / 2;
+                
+                ctx.save();
+                
+                // Draw glassmorphic button background
+                ctx.beginPath();
+                ctx.rect(goBtnX, goBtnY, goBtnW, goBtnH);
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 1.5;
+                ctx.fill();
+                ctx.stroke();
+                
+                // Draw text "IR" / "GO"
+                ctx.fillStyle = '#ffffff';
+                ctx.font = "bold 12px 'Roboto', sans-serif";
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(getTranslation('teleportGo'), goBtnX + goBtnW / 2, goBtnY + goBtnH / 2);
+                
+                ctx.restore();
+                
+                // Store click/hover rectangle for the go button
+                this.teleportGoBtnClickRect = {
+                    x: goBtnX,
+                    y: goBtnY,
+                    w: goBtnW,
+                    h: goBtnH
+                };
+            } else {
+                this.teleportGoBtnClickRect = null;
+            }
 
             // 4. Draw Teleport Confirmation Modal Overlay
             if (this.teleportConfirmModalActive) {
