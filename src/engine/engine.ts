@@ -36,6 +36,7 @@ function moveTowards(current, target, maxDelta) {
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
 export class Engine {
+    isTouchDevice!: boolean;
     isMouseOrTouchDetected!: boolean;
     teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
 
@@ -213,6 +214,7 @@ export class Engine {
         this.teleportModalSelection = 'go'; // 'go' or 'cancel'
         this.isMouseOrTouchDetected = false;
         this.teleportGoBtnClickRect = null;
+        this.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         this.teleportMeshes = [];
         this.isTeleportMode = false;
@@ -5051,77 +5053,57 @@ export class Engine {
             return { x: px, y: py };
         };
 
-        // If in teleport mode, block all map cell clicks
+        // If in teleport mode, block all non-teleport cell clicks
         if (this.isTeleportMode) {
+            const elements = this.getInteractiveElements(activeZ);
+            let closestElement = null;
+            let minElementDist = Infinity;
+            const maxClickRadius = this.isTouchDevice ? 52 : 35;
+            
+            for (const el of elements) {
+                if (el.type !== 'teleport') continue;
+                const coords = getIsoCoords(el.x, el.y, el.z);
+                const dx = clickX - coords.x;
+                const dy = clickY - coords.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < minElementDist) {
+                    minElementDist = dist;
+                    closestElement = el;
+                }
+            }
+            if (closestElement && minElementDist <= maxClickRadius) {
+                const { x, y, z } = closestElement;
+                const index = this.allTeleports.findIndex(t => t.x === x && t.y === y && t.z === z);
+                const selectable = this.getSelectableTeleportIndices();
+                if (index !== -1 && selectable.includes(index)) {
+                    this.selectedTeleportIndex = index;
+                    this.mapCursor = { x, y, z };
+                }
+            }
             return;
         }
 
-        // Check if clicked close to any interactive shaft dot (generous target for mobile)
+        // Check if clicked close to any interactive element (generous target, especially for mobile)
         const elements = this.getInteractiveElements(activeZ);
-        const shaftElements = elements.filter(el => el.type === 'shaft');
-        let closestShaft = null;
-        let minShaftDist = Infinity;
-        const maxShaftClickRadius = 35; 
+        let closestElement = null;
+        let minElementDist = Infinity;
+        const maxClickRadius = this.isTouchDevice ? 52 : 35;
         
-        for (const el of shaftElements) {
+        for (const el of elements) {
             const coords = getIsoCoords(el.x, el.y, el.z);
             const dx = clickX - coords.x;
             const dy = clickY - coords.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < minShaftDist) {
-                minShaftDist = dist;
-                closestShaft = el;
+            if (dist < minElementDist) {
+                minElementDist = dist;
+                closestElement = el;
             }
         }
         
-        if (closestShaft && minShaftDist <= maxShaftClickRadius) {
-            this.mapCursor = { x: closestShaft.x, y: closestShaft.y, z: closestShaft.z };
-            this.triggerPathReveal(closestShaft.x, closestShaft.y, closestShaft.z);
+        if (closestElement && minElementDist <= maxClickRadius) {
+            this.mapCursor = { x: closestElement.x, y: closestElement.y, z: closestElement.z };
+            this.triggerPathReveal(closestElement.x, closestElement.y, closestElement.z);
             return;
-        }
-
-        const floorsToTest = [];
-        if (activeZ + 2 <= size - 2) floorsToTest.push(activeZ + 2);
-        if (activeZ + 1 < size) floorsToTest.push(activeZ + 1);
-        floorsToTest.push(activeZ);
-        if (activeZ - 1 >= 0) floorsToTest.push(activeZ - 1);
-        if (activeZ - 2 >= 1) floorsToTest.push(activeZ - 2);
-
-        for (const z of floorsToTest) {
-            const Y_offset_adjusted = centerY - (z - activeZ) * floorOffset;
-            const A = (clickX - centerX) / tileWidthHalf;
-            const B = (clickY - Y_offset_adjusted) / tileHeightHalf;
-
-            const x = Math.round((A + B) / 2);
-            const y = Math.round((B - A) / 2);
-
-            if (x >= 0 && x < size && y >= 0 && y < size) {
-                const elements = this.getInteractiveElements(activeZ);
-                const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
-                
-                if (isInteractive) {
-                    if (this.isTeleportMode) {
-                        const targetTeleport = elements.find(el => el.x === x && el.y === y && el.z === z && el.type === 'teleport');
-                        if (targetTeleport) {
-                            const index = this.allTeleports.findIndex(t => t.x === x && t.y === y && t.z === z);
-                            const selectable = this.getSelectableTeleportIndices();
-                            if (index !== -1 && selectable.includes(index)) {
-                                if (this.selectedTeleportIndex === index) {
-                                    this.teleportConfirmModalActive = true;
-                                    this.teleportModalSelection = 'go';
-                                } else {
-                                    this.selectedTeleportIndex = index;
-                                    this.mapCursor = { x, y, z };
-                                }
-                            }
-                        }
-                    } else {
-                        this.mapCursor = { x, y, z };
-                        this.triggerPathReveal(x, y, z);
-                    }
-                    return;
-                }
-            }
         }
     }
 
@@ -6192,18 +6174,19 @@ export class Engine {
 
         // 3. Draw Teleport Selection Dots UI Dock
         if (this.isTeleportMode) {
-            const spacing = 52;
+            const spacing = this.isTouchDevice ? 64 : 56;
             const numTeleports = this.allTeleports.length;
             const totalDotsWidth = (numTeleports - 1) * spacing;
             const dotY = height - 60;
 
             const showGoBtn = this.isMouseOrTouchDetected && !this.teleportConfirmModalActive;
-            const goBtnW = 54;
-            const goBtnH = 28;
+            const goBtnW = this.isTouchDevice ? 82 : 62;
+            const goBtnH = this.isTouchDevice ? 40 : 30;
 
-            const extraW = showGoBtn ? 84 : 0;
+            const gap = this.isTouchDevice ? 46 : 36;
+            const extraW = showGoBtn ? (gap + goBtnW) : 0;
             const dockW = totalDotsWidth + 60 + extraW;
-            const dockH = 58;
+            const dockH = this.isTouchDevice ? 74 : 62;
             const dockX = width / 2 - dockW / 2;
             const dockYPos = dotY - dockH / 2;
             const startX = dockX + 30;
@@ -6240,10 +6223,13 @@ export class Engine {
 
                 ctx.save();
 
+                const unselectedR = this.isTouchDevice ? 13 : 10;
+                const selectedR = this.isTouchDevice ? 19 : 15;
+
                 if (!isDiscovered) {
                     // Locked/Undiscovered Dot (Grey/Lock representation)
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, 9, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, unselectedR, 0, Math.PI * 2);
                     ctx.fillStyle = 'rgba(100, 100, 100, 0.45)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -6251,7 +6237,7 @@ export class Engine {
                 } else if (isInactive) {
                     // Inactive Dot (crossed/faded)
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, 10, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, unselectedR, 0, Math.PI * 2);
                     ctx.fillStyle = 'rgba(255, 45, 0, 0.2)';
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 45, 0, 0.4)';
@@ -6262,14 +6248,15 @@ export class Engine {
                     if (isSelected) {
                         // Bouncing/glowing highlight
                         const pulse = 1.0 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() / 120));
+                        const highlightR = (this.isTouchDevice ? 28 : 22) * pulse;
                         ctx.beginPath();
-                        ctx.arc(dotX, dotY, 20 * pulse, 0, Math.PI * 2);
+                        ctx.arc(dotX, dotY, highlightR, 0, Math.PI * 2);
                         ctx.fillStyle = 'rgba(0, 255, 255, 0.18)';
                         ctx.fill();
                     }
 
                     ctx.beginPath();
-                    ctx.arc(dotX, dotY, isSelected ? 14 : 9, 0, Math.PI * 2);
+                    ctx.arc(dotX, dotY, isSelected ? selectedR : unselectedR, 0, Math.PI * 2);
                     ctx.fillStyle = isSelected ? '#ffffff' : '#00b3ff';
                     ctx.fill();
                     ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
@@ -6279,7 +6266,7 @@ export class Engine {
                     // Mini inner core if player is on it
                     if (isPlayerHere) {
                         ctx.beginPath();
-                        ctx.arc(dotX, dotY, isSelected ? 6 : 4, 0, Math.PI * 2);
+                        ctx.arc(dotX, dotY, isSelected ? (this.isTouchDevice ? 10 : 8) : (this.isTouchDevice ? 6 : 5), 0, Math.PI * 2);
                         ctx.fillStyle = '#39ff14'; // glowing green core
                         ctx.fill();
                     }
@@ -6287,11 +6274,12 @@ export class Engine {
 
                 ctx.restore();
 
+                const rSize = this.isTouchDevice ? 33 : 25;
                 this.teleportDotsClickRects.push({
-                    x: dotX - 24,
-                    y: dotY - 24,
-                    w: 48,
-                    h: 48,
+                    x: dotX - rSize,
+                    y: dotY - rSize,
+                    w: rSize * 2,
+                    h: rSize * 2,
                     index: idx
                 });
             });
