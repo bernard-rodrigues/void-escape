@@ -114,7 +114,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         gameTitle: "VOID ESCAPE",
         gameCredits: "um jogo de Bernard Rodrigues",
         activeHunters: "Caçadores Ativos",
-        activeTeleports: "Teletransportes Ativos",
+        activeTeleports: "Teleportes Ativos",
         activeKeys: "Chaves Ativas",
         availablePathfinders: "Localizadores Disponíveis",
         mazeDegree: "Grau do Labirinto",
@@ -144,7 +144,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         legendStart: "Ponto de Partida",
         legendExit: "Saída do Labirinto",
         legendHunter: "Caçador do Vazio",
-        legendTeleport: "Teletransporte",
+        legendTeleport: "Teleporte",
         legendElevator: "Elevador",
 
         // Controls Hint
@@ -159,11 +159,11 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgKeySecured: "Chave obtida ({collected}/{total})",
         msgExitUnlocked: "Saída destrancada",
         msgKeysRemaining: "{count} chave(s) restante(s)",
-        msgNoOtherActiveTeleport: "Nenhum outro teletransporte ativo",
+        msgNoOtherActiveTeleport: "Nenhum outro teleporte ativo",
         msgExitFound: "Saída encontrada",
         msgNoPathfindersRemaining: "Nenhum localizador restante",
         msgExitNotFoundYet: "Saída ainda não encontrada",
-        msgSafePointTeleport: "Ponto seguro... Teletransportar?",
+        msgSafePointTeleport: "Ponto seguro... Teleportar?",
         msgOopsNoisyShit: "Ops... troço barulhento!",
         msgWhereAmI: "Onde estou?",
         msgElevatorUp: "Subir?",
@@ -200,19 +200,19 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
 
         // Loading / Saving indicators
         saving: "SALVANDO...",
-        teleportAnomaly: "ANOMALIA DE TELETRANSPORTE",
+        teleportAnomaly: "ANOMALIA DE TELEPORTE",
         ticks: "TICKS",
 
         // 3D Map Interface Instructions
         map3dInstructions: "Arraste para girar | Role para zoom | M para voltar",
-        teleportWarning: "TELETRANSPORTE",
+        teleportWarning: "TELEPORTE",
 
         // Mobile Buttons
         map: "MAPA",
-        teleport: "TELETRANSPORTE",
+        teleport: "TELEPORTE",
 
         // Teleport Modal Translation Keys
-        teleportationLink: "LINK DE TELETRANSPORTE",
+        teleportationLink: "LINK DE TELEPORTE",
         teleportJumpSector: "Pular para o Setor {floor}F?",
         teleportTargetGrid: "Coordenada Alvo: ({x}, {y})",
         teleportGo: "IR",

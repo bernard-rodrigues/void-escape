@@ -31,6 +31,8 @@ export class UIManager {
     uiPathfindersRemaining: HTMLElement | null;
     uiPathfindersTotal: HTMLElement | null;
     uiControlsHintContent: HTMLElement | null;
+    onInfoBanner?: (message: string) => void;
+    bannerMessage: string = "";
 
     constructor() {
         this.uiFloorSpan = document.getElementById('current-floor');
@@ -246,20 +248,10 @@ export class UIManager {
      * Show custom warning banner for a short duration.
      */
     showInfoBanner(message: string) {
-        // Find or create info banner container if needed, or handle it as an alert
-        // The original code has UIManager trigger this banner
-        let banner = document.getElementById('info-banner');
-        if (!banner) {
-            banner = document.createElement('div');
-            banner.id = 'info-banner';
-            banner.className = 'info-banner-pulse';
-            document.body.appendChild(banner);
+        this.bannerMessage = message;
+        if (this.onInfoBanner) {
+            this.onInfoBanner(message);
         }
-        banner.innerText = message;
-        banner.classList.remove('hidden');
-        setTimeout(() => {
-            if (banner) banner.classList.add('hidden');
-        }, 3000);
     }
 
     /**

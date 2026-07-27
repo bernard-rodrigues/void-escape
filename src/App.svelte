@@ -122,6 +122,14 @@
             continueBtnMenu.style.display = hasSave() ? '' : 'none';
         }
 
+        const mobilePauseBtn = document.getElementById('mobile-pause-btn');
+        if (mobilePauseBtn) {
+            mobilePauseBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (currentGame) currentGame.togglePause();
+            };
+        }
+
         // Bind clicks for the start menu
         const startBtn = document.getElementById('start-btn');
         if (startBtn && degreeSlider) {
