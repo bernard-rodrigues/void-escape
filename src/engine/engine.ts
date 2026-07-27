@@ -6201,7 +6201,7 @@ export class Engine {
             const goBtnW = 54;
             const goBtnH = 28;
 
-            const extraW = showGoBtn ? 70 : 0;
+            const extraW = showGoBtn ? 84 : 0;
             const dockW = totalDotsWidth + 60 + extraW;
             const dockH = 58;
             const dockX = width / 2 - dockW / 2;
@@ -6297,7 +6297,7 @@ export class Engine {
             });
 
             if (showGoBtn) {
-                const goBtnX = startX + totalDotsWidth + 15;
+                const goBtnX = startX + totalDotsWidth + 30;
                 const goBtnY = dotY - goBtnH / 2;
                 
                 ctx.save();
