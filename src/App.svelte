@@ -89,6 +89,16 @@
         };
 
         if (degreeSlider) {
+            if (CONFIG.MIN_MAZE_DEGREE !== undefined) {
+                degreeSlider.min = String(CONFIG.MIN_MAZE_DEGREE);
+            }
+            if (CONFIG.MAX_MAZE_DEGREE !== undefined) {
+                degreeSlider.max = String(CONFIG.MAX_MAZE_DEGREE);
+            }
+            if (CONFIG.MAZE_DEGREE !== undefined) {
+                degreeSlider.value = String(CONFIG.MAZE_DEGREE);
+            }
+
             degreeSlider.oninput = () => {
                 const degree = parseInt(degreeSlider.value);
                 if (degreeVal) degreeVal.innerText = String(degree);
@@ -213,7 +223,7 @@
                 <span class="degree-label" data-i18n="mazeDegree">Maze Degree</span>
                 <span class="degree-value" id="degree-val">-</span>
             </div>
-            <input type="range" id="maze-degree" min="3" max="16" value="8" aria-label="Ajustar Grau do Labirinto">
+            <input type="range" id="maze-degree" aria-label="Ajustar Grau do Labirinto">
             <p class="hint" data-i18n="degreeHint">Controls the grid size. Higher values create larger, more complex mazes.</p>
         </div>
 

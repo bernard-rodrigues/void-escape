@@ -4,6 +4,8 @@
 export interface Config {
   SEED: string | number | null;
   MAZE_DEGREE: number;
+  MIN_MAZE_DEGREE: number;
+  MAX_MAZE_DEGREE: number;
   BRANCHING_FACTOR: number;
   BRAID_FACTOR: number;
   SHADOW_SIZE_FACTOR: number;
@@ -30,7 +32,9 @@ export interface Config {
 export const CONFIG: Config = {
     SEED: null, // Define a number or string (e.g. "void-escape-1") to lock the map generator, or null for random
     
-    MAZE_DEGREE: 6,
+    MAZE_DEGREE: 4,
+    MIN_MAZE_DEGREE: 4,
+    MAX_MAZE_DEGREE: 16,
     BRANCHING_FACTOR: 0.10,
     BRAID_FACTOR: 0.10, // Fraction of eligible walls to turn into paths (0.0 to 1.0)
     SHADOW_SIZE_FACTOR: 0.075, // Proportional width/height of wall-projected shadows in 2D minimap
