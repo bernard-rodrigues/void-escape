@@ -60,6 +60,8 @@ function updateGamepad(engine, dt) {
     const gp = gamepads[0] || gamepads.find(g => g !== null);
     if (!gp) return;
 
+    engine.lastInputDevice = 'gamepad';
+
     // 1. Movement axes (Left Analog / D-pad)
     const axisX = gp.axes[0];
     const axisY = gp.axes[1];
@@ -75,10 +77,17 @@ function updateGamepad(engine, dt) {
     if (gp.buttons[14] && gp.buttons[14].pressed) left = true;
     if (gp.buttons[15] && gp.buttons[15].pressed) right = true;
 
-    engine.input.keys['arrowleft'] = left;
-    engine.input.keys['arrowright'] = right;
-    engine.input.keys['arrowup'] = up;
-    engine.input.keys['arrowdown'] = down;
+    if (left) engine.input.keys['arrowleft'] = true;
+    else if (engine.lastInputDevice === 'gamepad') engine.input.keys['arrowleft'] = false;
+
+    if (right) engine.input.keys['arrowright'] = true;
+    else if (engine.lastInputDevice === 'gamepad') engine.input.keys['arrowright'] = false;
+
+    if (up) engine.input.keys['arrowup'] = true;
+    else if (engine.lastInputDevice === 'gamepad') engine.input.keys['arrowup'] = false;
+
+    if (down) engine.input.keys['arrowdown'] = true;
+    else if (engine.lastInputDevice === 'gamepad') engine.input.keys['arrowdown'] = false;
 
     // 2. Buttons (Edge triggered)
     if (!engine.prevGamepadButtons) {

@@ -1252,10 +1252,17 @@ export class Engine {
         if (gp.buttons[14] && gp.buttons[14].pressed) left = true;
         if (gp.buttons[15] && gp.buttons[15].pressed) right = true;
 
-        this.input.keys['arrowleft'] = left;
-        this.input.keys['arrowright'] = right;
-        this.input.keys['arrowup'] = up;
-        this.input.keys['arrowdown'] = down;
+        if (left) this.input.keys['arrowleft'] = true;
+        else if (this.lastInputDevice === 'gamepad') this.input.keys['arrowleft'] = false;
+
+        if (right) this.input.keys['arrowright'] = true;
+        else if (this.lastInputDevice === 'gamepad') this.input.keys['arrowright'] = false;
+
+        if (up) this.input.keys['arrowup'] = true;
+        else if (this.lastInputDevice === 'gamepad') this.input.keys['arrowup'] = false;
+
+        if (down) this.input.keys['arrowdown'] = true;
+        else if (this.lastInputDevice === 'gamepad') this.input.keys['arrowdown'] = false;
 
         // 2. Buttons (Edge triggered)
         if (!this.prevGamepadButtons) {
