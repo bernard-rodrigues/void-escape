@@ -3108,7 +3108,7 @@ export class Engine {
         }
 
         // 4. Draw Player (isometric sprite with direction memory and squash/squeeze animation)
-        if (!this.deathAnimation || !this.deathAnimation.active) {
+        if (!this.deathAnimation || !this.deathAnimation.screenFilled) {
             const stateKey = `${this.playerVertical}_${this.playerSide}`;
             const img = this.mageImages[stateKey];
             
@@ -3215,6 +3215,33 @@ export class Engine {
                 const drawOffsetY = (CONFIG.PLAYER_COLLISION_OFFSET_Y || 0) * cellSize;
                 ctx.strokeRect(cx + drawOffsetX - boxSize / 2, cy + drawOffsetY - boxSize / 2, boxSize, boxSize);
                 ctx.restore();
+            }
+
+            if (this.deathAnimation && this.deathAnimation.active) {
+                // Key jumps/arcs up and down during the pre-death freeze phase (vertical throw starting at head and landing on ground)
+                const progress = Math.min(1.0, this.deathAnimation.delayElapsed / this.deathAnimation.delayDuration);
+                
+                // Mage height (head level is negative Y offset)
+                const startH = -(img && img.complete ? (cellSize * 0.90 * (img.height / img.width) * 0.85) : (cellSize * 0.5));
+                const peakHeight = cellSize * 0.7; // peak height above player head
+                
+                // Parabolic interpolation from head (startH) to ground (0)
+                const keyYOffset = (1.0 - progress) * startH - 4 * peakHeight * progress * (1.0 - progress);
+                
+                if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
+                    ctx.save();
+                    const keySize = cellSize * 0.55;
+                    ctx.drawImage(this.keyImage, cx - keySize / 2, cy + keyYOffset - keySize / 2, keySize, keySize);
+                    ctx.restore();
+                } else {
+                    // Fallback gold dot
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + keyYOffset, cellSize * 0.15, 0, 2*Math.PI);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fill();
+                    ctx.restore();
+                }
             }
         }
 
