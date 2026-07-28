@@ -39,6 +39,8 @@ export class Engine {
     isTouchDevice!: boolean;
     isMouseOrTouchDetected!: boolean;
     teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
+    visitedCells!: Set<string>;
+    lastSavePos!: { x: number; y: number; z: number } | null;
 
     constructor(degree, branchingFactor, savedState = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
@@ -180,6 +182,8 @@ export class Engine {
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
+        this.visitedCells = new Set();
+        this.lastSavePos = null;
         const startGridX = Math.floor(this.player.x);
         const startGridY = Math.floor(this.player.y);
         const startGridZ = this.player.z;
@@ -248,7 +252,23 @@ export class Engine {
         this.exitPathfinderUnlocked = this.checkExitNeighborVisited();
 
         this.initThree();
+        this.populateVisitedCells();
         this.init(savedState);
+    }
+
+    populateVisitedCells() {
+        this.visitedCells.clear();
+        const size = this.mazeGen.size;
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val === 2 || val === 3 || val === 5) {
+                        this.visitedCells.add(`${x},${y},${z}`);
+                    }
+                }
+            }
+        }
     }
 
     destroy() {
@@ -507,6 +527,7 @@ export class Engine {
     triggerSave() {
         saveGame(this);
         this.hasSavePoint = true;
+        this.lastSavePos = { x: this.player.x, y: this.player.y, z: this.player.z };
         this.ui.showSavingIndicator();
     }
 
@@ -524,6 +545,7 @@ export class Engine {
 
     collectKey(x, y, z) {
         this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
+        this.visitedCells.add(`${x},${y},${z}`);
         this.keysCollected++;
         this.staticMapCacheDirty = true;
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
@@ -603,6 +625,9 @@ export class Engine {
         this.dialogueDownTriggered = snapshot.dialogueDownTriggered || false;
         this.dialogueWhichWayTriggered = snapshot.dialogueWhichWayTriggered || false;
         this.dialogueDetectedTriggered = snapshot.dialogueDetectedTriggered || false;
+
+        this.populateVisitedCells();
+        this.lastSavePos = { x: snapshot.player.x, y: snapshot.player.y, z: snapshot.player.z };
         this.hunterOnSameFloorDetected = snapshot.hunterOnSameFloorDetected || false;
 
         // Mark that this session was loaded from a save (so Continue remains available
@@ -655,6 +680,7 @@ export class Engine {
                     elapsed: 0,
                     duration: 1.8, // 1.8 segundos para a corrupção cobrir toda a tela
                     screenFilled: false,
+                    reversing: false,
                     glitchElapsed: 0,
                     glitchDuration: 1.5,
                     uiFade: 0,
@@ -2004,6 +2030,7 @@ export class Engine {
                             this.collectKey(gx, gy, gz);
                         } else {
                             this.maze.set(gx, gy, gz, this.mazeGen.TYPES.VISITED);
+                            this.visitedCells.add(`${gx},${gy},${gz}`);
                         }
                         this.staticMapCacheDirty = true;
                     }
@@ -2048,6 +2075,7 @@ export class Engine {
             if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
                 if (this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.PATH) {
                     this.maze.set(playerIdxX, playerIdxY, playerIdxZ, this.mazeGen.TYPES.VISITED);
+                    this.visitedCells.add(`${playerIdxX},${playerIdxY},${playerIdxZ}`);
                     this.staticMapCacheDirty = true;
                 } else if (isOnTeleport) {
                     const key = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
@@ -2756,21 +2784,54 @@ export class Engine {
                 this.deathAnimation.elapsed += dt;
                 if (this.deathAnimation.elapsed >= this.deathAnimation.duration) {
                     this.deathAnimation.screenFilled = true;
-                }
-            } else {
-                this.deathAnimation.glitchElapsed += dt;
-                if (!this.deathAnimation.uiTriggered) {
-                    this.deathAnimation.uiTriggered = true;
-                    this.ui.showDeath(this.hasSavePoint);
-                    const el = document.getElementById('game-over-screen');
-                    if (el) {
-                        el.style.opacity = '0';
+                    
+                    // --- TRANSITION RUNNING BEHIND BLACKOUT ---
+                    
+                    // 1. Drop a key at the player's death position
+                    const deathX = Math.floor(this.deathAnimation.playerPos.x);
+                    const deathY = Math.floor(this.deathAnimation.playerPos.y);
+                    const deathZ = this.deathAnimation.playerPos.z;
+                    
+                    this.maze.set(deathX, deathY, deathZ, this.mazeGen.TYPES.KEY);
+                    this.totalKeys++;
+                    this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
+                    this.staticMapCacheDirty = true;
+                    
+                    // 2. Teleport player to the last visited save point (or startPos)
+                    let targetX = this.mazeGen.startPos.x;
+                    let targetY = this.mazeGen.startPos.y;
+                    let targetZ = this.mazeGen.startPos.z;
+                    
+                    if (this.lastSavePos) {
+                        targetX = this.lastSavePos.x;
+                        targetY = this.lastSavePos.y;
+                        targetZ = this.lastSavePos.z;
                     }
+                    
+                    this.player.x = targetX;
+                    this.player.y = targetY;
+                    this.player.z = targetZ;
+                    this.activeMapFloor = targetZ;
+                    this.visualActiveFloor = targetZ;
+                    this.lastPlayerCell = { x: Math.floor(targetX), y: Math.floor(targetY), z: targetZ };
+                    
+                    // 3. Re-initialize / Reset Hunters to sleep mode
+                    this.hunters = [];
+                    this.initHunters(this.degree);
+                    
+                    // 4. Update the saved state in localStorage automatically
+                    saveGame(this);
+                    
+                    // 5. Start reversing the animation
+                    this.deathAnimation.reversing = true;
                 }
-                this.deathAnimation.uiFade = Math.min(1, this.deathAnimation.glitchElapsed / this.deathAnimation.glitchDuration);
-                const el = document.getElementById('game-over-screen');
-                if (el) {
-                    el.style.opacity = this.deathAnimation.uiFade;
+            } else if (this.deathAnimation.reversing) {
+                this.deathAnimation.elapsed -= dt;
+                if (this.deathAnimation.elapsed <= 0) {
+                    // --- END TRANSITION ---
+                    this.deathAnimation = null;
+                    this.isGameOver = false;
+                    this.ui.initGameUI(this.isSafeMode);
                 }
             }
         }
@@ -3069,8 +3130,18 @@ export class Engine {
                 }
             }
 
+            let playerOpacity = 1.0;
+            if (this.deathAnimation && this.deathAnimation.active) {
+                const flashInterval = 120; // ms
+                const show = Math.floor(Date.now() / flashInterval) % 2 === 0;
+                if (!show) {
+                    playerOpacity = 0.2;
+                }
+            }
+
             if (img && img.complete) {
                 ctx.save();
+                ctx.globalAlpha = playerOpacity;
                 
                 const drawSize = cellSize * 0.90; 
                 const imgW = drawSize;
@@ -3087,10 +3158,11 @@ export class Engine {
             } else {
                 // Fallback to original ball and direction line if image is not loaded
                 ctx.save();
+                ctx.globalAlpha = playerOpacity;
+                
                 ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
                 ctx.lineWidth = 1;
                 ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
-                ctx.restore();
                 
                 ctx.fillStyle = CONFIG.COLORS.PLAYER;
                 ctx.beginPath();
@@ -3103,6 +3175,8 @@ export class Engine {
                 ctx.moveTo(cx, cy);
                 ctx.lineTo(cx + Math.cos(this.player.dir) * cellSize * 1, cy + Math.sin(this.player.dir) * cellSize * 1);
                 ctx.stroke();
+                
+                ctx.restore();
             }
 
             if (CONFIG.SHOW_COLLISION_DEBUG) {
@@ -3195,8 +3269,14 @@ export class Engine {
         // Draw death animation corruption / glitch overlay
         if (this.deathAnimation && this.deathAnimation.active) {
             const h = this.deathAnimation.hunter;
+            let centerGridX = h.visualX + 0.5;
+            let centerGridY = h.visualY + 0.5;
+            if (this.deathAnimation.reversing) {
+                centerGridX = this.player.x;
+                centerGridY = this.player.y;
+            }
             
-            // Calcula o centro do hunter na tela
+            // Calcula o centro na tela
             let screenX, screenY;
             if (useZoom) {
                 const scaleTransition = 11 / this.zoomVisibleCells;
@@ -3210,14 +3290,14 @@ export class Engine {
                 
                 const cx = ctx.canvas.width / 2;
                 const cy = ctx.canvas.height / 2;
-                screenX = cx + (h.visualX + 0.5 - camX) * cellSize * scaleTransition;
-                screenY = cy + (h.visualY + 0.5 - camY) * cellSize * scaleTransition;
+                screenX = cx + (centerGridX - camX) * cellSize * scaleTransition;
+                screenY = cy + (centerGridY - camY) * cellSize * scaleTransition;
             } else {
-                screenX = (h.visualX + 0.5) * cellSize;
-                screenY = (h.visualY + 0.5) * cellSize;
+                screenX = centerGridX * cellSize;
+                screenY = centerGridY * cellSize;
             }
 
-            if (!this.deathAnimation.screenFilled) {
+            if (!this.deathAnimation.screenFilled || this.deathAnimation.reversing) {
                 const maxRadius = Math.hypot(ctx.canvas.width, ctx.canvas.height) * 1.1;
                 const progress = this.deathAnimation.elapsed / this.deathAnimation.duration;
                 // Easing in out para a expansão da corrupção
@@ -4638,6 +4718,7 @@ export class Engine {
         
         if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH) {
             this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
+            this.visitedCells.add(`${x},${y},${z}`);
         }
 
         if (!this.isSafeMode) {
@@ -5777,6 +5858,15 @@ export class Engine {
             const stateKey = `${this.playerVertical}_${this.playerSide}`;
             const img = this.mageImages[stateKey];
             
+            let playerOpacity = opacity;
+            if (this.deathAnimation && this.deathAnimation.active) {
+                const flashInterval = 120; // ms
+                const show = Math.floor(Date.now() / flashInterval) % 2 === 0;
+                if (!show) {
+                    playerOpacity = 0.2;
+                }
+            }
+
             // ==========================================
             // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR AQUI:
             // ==========================================
@@ -5788,13 +5878,13 @@ export class Engine {
             ctx.save();
             ctx.beginPath();
             ctx.ellipse(shadowX, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+            ctx.fillStyle = `rgba(0, 0, 0, ${playerOpacity * 0.45})`;
             ctx.fill();
             ctx.restore();
 
             if (img && img.complete) {
                 ctx.save();
-                ctx.globalAlpha = opacity;
+                ctx.globalAlpha = playerOpacity;
                 
                 const drawSize = tileWidth * 0.70; 
                 const imgW = drawSize;
@@ -5806,7 +5896,7 @@ export class Engine {
                 ctx.restore();
             } else {
                 ctx.save();
-                ctx.globalAlpha = opacity;
+                ctx.globalAlpha = playerOpacity;
                 ctx.beginPath();
                 ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
                 ctx.fillStyle = CONFIG.COLORS.PLAYER;
@@ -5815,6 +5905,28 @@ export class Engine {
                 ctx.lineWidth = 1.5;
                 ctx.stroke();
                 ctx.restore();
+            }
+
+            if (this.deathAnimation && this.deathAnimation.active) {
+                // Key jumps/arcs up and down
+                const progress = Math.min(1.0, this.deathAnimation.elapsed / 1.0);
+                const jumpHeight = tileWidth * 1.2;
+                const keyYOffset = -4 * jumpHeight * progress * (1.0 - progress);
+                
+                if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
+                    ctx.save();
+                    const keySize = tileWidth * 0.55;
+                    ctx.drawImage(this.keyImage, cx - keySize / 2, cy - keySize / 2 + keyYOffset, keySize, keySize);
+                    ctx.restore();
+                } else {
+                    // Fallback gold dot
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + keyYOffset, tileWidth * 0.15, 0, 2*Math.PI);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fill();
+                    ctx.restore();
+                }
             }
 
             if (CONFIG.SHOW_COLLISION_DEBUG) {
