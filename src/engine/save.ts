@@ -99,7 +99,9 @@ export function saveGame(engine: any): void {
             dialogueDownTriggered: engine.dialogueDownTriggered || false,
             dialogueWhichWayTriggered: engine.dialogueWhichWayTriggered || false,
             dialogueDetectedTriggered: engine.dialogueDetectedTriggered || false,
-            hunterOnSameFloorDetected: engine.hunterOnSameFloorDetected || false
+            hunterOnSameFloorDetected: engine.hunterOnSameFloorDetected || false,
+            deathsCount: engine.deathsCount !== undefined ? engine.deathsCount : 0,
+            elapsedTime: engine.elapsedTime !== undefined ? engine.elapsedTime : 0
         };
 
         localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));

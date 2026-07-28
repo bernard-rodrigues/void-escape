@@ -544,11 +544,23 @@ body {
     font-size: calc(var(--d-h-unit) * 2.1);
     font-weight: bold;
     color: var(--clr-text) !important;
-    margin-bottom: calc(var(--h-unit) * 1.5) !important;
+    margin-bottom: calc(var(--h-unit) * 0.8) !important;
 }
 
 #victory-completion-rate {
     color: var(--clr-victory);
+}
+
+#victory-deaths-count {
+    color: var(--clr-hazard);
+}
+
+#victory-maze-degree {
+    color: var(--clr-hunter);
+}
+
+#victory-completion-time {
+    color: var(--clr-neon);
 }
 
 #game-over-screen {
