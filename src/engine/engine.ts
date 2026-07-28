@@ -2797,11 +2797,17 @@ export class Engine {
             if (this.deathAnimation.delayElapsed < this.deathAnimation.delayDuration) {
                 // Phase 0: Pre-death delay (key jumping, sprite flashing, message showing, time frozen)
                 this.deathAnimation.delayElapsed += dt;
+                this.updateNotification(dt);
             } else if (!this.deathAnimation.screenFilled) {
                 // Phase 1: Corruption overlay expands
                 this.deathAnimation.elapsed += dt;
+                this.updateNotification(dt);
                 if (this.deathAnimation.elapsed >= this.deathAnimation.duration) {
                     this.deathAnimation.screenFilled = true;
+                    
+                    // Clear the death/key drop notification so it doesn't linger after respawn!
+                    this.activeNotification = null;
+                    this.notificationQueue = [];
                     
                     // --- TRANSITION RUNNING BEHIND BLACKOUT ---
                     
@@ -5929,10 +5935,15 @@ export class Engine {
             }
 
             if (this.deathAnimation && this.deathAnimation.active) {
-                // Key jumps/arcs up and down during the pre-death freeze phase
+                // Key jumps/arcs up and down during the pre-death freeze phase (vertical throw starting at head and landing on ground)
                 const progress = Math.min(1.0, this.deathAnimation.delayElapsed / this.deathAnimation.delayDuration);
-                const jumpHeight = tileWidth * 1.2;
-                const keyYOffset = -4 * jumpHeight * progress * (1.0 - progress);
+                
+                // Mage height (head level is negative Y offset)
+                const startH = -(img && img.complete ? (tileWidth * 0.70 * (img.height / img.width)) : (tileWidth * 0.5));
+                const peakHeight = tileWidth * 0.7; // peak height above player head
+                
+                // Parabolic interpolation from head (startH) to ground (0)
+                const keyYOffset = (1.0 - progress) * startH - 4 * peakHeight * progress * (1.0 - progress);
                 
                 if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
                     ctx.save();
