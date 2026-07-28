@@ -75,6 +75,7 @@ test('Death Transition - Collision triggers non-blocking death loop', () => {
         // Verify initial state
         assert.strictEqual(engine.isGameOver, false);
         assert.strictEqual(engine.deathAnimation, null);
+        assert.strictEqual(engine.suppressWakeHuntersBanner, false);
         
         // Run collision check
         engine.checkHunterCollision();
@@ -86,19 +87,31 @@ test('Death Transition - Collision triggers non-blocking death loop', () => {
         assert.strictEqual(engine.deathAnimation.screenFilled, false);
         assert.strictEqual(engine.deathAnimation.reversing, false);
         
+        // Phase 0: Freeze delay of 1.5 seconds.
+        // Let's advance by 1.0s and verify delay is active and corruption hasn't started.
+        engine.draw2DMap(1.0);
+        assert.strictEqual(engine.deathAnimation.delayElapsed, 1.0);
+        assert.strictEqual(engine.deathAnimation.elapsed, 0, 'Corruption progress should remain zero during delay');
+        
+        // Complete the delay phase (another 0.6s)
+        engine.draw2DMap(0.6);
+        assert.ok(engine.deathAnimation.delayElapsed >= 1.5);
+        
         const initialTotalKeys = engine.totalKeys;
         
-        // Simulate progress of death animation: Phase 1 (Growing corruption)
-        engine.draw2DMap(1.0); // 1.0 seconds pass
+        // Phase 1: Corruption growing (advance by 1.0s)
+        engine.draw2DMap(1.0);
         assert.strictEqual(engine.deathAnimation.screenFilled, false);
         assert.strictEqual(engine.deathAnimation.reversing, false);
+        assert.ok(engine.deathAnimation.elapsed > 0);
         
-        // Pass remaining time to trigger Phase 2 blackout transition
-        engine.draw2DMap(0.9); // another 0.9 seconds (total 1.9 > duration 1.8)
+        // Trigger Phase 2 blackout transition (another 0.9s)
+        engine.draw2DMap(0.9);
         
         // Verify Phase 2 transition took place
         assert.strictEqual(engine.deathAnimation.screenFilled, true, 'screenFilled must be true');
         assert.strictEqual(engine.deathAnimation.reversing, true, 'reversing must be true');
+        assert.strictEqual(engine.suppressWakeHuntersBanner, true, 'suppressWakeHuntersBanner must be true to avoid alert spam');
         
         // Verify key was dropped at player's death position (2, 1, 1)
         const valAtDeathCell = engine.maze.get(2, 1, 1);

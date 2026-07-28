@@ -41,6 +41,7 @@ export class Engine {
     teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
     visitedCells!: Set<string>;
     lastSavePos!: { x: number; y: number; z: number } | null;
+    suppressWakeHuntersBanner!: boolean;
 
     constructor(degree, branchingFactor, savedState = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
@@ -184,6 +185,7 @@ export class Engine {
         this.discoveredTeleports = new Set();
         this.visitedCells = new Set();
         this.lastSavePos = null;
+        this.suppressWakeHuntersBanner = false;
         const startGridX = Math.floor(this.player.x);
         const startGridY = Math.floor(this.player.y);
         const startGridZ = this.player.z;
@@ -503,7 +505,10 @@ export class Engine {
             hunter.history = [];
         }
 
-        this.ui.showInfoBanner(getTranslation('msgVoidHuntersDetected'));
+        if (!this.suppressWakeHuntersBanner) {
+            this.ui.showInfoBanner(getTranslation('msgVoidHuntersDetected'));
+        }
+        this.suppressWakeHuntersBanner = false;
         this.staticMapCacheDirty = true;
         if (this.isMap3DActive) {
             this.build3DMap();
@@ -673,6 +678,8 @@ export class Engine {
                 this.isGameOver = true;
                 this.hideGameUI(); // Desativa o mapa 3D se ativo, controles etc.
 
+                this.ui.showInfoBanner(getTranslation('msgKeyDropped'));
+
                 this.deathAnimation = {
                     active: true,
                     hunter: hunter,
@@ -681,6 +688,8 @@ export class Engine {
                     duration: 1.8, // 1.8 segundos para a corrupção cobrir toda a tela
                     screenFilled: false,
                     reversing: false,
+                    delayElapsed: 0,
+                    delayDuration: 1.5, // 1.5s de delay com tela congelada antes da corrupção
                     glitchElapsed: 0,
                     glitchDuration: 1.5,
                     uiFade: 0,
@@ -2369,7 +2378,7 @@ export class Engine {
         const isFloorVisited = (fx, fy, fz) => {
             if (fz < 0 || fz >= size) return false;
             const fVal = this.maze.get(fx, fy, fz);
-            return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
+            return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`)) || this.visitedCells.has(`${fx},${fy},${fz}`);
         };
 
         this.gridMeshes = new Array(size * size * size).fill(null);
@@ -2531,7 +2540,12 @@ export class Engine {
                         this.scene.add(mesh);
                         this.keyMeshes.push(mesh);
                         this.pulsatingMaterials.push(keyMat);
-                        continue;
+                        
+                        // If the key coordinate is not in visitedCells, skip rendering the floor tile
+                        const isVisitedKey = this.visitedCells.has(`${x},${y},${z}`);
+                        if (!isVisitedKey) {
+                            continue;
+                        }
                     }
 
                     const key = `${x},${y},${z}`;
@@ -2780,7 +2794,11 @@ export class Engine {
     
     draw2DMap(dt = 0.016) {
         if (this.deathAnimation && this.deathAnimation.active) {
-            if (!this.deathAnimation.screenFilled) {
+            if (this.deathAnimation.delayElapsed < this.deathAnimation.delayDuration) {
+                // Phase 0: Pre-death delay (key jumping, sprite flashing, message showing, time frozen)
+                this.deathAnimation.delayElapsed += dt;
+            } else if (!this.deathAnimation.screenFilled) {
+                // Phase 1: Corruption overlay expands
                 this.deathAnimation.elapsed += dt;
                 if (this.deathAnimation.elapsed >= this.deathAnimation.duration) {
                     this.deathAnimation.screenFilled = true;
@@ -2815,9 +2833,10 @@ export class Engine {
                     this.visualActiveFloor = targetZ;
                     this.lastPlayerCell = { x: Math.floor(targetX), y: Math.floor(targetY), z: targetZ };
                     
-                    // 3. Re-initialize / Reset Hunters to sleep mode
+                    // 3. Re-initialize / Reset Hunters to sleep mode & suppress wake banner
                     this.hunters = [];
                     this.initHunters(this.degree);
+                    this.suppressWakeHuntersBanner = true;
                     
                     // 4. Update the saved state in localStorage automatically
                     saveGame(this);
@@ -2826,12 +2845,14 @@ export class Engine {
                     this.deathAnimation.reversing = true;
                 }
             } else if (this.deathAnimation.reversing) {
+                // Phase 3: Corruption shrinking
                 this.deathAnimation.elapsed -= dt;
                 if (this.deathAnimation.elapsed <= 0) {
                     // --- END TRANSITION ---
                     this.deathAnimation = null;
                     this.isGameOver = false;
                     this.ui.initGameUI(this.isSafeMode);
+                    this.ui.showInfoBanner(getTranslation('msgPlayerRespawn'));
                 }
             }
         }
@@ -5908,8 +5929,8 @@ export class Engine {
             }
 
             if (this.deathAnimation && this.deathAnimation.active) {
-                // Key jumps/arcs up and down
-                const progress = Math.min(1.0, this.deathAnimation.elapsed / 1.0);
+                // Key jumps/arcs up and down during the pre-death freeze phase
+                const progress = Math.min(1.0, this.deathAnimation.delayElapsed / this.deathAnimation.delayDuration);
                 const jumpHeight = tileWidth * 1.2;
                 const keyYOffset = -4 * jumpHeight * progress * (1.0 - progress);
                 

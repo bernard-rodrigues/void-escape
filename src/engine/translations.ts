@@ -64,6 +64,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgIWasDetected: "Damn! I was detected.",
         msgFoundPathfinder: "Found a pathfinder!",
         msgWorldSaved: "World saved. What now?",
+        msgKeyDropped: "Oh! Just dropped a key...",
+        msgPlayerRespawn: "Ok.. ok.. guess I'm alive..",
 
         // Hunter Status Panel Marquee
         statusLabel: "HUNTER STATUS:",
@@ -173,6 +175,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgIWasDetected: "Droga! Fui detectada.",
         msgFoundPathfinder: "Localizador encontrado!",
         msgWorldSaved: "Salvei o mundo. E agora?",
+        msgKeyDropped: "Ih... Derrubei uma chave...",
+        msgPlayerRespawn: "Ok.. ok.. pelo visto continuo viva..",
 
         // Hunter Status Panel Marquee
         statusLabel: "STATUS DO CAÇADOR:",
@@ -282,6 +286,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgIWasDetected: "しまった、見つかっちゃった!",
         msgFoundPathfinder: "パスファインダー発見!",
         msgWorldSaved: "世界を救っちゃった。さて、次は?",
+        msgKeyDropped: "あ、鍵落としちゃった…",
+        msgPlayerRespawn: "よしよし…どうやらまだ生きてるな…",
 
         // Hunter Status Panel Marquee
         statusLabel: "ハンターの状態:",
@@ -392,6 +398,8 @@ es: {
         msgIWasDetected: "¡Rayos! Fui detectada.",
         msgFoundPathfinder: "¡Localizador encontrado!",
         msgWorldSaved: "Salvé el mundo. ¿Y ahora qué?",
+        msgKeyDropped: "¡Ah! Se me cayó una llave...",
+        msgPlayerRespawn: "Vale.. vale.. parece que sigo viva..",
 
         // Hunter Status Panel Marquee
         statusLabel: "ESTADO DEL CAZADOR:",
