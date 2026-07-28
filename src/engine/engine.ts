@@ -3631,6 +3631,16 @@ export class Engine {
                     });
                 } else if (isKey) {
                     drawCellWithFade(x, y, () => {
+                        const isVisitedKey = this.visitedCells.has(`${x},${y},${z}`);
+                        if (isVisitedKey) {
+                            if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                                ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                            } else {
+                                ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            }
+                        }
+
                         const bobbingOffset = cellSize * 0.05 * Math.sin(Date.now() / 300);
                         if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
                             ctx.drawImage(this.keyImage, x * cellSize + cellSize * 0.15, y * cellSize + cellSize * 0.15 + bobbingOffset, cellSize * 0.7, cellSize * 0.7);
