@@ -25,7 +25,7 @@ import { UIManager } from './ui.js';
 import { InputHandler } from './input.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
-function moveTowards(current, target, maxDelta) {
+function moveTowards(current: number, target: number, maxDelta: number): number {
     if (Math.abs(target - current) <= maxDelta) {
         return target;
     }
@@ -36,14 +36,158 @@ function moveTowards(current, target, maxDelta) {
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
 export class Engine {
+    degree: number;
+    branchingFactor: number;
+    isSafeMode: boolean;
+    vScale: number;
+    ui: UIManager;
+    input: InputHandler;
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+    seed: number;
+    mazeGen: Maze3D;
+    maze: any;
+    isResumedFromSave: boolean;
+    mapCompletion100Triggered: boolean;
+    hunterOnSameFloorDetected: boolean;
+    dialogueUpTriggered: boolean;
+    dialogueDownTriggered: boolean;
+    dialogueWhichWayTriggered: boolean;
+    dialogueDetectedTriggered: boolean;
+    wallImage: HTMLImageElement;
+    floorImage: HTMLImageElement;
+    keyImage: HTMLImageElement;
+    statueImage: HTMLImageElement;
+    mageImages: Record<string, HTMLImageElement>;
+    playerSide: string;
+    playerVertical: string;
+    playerWalkCycle: number;
+    playerSquashTargetX: number;
+    playerSquashTargetY: number;
+    playerSquashX: number;
+    playerSquashY: number;
+    player: { x: number; y: number; z: number; dir: number };
+    hunters: Hunter[];
+    keyMeshes: any[];
+    exitMesh: any;
+    keysCollected: number;
+    totalKeys: number;
+    totalPathfinders: number;
+    pathfindersRemaining: number;
+    activeMapFloor: number;
+    visualActiveFloor: number;
+    mapCursor: { x: number; y: number; z: number };
+    pathfinderRewardsGranted: number;
+    isometricCanvas: HTMLCanvasElement | null;
+    isometricCtx: CanvasRenderingContext2D | null;
+    floorClickRects: { floor: number; x: number; y: number; w: number; h: number }[];
+    teleportModalClickRects!: { x: number; y: number; w: number; h: number; selection: 'go' | 'cancel' }[];
+    mapZoom: number;
+    mapPanOffsetX: number;
+    mapPanOffsetY!: number;
+    isZoomTransitionActive: boolean;
+    zoomTransitionTimer: number;
+    preloadedStoryImages: HTMLImageElement[];
+    storyImagesLoadedCount: number;
+    storyImagesTotalCount: number;
+    storyImagesPreloadPromise: Promise<any> | null;
+    lastFrameTime: number;
+    revealedPathSet: Set<string>;
+    activePathReveal: any[];
+    revealedPathProgress: number;
+    knownMeshes: any[];
+    gridMeshes: any[] | null;
+    pathRevealInterval: any;
+    pathfinderBlockedUntil: number;
+    isMap3DActive: boolean;
+    isGameOver: boolean;
+    deathAnimation: any;
+    notificationQueue: string[];
+    activeNotification: any;
+    isPaused: boolean;
+    isDestroyed: boolean;
+    isIntroPlaying: boolean;
+    isStoryActive: boolean;
+    pulsatingMaterials: any[];
+    hunterMeshes: any[];
+    discoveredTeleports: Set<string>;
+    visitedCells: Set<string>;
+    lastSavePos: { x: number; y: number; z: number } | null;
+    suppressWakeHuntersBanner: boolean;
+    allTeleports: { x: number; y: number; z: number }[];
+    
+    // Additional properties set in other methods
     isTouchDevice!: boolean;
     isMouseOrTouchDetected!: boolean;
     teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
-    visitedCells!: Set<string>;
-    lastSavePos!: { x: number; y: number; z: number } | null;
-    suppressWakeHuntersBanner!: boolean;
+    staticMapCacheCanvas!: HTMLCanvasElement;
+    staticMapCacheCtx!: CanvasRenderingContext2D | null;
+    staticMapCacheDirty!: boolean;
+    zoomVisibleCells!: number;
+    
+    // Three.js instances
+    scene!: THREE.Scene;
+    camera!: THREE.PerspectiveCamera;
+    renderer!: THREE.WebGLRenderer;
+    controls!: any;
+    teleportMeshes!: any[];
+    inactiveTeleportPos!: { x: number; y: number; z: number } | null;
+    teleportCooldownTicks!: number;
+    
+    // Story animation properties
+    storyImages!: any[];
+    storyOpacity!: number;
+    storyOverlayOpacity!: number;
+    storyFrameIndex!: number;
+    storyTimer!: number;
+    storyTextQueue!: string[];
+    storyTextIndex!: number;
+    storyDisplayedText!: string;
+    storyState!: string;
+    storyWaitTimer!: number;
+    storyTextHeight!: number;
+    storyWidthProgress!: number;
+    storyCharIndex!: number;
+    storyTypeTimer!: number;
+    storyMsgIndex!: number;
+    storyCloseProgress!: number;
 
-    constructor(degree, branchingFactor, savedState = null) {
+    selectedTeleportIndex!: number | null;
+    teleportConfirmModalActive!: boolean;
+    teleportModalSelection!: 'go' | 'cancel';
+    teleportDotsClickRects!: { x: number; y: number; w: number; h: number; index: number }[];
+    isTeleportMode!: boolean;
+    floorTransition!: any;
+    hasSavePoint!: boolean;
+    lastPlayerCell!: { x: number; y: number; z: number } | null;
+    exitPathfinderUnlocked!: boolean;
+    isZoomActive!: boolean;
+    lastInputDevice!: string;
+    fullyRevealedCells!: Set<string>;
+    revealedCellsAnimation!: Map<string, number>;
+    skipCellAnimations!: boolean;
+    activeSkipHandler!: any;
+    activeIntroTimer!: any;
+    activeContinueTimer!: any;
+    raycaster!: THREE.Raycaster;
+    pointer!: THREE.Vector2;
+    handleKeyDownExtra!: any;
+    handleKeyboardDetection!: any;
+    handleResize!: any;
+    handleStoryKeyDown!: any;
+    handleStoryClick!: any;
+    handleStoryTouch!: any;
+    handleCanvasClick!: any;
+    handlePointerDown!: any;
+    handlePointerUp!: any;
+    lastHunterMove!: number;
+    lastLockedWarningTime!: number;
+    prevGamepadButtons!: boolean[];
+    isPreloadingActive!: boolean;
+    prevGamepadStick!: { left: boolean; right: boolean; up: boolean; down: boolean; } | null;
+    gamepadTeleportSelectedIndex!: number | null;
+
+    constructor(degree: number, branchingFactor: number, savedState: any = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
         this.branchingFactor = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
         
@@ -51,7 +195,7 @@ export class Engine {
         if (savedState) {
             this.isSafeMode = savedState.isSafeMode ?? false;
         } else {
-            const safeModeCheckbox = document.getElementById('safe-mode');
+            const safeModeCheckbox = document.getElementById('safe-mode') as HTMLInputElement;
             this.isSafeMode = safeModeCheckbox ? safeModeCheckbox.checked : false;
         }
 
@@ -62,8 +206,8 @@ export class Engine {
         this.input = new InputHandler();
         this.input.setupTouch(() => this.isMap3DActive, () => this.isGameOver);
 
-        this.canvas = document.getElementById('main-2d-canvas');
-        this.ctx = this.canvas.getContext('2d');
+        this.canvas = document.getElementById('main-2d-canvas') as HTMLCanvasElement;
+        this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
         
         this.seed = savedState ? savedState.seed : (CONFIG.SEED !== null && CONFIG.SEED !== undefined ? CONFIG.SEED : Date.now());
         this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
@@ -352,7 +496,7 @@ export class Engine {
         this.storyImagesLoadedCount = 0;
         this.storyImagesTotalCount = paths.length;
         this.storyImagesPreloadPromise = Promise.all(paths.map((path, idx) => {
-            return new Promise((resolve) => {
+            return new Promise<void>((resolve) => {
                 const img = new Image();
                 img.src = path;
                 img.onload = () => {
@@ -368,7 +512,7 @@ export class Engine {
         }));
     }
 
-    initHunters(degree) {
+    initHunters(degree: number) {
         const count = this.isSafeMode ? 0 : CONFIG.getHunterCount(degree);
         if (count === 0) return;
         
@@ -380,7 +524,7 @@ export class Engine {
 
     wakeHunters() {
         const size = this.mazeGen.size;
-        const candidates = [];
+        const candidates: { x: number; y: number; z: number }[] = [];
         const px = Math.floor(this.player.x);
         const py = Math.floor(this.player.y);
         const pz = this.player.z;
@@ -425,10 +569,10 @@ export class Engine {
             candidates[j] = temp;
         }
 
-        const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
+        const getDist = (p1: { x: number; y: number; z: number }, p2: { x: number; y: number; z: number }) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
 
         // Find a valid position for each sleeping hunter
-        const spawnedPos = [];
+        const spawnedPos: { x: number; y: number; z: number }[] = [];
         const sleepingHunters = this.hunters.filter(h => h.state === 'SLEEP');
 
         let minPlayerDist = Math.max(3, Math.floor(size * 0.45));
@@ -548,7 +692,7 @@ export class Engine {
         this.ui.showDeath(this.hasSavePoint);
     }
 
-    collectKey(x, y, z) {
+    collectKey(x: number, y: number, z: number) {
         this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
         this.visitedCells.add(`${x},${y},${z}`);
         this.keysCollected++;
@@ -586,7 +730,7 @@ export class Engine {
      * only need to overwrite the matrix bytes and runtime state.
      * @param {object} snapshot - Snapshot returned by loadSave()
      */
-    restoreFromSave(snapshot) {
+    restoreFromSave(snapshot: any) {
         // Restore seed
         this.seed = snapshot.seed;
 
@@ -712,13 +856,15 @@ export class Engine {
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.ui.uiMap3dContainer.appendChild(this.renderer.domElement);
+        if (this.ui.uiMap3dContainer) {
+            this.ui.uiMap3dContainer.appendChild(this.renderer.domElement);
+        }
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
     }
 
-    init(savedState = null) {
-        this.handleKeyDownExtra = e => {
+    init(savedState: any = null) {
+        this.handleKeyDownExtra = (e: KeyboardEvent) => {
             const key = e.key.toLowerCase();
             if (key === 'escape') {
                 if (this.isMap3DActive) {
@@ -754,7 +900,7 @@ export class Engine {
                             e.preventDefault();
                         }
                         if (key === 'enter' || key === ' ' || key === 'y') {
-                            if (this.teleportModalSelection === 'go') {
+                            if (this.teleportModalSelection === 'go' && this.selectedTeleportIndex !== null) {
                                 const targetT = this.allTeleports[this.selectedTeleportIndex];
                                 this.teleportTo(targetT.x, targetT.y, targetT.z);
                                 this.toggleTeleportMap(false);
@@ -772,7 +918,7 @@ export class Engine {
 
                     const selectable = this.getSelectableTeleportIndices();
                     if (selectable.length > 0) {
-                        let currentIdx = selectable.indexOf(this.selectedTeleportIndex);
+                        let currentIdx = selectable.indexOf(this.selectedTeleportIndex as number);
                         if (key === 'a' || key === 'arrowleft') {
                             currentIdx = (currentIdx - 1 + selectable.length) % selectable.length;
                             this.selectedTeleportIndex = selectable[currentIdx];
@@ -789,7 +935,7 @@ export class Engine {
                             this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
                             e.preventDefault();
                         }
-                        if (key === 'enter' || key === ' ' || key === 'y') {
+                        if ((key === 'enter' || key === ' ' || key === 'y') && this.selectedTeleportIndex !== null) {
                             const targetT = this.allTeleports[this.selectedTeleportIndex];
                             const px = Math.floor(this.player.x);
                             const py = Math.floor(this.player.y);
@@ -912,19 +1058,19 @@ export class Engine {
         let isDragging = false;
         let startX = 0;
         let startY = 0;
-        this.handlePointerDown = (e) => {
+        this.handlePointerDown = (e: PointerEvent) => {
             isDragging = false;
             startX = e.clientX;
             startY = e.clientY;
         };
-        this.handlePointerUp = (e) => {
+        this.handlePointerUp = (e: PointerEvent) => {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
             if (Math.sqrt(dx*dx + dy*dy) > 5) {
                 isDragging = true;
             }
         };
-        this.handleCanvasClick = (e) => {
+        this.handleCanvasClick = (e: MouseEvent) => {
             if (isDragging) return;
             this.onCanvasClick(e);
         };
@@ -992,7 +1138,7 @@ export class Engine {
         }
     }
 
-    drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, isRevealed = false, z = 0) {
+    drawElevator2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, hUp: boolean, hDown: boolean, px: number, py: number, isRevealed: boolean = false, z: number = 0) {
         const isPlayerHere = x === Math.floor(px) && y === Math.floor(py);
         if (isPlayerHere) {
             const pulse = 0.85 + 0.15 * Math.sin(Date.now() / 150);
@@ -1101,7 +1247,7 @@ export class Engine {
     /**
      * Draws wall-projected shadows on a 2D cell based on adjacent wall positions.
      */
-    drawCellShadow2D(ctx, x, y, cellSize, size, val, z) {
+    drawCellShadow2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, size: number, val: number, z: number) {
         if (val === 4) return; // Exclude exit cell
 
         const hasWallBelow = (y + 1 < size) && (this.maze.get(x, y + 1, z) === 0);
@@ -1208,7 +1354,7 @@ export class Engine {
         this.checkPathfinderRewards(percent);
     }
 
-    checkPathfinderRewards(percent) {
+    checkPathfinderRewards(percent: number) {
         const step = (this.degree >= 12) ? 10 : (this.degree >= 8 ? 20 : 0);
         if (step === 0) return;
 
@@ -1264,7 +1410,7 @@ export class Engine {
         }).map(item => item.idx);
     }
 
-    updateGamepad(dt) {
+    updateGamepad(dt: number) {
         const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
         const gp = gamepads[0] || gamepads.find(g => g !== null);
         if (!gp) return;
@@ -1316,9 +1462,9 @@ export class Engine {
             return;
         }
 
-        const wasPressed = (btnIdx) => this.prevGamepadButtons[btnIdx];
-        const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
-        const justPressed = (btnIdx) => isPressed(btnIdx) && !wasPressed(btnIdx);
+        const wasPressed = (btnIdx: number) => this.prevGamepadButtons![btnIdx];
+        const isPressed = (btnIdx: number) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
+        const justPressed = (btnIdx: number) => isPressed(btnIdx) && !wasPressed(btnIdx);
 
         if (this.isStoryActive) {
             if (justPressed(9)) {
@@ -1400,7 +1546,7 @@ export class Engine {
                     }
                     if (justPressed(0) || justPressed(3) || justPressed(2)) { // A, Y, or X
                         if (this.teleportModalSelection === 'go') {
-                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            const targetT = this.allTeleports[this.selectedTeleportIndex!];
                             this.teleportTo(targetT.x, targetT.y, targetT.z);
                             this.toggleTeleportMap(false);
                         } else {
@@ -1413,23 +1559,23 @@ export class Engine {
                 } else {
                     const selectable = this.getSelectableTeleportIndices();
                     if (selectable.length > 0) {
-                        let currentIdx = selectable.indexOf(this.selectedTeleportIndex);
+                        let currentIdx = selectable.indexOf(this.selectedTeleportIndex!);
                         if (justLeft || justPressed(14)) {
                             currentIdx = (currentIdx - 1 + selectable.length) % selectable.length;
                             this.selectedTeleportIndex = selectable[currentIdx];
-                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            const targetT = this.allTeleports[this.selectedTeleportIndex!];
                             this.activeMapFloor = targetT.z;
                             this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
                         }
                         if (justRight || justPressed(15)) {
                             currentIdx = (currentIdx + 1) % selectable.length;
                             this.selectedTeleportIndex = selectable[currentIdx];
-                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            const targetT = this.allTeleports[this.selectedTeleportIndex!];
                             this.activeMapFloor = targetT.z;
                             this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
                         }
                         if (justPressed(0) || justPressed(3) || justPressed(2)) { // A, Y, or X
-                            const targetT = this.allTeleports[this.selectedTeleportIndex];
+                            const targetT = this.allTeleports[this.selectedTeleportIndex!];
                             const px = Math.floor(this.player.x);
                             const py = Math.floor(this.player.y);
                             const pz = this.player.z;
@@ -1492,7 +1638,7 @@ export class Engine {
         if (justPressed(0)) {
             if (this.isTeleportMode) {
                 const candidates = this.getTeleportCandidates();
-                const selected = candidates[this.gamepadTeleportSelectedIndex];
+                const selected = candidates[this.gamepadTeleportSelectedIndex!];
                 if (selected) {
                     this.teleportTo(selected.x, selected.y, selected.z);
                 }
@@ -1588,9 +1734,9 @@ export class Engine {
                 const candidates = this.getTeleportCandidates();
                 if (candidates.length > 0) {
                     if (prevTeleport) {
-                        this.gamepadTeleportSelectedIndex = (this.gamepadTeleportSelectedIndex - 1 + candidates.length) % candidates.length;
+                        this.gamepadTeleportSelectedIndex = (this.gamepadTeleportSelectedIndex! - 1 + candidates.length) % candidates.length;
                     } else {
-                        this.gamepadTeleportSelectedIndex = (this.gamepadTeleportSelectedIndex + 1) % candidates.length;
+                        this.gamepadTeleportSelectedIndex = (this.gamepadTeleportSelectedIndex! + 1) % candidates.length;
                     }
                 }
             }
@@ -1645,11 +1791,11 @@ export class Engine {
         this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
     }
 
-    queueNotification(text) {
+    queueNotification(text: string) {
         this.notificationQueue.push(text);
     }
 
-    updateNotification(dt) {
+    updateNotification(dt: number) {
         if (!this.activeNotification) {
             if (this.notificationQueue.length > 0) {
                 const text = this.notificationQueue.shift();
@@ -1702,7 +1848,7 @@ export class Engine {
         }
     }
 
-    update(dt) {
+    update(dt: number) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
 
         if (this.isStoryActive) {
@@ -1746,19 +1892,24 @@ export class Engine {
         const speed = 1000 / CONFIG.HUNTER_SPEED;
         const maxDelta = speed * dt;
         for (const hunter of this.hunters) {
-            hunter.visualX = moveTowards(hunter.visualX, hunter.x, maxDelta);
-            hunter.visualY = moveTowards(hunter.visualY, hunter.y, maxDelta);
-            hunter.visualZ = moveTowards(hunter.visualZ, hunter.z, maxDelta * 2);
+            if (hunter.visualX === null) hunter.visualX = hunter.x;
+            if (hunter.visualY === null) hunter.visualY = hunter.y;
+            if (hunter.visualZ === null) hunter.visualZ = hunter.z;
+            if (hunter.x === null || hunter.y === null || hunter.z === null) continue;
+            hunter.visualX = moveTowards(hunter.visualX!, hunter.x, maxDelta);
+            hunter.visualY = moveTowards(hunter.visualY!, hunter.y, maxDelta);
+            hunter.visualZ = moveTowards(hunter.visualZ!, hunter.z, maxDelta * 2);
             hunter.generateCloudTexture(dt);
         }
 
         if (this.isMap3DActive) {
-            this.controls.update();
+            if (this.controls) this.controls.update();
             const size = this.mazeGen.size;
             const opFactor = this.isTeleportMode ? 0.25 : 1.0;
             for (const hm of this.hunterMeshes) {
                  const h = hm.hunter;
                  const mesh = hm.mesh;
+                 if (h.visualX === null || h.visualZ === null || h.visualY === null) continue;
                  mesh.position.set(h.visualX - size/2, (h.visualZ - size/2) * this.vScale, h.visualY - size/2);
 
                  // Jelly shape deformation (slow skew / stretch scale) - contido
@@ -1776,7 +1927,7 @@ export class Engine {
 
                  // Orbit and jitter the glitch particles (kept within cell block size)
                  if (hm.particles) {
-                     hm.particles.forEach((p) => {
+                     hm.particles.forEach((p: any) => {
                          const ud = p.userData;
                          ud.angle += ud.speed * dt;
                          
@@ -1857,7 +2008,7 @@ export class Engine {
             }
             if (this.isTeleportMode && this.teleportMeshes && this.gamepadTeleportSelectedIndex !== undefined) {
                 const candidates = this.getTeleportCandidates();
-                const selected = candidates[this.gamepadTeleportSelectedIndex];
+                const selected = candidates[this.gamepadTeleportSelectedIndex!];
                 this.teleportMeshes.forEach(mesh => {
                     const { gridX, gridY, gridZ } = mesh.userData;
                     const isSelected = selected && gridX === selected.x && gridY === selected.y && gridZ === selected.z;
@@ -1964,7 +2115,7 @@ export class Engine {
                 const nextX = this.player.x + moveX;
                 const nextY = this.player.y + moveY;
                 
-                const isPassable = (gx, gy, gz) => {
+                const isPassable = (gx: number, gy: number, gz: number) => {
                     const val = this.maze.get(gx, gy, gz);
                     if (val === this.mazeGen.TYPES.WALL || val === this.mazeGen.TYPES.STATUE) return false;
                     if (val === this.mazeGen.TYPES.EXIT && this.keysCollected < this.totalKeys) {
@@ -1977,7 +2128,7 @@ export class Engine {
                 const R = CONFIG.PLAYER_COLLISION_RADIUS; // Raio de colisão físico do jogador (evita clipping)
                 const offsetX = CONFIG.PLAYER_COLLISION_OFFSET_X || 0;
                 const offsetY = CONFIG.PLAYER_COLLISION_OFFSET_Y || 0;
-                const isBoxPassable = (cx, cy, cz) => {
+                const isBoxPassable = (cx: number, cy: number, cz: number) => {
                     const minGx = Math.floor(cx + offsetX - R);
                     const maxGx = Math.floor(cx + offsetX + R);
                     const minGy = Math.floor(cy + offsetY - R);
@@ -2032,7 +2183,7 @@ export class Engine {
                     }
                 }
                 
-                const markOrCollect = (gx, gy, gz) => {
+                const markOrCollect = (gx: number, gy: number, gz: number) => {
                     const val = this.maze.get(gx, gy, gz);
                     if (val === this.mazeGen.TYPES.PATH || val === this.mazeGen.TYPES.KEY) {
                         if (val === this.mazeGen.TYPES.KEY) {
@@ -2152,7 +2303,7 @@ export class Engine {
                 this.staticMapCacheDirty = true;
             }
             const isPortrait = window.innerHeight > window.innerWidth;
-            this.ui.updateMobileMapButton(isOnTeleport, isInactive, isPortrait);
+            this.ui.updateMobileMapButton(isOnTeleport, !!isInactive, isPortrait);
             this.updateFloorUI();
             this.lastPlayerCell = { x: playerIdxX, y: playerIdxY, z: playerIdxZ };
         }
@@ -2206,7 +2357,7 @@ export class Engine {
                 } else {
                     const threshold = Math.max(5, Math.floor(this.degree * 1.2));
                     const dist = aStarDistance(
-                        { x: hunter.x, y: hunter.y, z: hunter.z },
+                        { x: hunter.x!, y: hunter.y!, z: hunter.z! },
                         { x: Math.floor(this.player.x), y: Math.floor(this.player.y), z: this.player.z },
                         this.maze, this.mazeGen.size, this.mazeGen.TYPES.WALL,
                         threshold,
@@ -2241,7 +2392,7 @@ export class Engine {
             const activeHunters = this.hunters.filter(h => h.state !== 'SLEEP');
             for (const hunter of activeHunters) {
                 const dist = proximeterDistance(
-                    { x: hunter.x, y: hunter.y, z: hunter.z },
+                    { x: hunter.x!, y: hunter.y!, z: hunter.z! },
                     { x: px, y: py, z: pz },
                     this.maze, this.mazeGen.size, this.mazeGen.TYPES.WALL
                 );
@@ -2254,7 +2405,7 @@ export class Engine {
         }
     }
 
-    changeFloor(delta) {
+    changeFloor(delta: number) {
         if (this.isGameOver || this.floorTransition) return;
         this.skipCellAnimations = true;
         const currentX = Math.floor(this.player.x);
@@ -2288,7 +2439,7 @@ export class Engine {
                 canvasOld.width = this.canvas.width;
                 canvasOld.height = this.canvas.height;
                 const ctxOld = canvasOld.getContext('2d');
-                this.renderMapToContext(ctxOld, this.player.z);
+                this.renderMapToContext(ctxOld!, this.player.z);
 
                 this.player.x = currentX + CONFIG.PLAYER_START_X;
                 this.player.y = currentY + (CONFIG.PLAYER_START_Y % 1.0);
@@ -2304,7 +2455,7 @@ export class Engine {
                 canvasNew.width = this.canvas.width;
                 canvasNew.height = this.canvas.height;
                 const ctxNew = canvasNew.getContext('2d');
-                this.renderMapToContext(ctxNew, this.player.z);
+                this.renderMapToContext(ctxNew!, this.player.z);
 
                 this.floorTransition = {
                     canvasOld,
@@ -2351,7 +2502,7 @@ export class Engine {
             if (!this.isometricCanvas) {
                 this.initIsometricCanvas();
             }
-            this.isometricCanvas.style.display = 'block';
+            this.isometricCanvas!.style.display = 'block';
         } else {
             if (this.ui.uiMobileControls) this.ui.uiMobileControls.classList.remove('hidden');
             this.ui.setMap3DVisible(false);
@@ -2375,7 +2526,7 @@ export class Engine {
         this.keyMeshes = [];
         this.exitMesh = null;
         const size = this.mazeGen.size;
-        const isFloorVisited = (fx, fy, fz) => {
+        const isFloorVisited = (fx: number, fy: number, fz: number) => {
             if (fz < 0 || fz >= size) return false;
             const fVal = this.maze.get(fx, fy, fz);
             return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`)) || this.visitedCells.has(`${fx},${fy},${fz}`);
@@ -2774,7 +2925,7 @@ export class Engine {
                 particles.push(pMesh);
             }
             
-            hGroup.position.set(h.x - size/2, (h.z - size/2) * this.vScale, h.y - size/2);
+            hGroup.position.set(h.x! - size/2, (h.z! - size/2) * this.vScale, h.y! - size/2);
             this.scene.add(hGroup);
             
             this.hunterMeshes.push({ 
@@ -2915,11 +3066,11 @@ export class Engine {
             this.ctx.drawImage(this.floorTransition.canvasNew, -cx, -cy);
             this.ctx.restore();
         } else {
-            this.renderMapToContext(this.ctx, this.player.z);
+            this.renderMapToContext(this.ctx!, this.player.z);
         }
     }
 
-    renderMapToContext(ctx, z) {
+    renderMapToContext(ctx: CanvasRenderingContext2D, z: number) {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         const size = this.mazeGen.size;
@@ -2934,7 +3085,7 @@ export class Engine {
         if (this.isZoomTransitionActive) {
             const duration = 2.0; // 2 seconds transition
             const progress = Math.min(1.0, (duration - this.zoomTransitionTimer) / duration);
-            const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+            const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
             const easeProgress = easeOutCubic(progress);
             
             const startVisible = 3.0;
@@ -2998,20 +3149,27 @@ export class Engine {
         for (const h of this.hunters) {
             if (h.state === 'SLEEP') continue;
             
-            const distZ = Math.abs(h.visualZ - z);
+            const hz = h.visualZ !== null ? h.visualZ : h.z;
+            const hx = h.visualX !== null ? h.visualX : h.x;
+            const hy = h.visualY !== null ? h.visualY : h.y;
+            if (hz === null || hx === null || hy === null) continue;
+
+            const distZ = Math.abs(hz - z);
             const scaleFactor = Math.max(0, 1 - distZ);
             if (scaleFactor <= 0) continue;
 
             // Calcula o progresso p do passo atual (de 0 a 1) baseado na distância física até o visualX/Y
-            const dx = h.x - h.visualX;
-            const dy = h.y - h.visualY;
+            const origX = h.x !== null ? h.x : hx;
+            const origY = h.y !== null ? h.y : hy;
+            const dx = origX - hx;
+            const dy = origY - hy;
             const stepDist = Math.sqrt(dx * dx + dy * dy);
             const p = Math.max(0, Math.min(1, 1 - stepDist));
 
             const trails = [];
 
             // 1. Rastro 1 (mais recente): na posição h.lastPos
-            if (h.lastPos && (h.lastPos.x !== h.x || h.lastPos.y !== h.y)) {
+            if (h.lastPos && (h.lastPos.x !== origX || h.lastPos.y !== origY)) {
                 if (h.lastPos.z === z) {
                     const sizeFactor = 0.95 - p * 0.47;
                     const opacityFactor = 0.40 - p * 0.20;
@@ -3070,8 +3228,8 @@ export class Engine {
                 }
             });
             if (h.lowCanvas) {
-                const cx = h.visualX * cellSize + cellSize / 2;
-                const cy = h.visualY * cellSize + cellSize / 2;
+                const cx = hx * cellSize + cellSize / 2;
+                const cy = hy * cellSize + cellSize / 2;
                 const drawSize = cellSize * 0.95 * scaleFactor; // Contido dentro do limite da célula
 
                 // MOVIMENTAÇÃO GELATINOSA LENTA (Baseada no tempo acumulado do Hunter)
@@ -3447,7 +3605,7 @@ export class Engine {
      * Re-renders the static elements of the 2D map into a dedicated backbuffer canvas.
      * Elements include walls, visited floors, known paths, elevator layouts, and portal spots.
      */
-    updateStaticMapCache(z) {
+    updateStaticMapCache(z: number) {
         const size = this.mazeGen.size;
         const useZoom = size > 11; // O cache estático é gerado no tamanho ampliado para suportar transição suave
         const cellSize = useZoom ? this.canvas.width / 11 : this.canvas.width / size;
@@ -3461,7 +3619,7 @@ export class Engine {
             this.staticMapCacheCanvas.height = cacheHeight;
         }
         
-        const ctx = this.staticMapCacheCtx;
+        const ctx = this.staticMapCacheCtx!;
         ctx.clearRect(0, 0, cacheWidth, cacheHeight);
         
         const px = this.player.x;
@@ -3474,7 +3632,7 @@ export class Engine {
         const now = Date.now();
         let hasActiveAnimations = false;
 
-        const drawCellWithFade = (x, y, drawFn) => {
+        const drawCellWithFade = (x: number, y: number, drawFn: () => void) => {
             const key = `${x},${y},${z}`;
             if (this.skipCellAnimations || this.fullyRevealedCells.has(key)) {
                 drawFn();
@@ -3617,7 +3775,7 @@ export class Engine {
                                         ctx.font = `bold ${Math.max(10, cellSize * 0.35)}px sans-serif`;
                                         ctx.textAlign = 'center';
                                         ctx.textBaseline = 'middle';
-                                        ctx.fillText(this.totalKeys - this.keysCollected, cx, cy + r * 0.6);
+                                        ctx.fillText(String(this.totalKeys - this.keysCollected), cx, cy + r * 0.6);
                                     }
                                 } else {
                                     ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : CONFIG.COLORS.START;
@@ -3710,7 +3868,7 @@ export class Engine {
         }
     }
 
-    isNearVisited(x, y, z) {
+    isNearVisited(x: number, y: number, z: number) {
         for (let dx = -1; dx <= 1; dx++) {
             for (let dy = -1; dy <= 1; dy++) {
                 const nx = x + dx, ny = y + dy;
@@ -3726,7 +3884,7 @@ export class Engine {
         return false;
     }
 
-    isAdjacentToStatue(x, y, z) {
+    isAdjacentToStatue(x: number, y: number, z: number) {
         const size = this.mazeGen.size;
         const dirs = [
             { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
@@ -3746,7 +3904,7 @@ export class Engine {
         return false;
     }
 
-    populateFullyRevealedCells(z) {
+    populateFullyRevealedCells(z: number) {
         const size = this.mazeGen.size;
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
@@ -3873,7 +4031,7 @@ export class Engine {
      * Smoothly interpolates (ease-in-out-cubic) the camera position and controls target
      * towards the player's 3D grid location.
      */
-    animateCameraToPlayer(onComplete) {
+    animateCameraToPlayer(onComplete?: () => void) {
         const size = this.mazeGen.size;
         const playerX = this.player.x - size / 2;
         const playerY = (this.player.z - size / 2) * this.vScale;
@@ -3888,7 +4046,7 @@ export class Engine {
         const duration = 1100; // ~1 second zoom in
         const startTime = performance.now();
 
-        const animate = (now) => {
+        const animate = (now: number) => {
             if (this.isDestroyed) return;
             const elapsed = now - startTime;
             const progress = Math.min(elapsed / duration, 1.0);
@@ -3905,7 +4063,7 @@ export class Engine {
             if (progress < 1.0) {
                 requestAnimationFrame(animate);
             } else {
-                onComplete();
+                if (onComplete) onComplete();
             }
         };
 
@@ -3994,13 +4152,11 @@ export class Engine {
         const qB = [{ x: exitPos.x, y: exitPos.y, z: exitPos.z }];
         let iA = 0, iB = 0;
 
-        const revealOrder = [];
+        const revealOrder: { x: number; y: number; z: number }[] = [];
         while (iA < qA.length || iB < qB.length) {
-            for (const [q, getI, setI] of [[qA, () => iA, v => iA = v], [qB, () => iB, v => iB = v]]) {
-                const i = getI();
-                if (i >= q.length) continue;
-                setI(i + 1);
-                const { x, y, z } = q[i];
+            // Process queue A
+            if (iA < qA.length) {
+                const { x, y, z } = qA[iA++];
                 for (const [dx, dy, dz] of dirs3D) {
                     const nx = x + dx, ny = y + dy, nz = z + dz;
                     const key = `${nx},${ny},${nz}`;
@@ -4008,7 +4164,22 @@ export class Engine {
                         && !visited.has(key)
                         && this.maze.get(nx, ny, nz) !== this.mazeGen.TYPES.WALL) {
                         visited.add(key);
-                        q.push({ x: nx, y: ny, z: nz });
+                        qA.push({ x: nx, y: ny, z: nz });
+                        revealOrder.push({ x: nx, y: ny, z: nz });
+                    }
+                }
+            }
+            // Process queue B
+            if (iB < qB.length) {
+                const { x, y, z } = qB[iB++];
+                for (const [dx, dy, dz] of dirs3D) {
+                    const nx = x + dx, ny = y + dy, nz = z + dz;
+                    const key = `${nx},${ny},${nz}`;
+                    if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size
+                        && !visited.has(key)
+                        && this.maze.get(nx, ny, nz) !== this.mazeGen.TYPES.WALL) {
+                        visited.add(key);
+                        qB.push({ x: nx, y: ny, z: nz });
                         revealOrder.push({ x: nx, y: ny, z: nz });
                     }
                 }
@@ -4035,7 +4206,7 @@ export class Engine {
 
         let stepIndex = 0;
         this.activeIntroTimer = null;
-        const revealedMeshes = [];
+        const revealedMeshes: THREE.Mesh[] = [];
 
         const finishIntro = () => {
             if (this.activeIntroTimer) { clearTimeout(this.activeIntroTimer); this.activeIntroTimer = null; }
@@ -4083,7 +4254,7 @@ export class Engine {
         this.activeIntroTimer = setTimeout(revealNext, TICK_MS);
     }
 
-    _playGlitchAndTransition(revealedMeshes) {
+    _playGlitchAndTransition(revealedMeshes: THREE.Mesh[]) {
         if (this.isDestroyed) return;
         const GLITCH_FLASHES = 5;
         const FLASH_INTERVAL = 90;
@@ -4107,22 +4278,28 @@ export class Engine {
     _transitionToGame() {
         if (this.isDestroyed) return;
 
-        this.controls.autoRotate = false;
-        this.controls.enableZoom = true;
-        this.controls.enablePan = true;
-        this.controls.enableRotate = true;
+        if (this.controls) {
+            this.controls.autoRotate = false;
+            this.controls.enableZoom = true;
+            this.controls.enablePan = true;
+            this.controls.enableRotate = true;
+        }
 
-        this.ui.uiMap3dContainer.classList.add('intro-fade-out');
+        if (this.ui.uiMap3dContainer) {
+            this.ui.uiMap3dContainer.classList.add('intro-fade-out');
+        }
 
         setTimeout(() => {
             if (this.isDestroyed) return;
             this.ui.setMap3DVisible(false);
-            this.ui.uiMap3dContainer.classList.remove('intro-fade-out');
+            if (this.ui.uiMap3dContainer) {
+                this.ui.uiMap3dContainer.classList.remove('intro-fade-out');
+            }
             this.isMap3DActive = false;
             this.isIntroPlaying = false;
 
             if (this.ui.uiMobileMap) {
-                this.ui.uiMobileMap.disabled = false;
+                (this.ui.uiMobileMap as HTMLButtonElement).disabled = false;
             }
 
             const mapArea = document.getElementById('map-area-container');
@@ -4186,7 +4363,7 @@ export class Engine {
             this.updateStoryImage();
 
             // 1. Keyboard event listener
-            this.handleStoryKeyDown = (e) => {
+            this.handleStoryKeyDown = (e: KeyboardEvent) => {
                 const key = e.key.toLowerCase();
                 if (key === 'escape') {
                     this.skipStory();
@@ -4198,14 +4375,16 @@ export class Engine {
             window.addEventListener('keydown', this.handleStoryKeyDown);
 
             // 2. Click event listener on story screen (excluding SKIP button)
-            this.handleStoryClick = (e) => {
-                if (e.target.closest('#story-skip-btn')) return;
+            this.handleStoryClick = (e: MouseEvent) => {
+                const target = e.target as HTMLElement | null;
+                if (target && target.closest('#story-skip-btn')) return;
                 if (!this.isPreloadingActive) {
                     this.triggerAdvanceStory();
                 }
             };
-            this.handleStoryTouch = (e) => {
-                if (e.target.closest('#story-skip-btn')) return;
+            this.handleStoryTouch = (e: TouchEvent) => {
+                const target = e.target as HTMLElement | null;
+                if (target && target.closest('#story-skip-btn')) return;
                 if (!this.isPreloadingActive) {
                     this.triggerAdvanceStory();
                 }
@@ -4233,8 +4412,8 @@ export class Engine {
                 this.isPreloadingActive = true;
                 loaderEl.classList.remove('hidden');
                 
-                this.storyImagesPreloadPromise.then(() => {
-                    loaderEl.classList.add('hidden');
+                this.storyImagesPreloadPromise!.then(() => {
+                    loaderEl!.classList.add('hidden');
                     initStorytellingWithPreloadedImages();
                 });
                 return;
@@ -4314,7 +4493,7 @@ export class Engine {
     }
 
     updateStoryImage() {
-        const imgEl = document.getElementById('story-img');
+        const imgEl = document.getElementById('story-img') as HTMLImageElement | null;
         const imgBox = document.getElementById('story-image-canvas');
         if (!imgEl || !imgBox) return;
 
@@ -4359,7 +4538,7 @@ export class Engine {
         }
     }
 
-    updateStory(dt) {
+    updateStory(dt: number) {
         if (!this.isStoryActive || this.isPreloadingActive) return;
 
         const textEl = document.getElementById('story-text');
@@ -4383,7 +4562,7 @@ export class Engine {
         }
 
         const fullText = getTranslation(msgs[this.storyMsgIndex]);
-        const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
         if (this.storyState === "OPENING") {
             textEl.textContent = "";
@@ -4478,7 +4657,7 @@ export class Engine {
         this.endStorytelling();
     }
 
-    toggleTeleportMap(show) {
+    toggleTeleportMap(show: boolean) {
         this.isMap3DActive = show;
         this.isTeleportMode = show;
         
@@ -4538,7 +4717,7 @@ export class Engine {
         }
     }
 
-    onCanvasClick(event) {
+    onCanvasClick(event: MouseEvent) {
         if (!this.isMap3DActive) return;
         
         const rect = this.renderer.domElement.getBoundingClientRect();
@@ -4608,7 +4787,7 @@ export class Engine {
             }
         } else {
             this.ui.hidePause();
-            if (this.ui.uiMobilePauseBtn && !this.ui.uiMobileControls.classList.contains('hidden')) {
+            if (this.ui.uiMobilePauseBtn && !this.ui.uiMobileControls!.classList.contains('hidden')) {
                 this.ui.uiMobilePauseBtn.classList.remove('hidden');
             }
         }
@@ -4640,7 +4819,7 @@ export class Engine {
         return false;
     }
 
-    findShortestPath(start, end, restrictToVisited = false) {
+    findShortestPath(start: { x: number; y: number; z: number }, end: { x: number; y: number; z: number }, restrictToVisited = false) {
         const size = this.mazeGen.size;
         const tempMaze = new Int8Array(size * size * size);
         for (let x = 0; x < size; x++) {
@@ -4683,7 +4862,7 @@ export class Engine {
         return aStarPath(start, end, tempMaze, size, 0) ?? [];
     }
 
-    triggerPathReveal(tx, ty, tz) {
+    triggerPathReveal(tx: number, ty: number, tz: number) {
         if (this.pathRevealInterval || (this.pathfinderBlockedUntil && Date.now() < this.pathfinderBlockedUntil)) {
             return;
         }
@@ -4787,7 +4966,7 @@ export class Engine {
         }, 120);
     }
 
-    teleportTo(x, y, z) {
+    teleportTo(x: number, y: number, z: number) {
         this.skipCellAnimations = true;
         this.player.x = x + CONFIG.PLAYER_START_X;
         this.player.y = y + (CONFIG.PLAYER_START_Y % 1.0);
@@ -4825,31 +5004,32 @@ export class Engine {
     }
 
     initIsometricCanvas() {
-        this.isometricCanvas = document.createElement('canvas');
-        this.isometricCanvas.id = 'isometric-map-canvas';
-        this.isometricCanvas.style.position = 'absolute';
-        this.isometricCanvas.style.top = '0';
-        this.isometricCanvas.style.left = '0';
-        this.isometricCanvas.style.width = '100%';
-        this.isometricCanvas.style.height = '100%';
-        this.isometricCanvas.style.zIndex = '101';
-        this.isometricCtx = this.isometricCanvas.getContext('2d');
-        this.ui.uiMap3dContainer.appendChild(this.isometricCanvas);
+        const canvas = document.createElement('canvas');
+        this.isometricCanvas = canvas;
+        canvas.id = 'isometric-map-canvas';
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.zIndex = '101';
+        this.isometricCtx = canvas.getContext('2d');
+        this.ui.uiMap3dContainer!.appendChild(canvas);
 
         // Click handler
-        this.isometricCanvas.addEventListener('click', (e) => this.handleIsometricClick(e));
+        canvas.addEventListener('click', (e) => this.handleIsometricClick(e));
 
         const detectMouseOrTouch = () => {
             if (!this.isMouseOrTouchDetected) {
                 this.isMouseOrTouchDetected = true;
             }
         };
-        this.isometricCanvas.addEventListener('mousemove', detectMouseOrTouch);
-        this.isometricCanvas.addEventListener('pointerdown', detectMouseOrTouch);
+        canvas.addEventListener('mousemove', detectMouseOrTouch);
+        canvas.addEventListener('pointerdown', detectMouseOrTouch);
 
         // Touch gestures handler (Pinch zoom, vertical swipe to change floors, drag to pan)
-        let initialTouchDist = null;
-        let initialZoom = null;
+        let initialTouchDist: number | null = null;
+        let initialZoom: number | null = null;
         let touchStartX = 0;
         let touchStartY = 0;
         let touchStartPanX = 0;
@@ -4859,7 +5039,7 @@ export class Engine {
         let hasSwipedFloor = false;
         let totalTouchMoveDist = 0;
 
-        this.isometricCanvas.addEventListener('touchstart', (e) => {
+        canvas.addEventListener('touchstart', (e) => {
             if (!this.isMap3DActive || this.isIntroPlaying) return;
 
             totalTouchMoveDist = 0;
@@ -4883,7 +5063,7 @@ export class Engine {
             }
         }, { passive: false });
 
-        this.isometricCanvas.addEventListener('touchmove', (e) => {
+        canvas.addEventListener('touchmove', (e) => {
             if (!this.isMap3DActive || this.isIntroPlaying) return;
 
             if (isPinchZooming && e.touches.length === 2) {
@@ -4891,8 +5071,8 @@ export class Engine {
                 const t1 = e.touches[0];
                 const t2 = e.touches[1];
                 const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-                if (initialTouchDist > 0) {
-                    const rect = this.isometricCanvas.getBoundingClientRect();
+                if (initialTouchDist && initialTouchDist > 0 && initialZoom) {
+                    const rect = canvas.getBoundingClientRect();
                     const touchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left;
                     const touchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
 
@@ -4943,7 +5123,7 @@ export class Engine {
             }
         }, { passive: false });
 
-        this.isometricCanvas.addEventListener('touchend', (e) => {
+        canvas.addEventListener('touchend', (e) => {
             isPinchZooming = false;
             isTouchPanning = false;
 
@@ -4961,11 +5141,11 @@ export class Engine {
         });
 
         // Mouse wheel zoom
-        this.isometricCanvas.addEventListener('wheel', (e) => {
+        canvas.addEventListener('wheel', (e) => {
             if (!this.isMap3DActive || this.isIntroPlaying) return;
             e.preventDefault();
 
-            const rect = this.isometricCanvas.getBoundingClientRect();
+            const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
@@ -4989,9 +5169,9 @@ export class Engine {
         let dragStartX = 0;
         let dragStartY = 0;
 
-        this.isometricCanvas.addEventListener('mousedown', (e) => {
+        canvas.addEventListener('mousedown', (e) => {
             if (!this.isMap3DActive || this.isIntroPlaying) return;
-            const rect = this.isometricCanvas.getBoundingClientRect();
+            const rect = canvas.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const clickY = e.clientY - rect.top;
             
@@ -5036,21 +5216,21 @@ export class Engine {
         });
 
         // Hover handler
-        this.isometricCanvas.addEventListener('mousemove', (e) => {
+        canvas.addEventListener('mousemove', (e) => {
             if (!this.isMap3DActive || this.isIntroPlaying) return;
 
-            const rect = this.isometricCanvas.getBoundingClientRect();
+            const rect = canvas.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const clickY = e.clientY - rect.top;
 
-            this.isometricCanvas.style.cursor = 'default';
+            canvas.style.cursor = 'default';
 
             // 1. Check Teleport Mode Hover
             if (this.isTeleportMode) {
                 if (this.isMouseOrTouchDetected && !this.teleportConfirmModalActive && this.teleportGoBtnClickRect) {
                     const r = this.teleportGoBtnClickRect;
                     if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
-                        this.isometricCanvas.style.cursor = 'pointer';
+                        canvas.style.cursor = 'pointer';
                         return;
                     }
                 }
@@ -5058,7 +5238,7 @@ export class Engine {
                     for (const r of this.teleportModalClickRects) {
                         if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
                             this.teleportModalSelection = r.selection;
-                            this.isometricCanvas.style.cursor = 'pointer';
+                            canvas.style.cursor = 'pointer';
                             return;
                         }
                     }
@@ -5071,7 +5251,7 @@ export class Engine {
                                 const targetT = this.allTeleports[r.index];
                                 this.activeMapFloor = targetT.z;
                                 this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
-                                this.isometricCanvas.style.cursor = 'pointer';
+                                canvas.style.cursor = 'pointer';
                                 return;
                             }
                         }
@@ -5114,7 +5294,7 @@ export class Engine {
                         const isInteractive = elements.some(el => el.x === x && el.y === y && el.z === z);
                         if (isInteractive) {
                             this.mapCursor = { x, y, z };
-                            this.isometricCanvas.style.cursor = 'pointer';
+                            canvas.style.cursor = 'pointer';
                             return;
                         }
                     }
@@ -5124,10 +5304,10 @@ export class Engine {
         });
     }
 
-    handleIsometricClick(event) {
+    handleIsometricClick(event: MouseEvent | { clientX: number, clientY: number }) {
         if (!this.isMap3DActive || this.isIntroPlaying) return;
 
-        const rect = this.isometricCanvas.getBoundingClientRect();
+        const rect = this.isometricCanvas!.getBoundingClientRect();
         const clickX = event.clientX - rect.left;
         const clickY = event.clientY - rect.top;
 
@@ -5138,7 +5318,7 @@ export class Engine {
                     for (const r of this.teleportModalClickRects) {
                         if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
                             if (r.selection === 'go') {
-                                const targetT = this.allTeleports[this.selectedTeleportIndex];
+                                const targetT = this.allTeleports[this.selectedTeleportIndex!];
                                 this.teleportTo(targetT.x, targetT.y, targetT.z);
                                 this.toggleTeleportMap(false);
                             } else {
@@ -5156,7 +5336,7 @@ export class Engine {
             if (this.isMouseOrTouchDetected && !this.teleportConfirmModalActive && this.teleportGoBtnClickRect) {
                 const r = this.teleportGoBtnClickRect;
                 if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
-                    const targetT = this.allTeleports[this.selectedTeleportIndex];
+                    const targetT = this.allTeleports[this.selectedTeleportIndex!];
                     const px = Math.floor(this.player.x);
                     const py = Math.floor(this.player.y);
                     const pz = this.player.z;
@@ -5208,7 +5388,7 @@ export class Engine {
         const centerX = rect.width / 2 + this.mapPanOffsetX;
         const centerY = rect.height / 2 + this.mapPanOffsetY;
 
-        const getIsoCoords = (x, y, z) => {
+        const getIsoCoords = (x: number, y: number, z: number) => {
             const px = (x - y) * tileWidthHalf + centerX;
             const py = (x + y) * tileHeightHalf - (z - activeZ) * floorOffset + centerY;
             return { x: px, y: py };
@@ -5268,7 +5448,7 @@ export class Engine {
         }
     }
 
-    navigateCursor(direction) {
+    navigateCursor(direction: 'up' | 'down' | 'left' | 'right') {
         const activeZ = this.activeMapFloor;
         const elements = this.getInteractiveElements(activeZ);
         if (elements.length === 0) return;
@@ -5387,12 +5567,12 @@ export class Engine {
         }
     }
 
-    getInteractiveElements(activeZ) {
+    getInteractiveElements(activeZ: number) {
         const elements = [];
         const size = this.mazeGen.size;
         const TYPES = this.mazeGen.TYPES;
 
-        const isFloorVisited = (fx, fy, fz) => {
+        const isFloorVisited = (fx: number, fy: number, fz: number) => {
             if (fz < 0 || fz >= size) return false;
             const fVal = this.maze.get(fx, fy, fz);
             return fVal === TYPES.VISITED || fVal === TYPES.START || fVal === TYPES.ELEVATOR_VISITED || (fVal === TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
@@ -5455,6 +5635,7 @@ export class Engine {
 
         const canvas = this.isometricCanvas;
         const ctx = this.isometricCtx;
+        if (!canvas || !ctx) return;
         const width = canvas.width = window.innerWidth;
         const height = canvas.height = window.innerHeight;
 
@@ -5478,7 +5659,7 @@ export class Engine {
         const centerX = width / 2 + this.mapPanOffsetX;
         const centerY = height / 2 + this.mapPanOffsetY;
 
-        const getIsoCoords = (x, y, z) => {
+        const getIsoCoords = (x: number, y: number, z: number) => {
             const rx = x;
             const ry = y;
             const px = (rx - ry) * tileWidthHalf + centerX;
@@ -5491,7 +5672,7 @@ export class Engine {
         floorsToDraw.push(activeZ);
         if (activeZ + 2 <= size - 2) floorsToDraw.push(activeZ + 2);
 
-        const drawGrid = (gridOpacity) => {
+        const drawGrid = (gridOpacity: number) => {
             ctx.strokeStyle = `rgba(0, 255, 0, ${0.15 * gridOpacity})`;
             ctx.lineWidth = 1;
             for (let y = 0; y < size; y++) {
@@ -5508,7 +5689,7 @@ export class Engine {
             }
         };
 
-        const drawIsoBox = (cx, cy, w, h, H, color, opacity = 1.0) => {
+        const drawIsoBox = (cx: number, cy: number, w: number, h: number, H: number, color: string, opacity = 1.0) => {
             ctx.save();
             ctx.globalAlpha = opacity;
 
@@ -5549,13 +5730,13 @@ export class Engine {
             ctx.restore();
         };
 
-        const isFloorVisited = (fx, fy, fz) => {
+        const isFloorVisited = (fx: number, fy: number, fz: number) => {
             if (fz < 0 || fz >= size) return false;
             const fVal = this.maze.get(fx, fy, fz);
             return fVal === this.mazeGen.TYPES.VISITED || fVal === this.mazeGen.TYPES.START || fVal === this.mazeGen.TYPES.ELEVATOR_VISITED || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
         };
 
-        const drawElevatorBox = (cx, cy, w, h, H, hUp, hDown, isVisited, isRevealed, opacity) => {
+        const drawElevatorBox = (cx: number, cy: number, w: number, h: number, H: number, hUp: boolean, hDown: boolean, isVisited: boolean, isRevealed: boolean, opacity: number) => {
             ctx.save();
             ctx.globalAlpha = opacity;
 
@@ -5646,7 +5827,7 @@ export class Engine {
             ctx.restore();
         };
 
-        const drawFloorCells = (z, opacity) => {
+        const drawFloorCells = (z: number, opacity: number) => {
             const TYPES = this.mazeGen.TYPES;
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
@@ -5687,11 +5868,15 @@ export class Engine {
                     // Draw hunters in real-time even on unvisited corridors
                     for (const h of this.hunters) {
                         if (h.state === 'SLEEP') continue;
-                        const closestPlayableFloor = Math.round((h.visualZ - 1) / 2) * 2 + 1;
-                        const hGridX = Math.max(0, Math.min(size - 1, Math.floor(h.visualX)));
-                        const hGridY = Math.max(0, Math.min(size - 1, Math.floor(h.visualY)));
+                        const hz = h.visualZ !== null ? h.visualZ : h.z;
+                        const hx = h.visualX !== null ? h.visualX : h.x;
+                        const hy = h.visualY !== null ? h.visualY : h.y;
+                        if (hz === null || hx === null || hy === null) continue;
+                        const closestPlayableFloor = Math.round((hz - 1) / 2) * 2 + 1;
+                        const hGridX = Math.max(0, Math.min(size - 1, Math.floor(hx)));
+                        const hGridY = Math.max(0, Math.min(size - 1, Math.floor(hy)));
                         if (x === hGridX && y === hGridY && z === closestPlayableFloor) {
-                            const hCoords = getIsoCoords(h.visualX, h.visualY, h.visualZ);
+                            const hCoords = getIsoCoords(hx, hy, hz);
                             drawHunter(h, hCoords.x, hCoords.y - 1.5, opacity);
                         }
                     }
@@ -5767,7 +5952,7 @@ export class Engine {
             }
         };
 
-        const drawShafts = (z, opacity) => {
+        const drawShafts = (z: number, opacity: number) => {
             const TYPES = this.mazeGen.TYPES;
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
@@ -5801,7 +5986,7 @@ export class Engine {
                             colColor = '#ffffff';
                         }
 
-                        const hexToRgb = (hex) => {
+                        const hexToRgb = (hex: string) => {
                             const clean = hex.replace('#', '');
                             const num = parseInt(clean, 16);
                             const r = (num >> 16) & 255;
@@ -5855,7 +6040,7 @@ export class Engine {
             }
         };
 
-        const drawKey = (cx, cy, opacity) => {
+        const drawKey = (cx: number, cy: number, opacity: number) => {
             ctx.save();
             ctx.globalAlpha = opacity;
             const bounce = Math.sin(performance.now() / 200) * 3 - 6;
@@ -5874,7 +6059,7 @@ export class Engine {
             ctx.restore();
         };
 
-        const drawTeleport = (cx, cy, color, opacity, isSelected) => {
+        const drawTeleport = (cx: number, cy: number, color: string, opacity: number, isSelected: boolean) => {
             ctx.save();
             ctx.globalAlpha = opacity;
             const bounce = Math.sin(performance.now() / 250) * 2 - 4;
@@ -5901,7 +6086,7 @@ export class Engine {
             ctx.restore();
         };
 
-        const drawStatue = (cx, cy, opacity) => {
+        const drawStatue = (cx: number, cy: number, opacity: number) => {
             if (this.statueImage && this.statueImage.complete && this.statueImage.naturalWidth !== 0) {
                 // 1. Draw flat ground shadow
                 ctx.save();
@@ -5934,7 +6119,7 @@ export class Engine {
             }
         };
 
-        const drawPlayer = (cx, cy, opacity) => {
+        const drawPlayer = (cx: number, cy: number, opacity: number) => {
             const stateKey = `${this.playerVertical}_${this.playerSide}`;
             const img = this.mageImages[stateKey];
             
@@ -6037,7 +6222,7 @@ export class Engine {
             }
         };
 
-        const drawHunter = (h, cx, cy, opacity) => {
+        const drawHunter = (h: any, cx: number, cy: number, opacity: number) => {
             if (h && h.lowCanvas) {
                 ctx.save();
                 ctx.globalAlpha = opacity;
@@ -6093,7 +6278,7 @@ export class Engine {
             }
         };
 
-        const getFloorOpacity = (fz) => {
+        const getFloorOpacity = (fz: number) => {
             const dist = Math.abs(fz - visualZ);
             if (dist <= 2) {
                 return 1.0 - (dist / 2) * (1.0 - 0.35);
@@ -6560,7 +6745,7 @@ export class Engine {
                 ctx.stroke();
 
                 // Modal Message details
-                const targetT = this.allTeleports[this.selectedTeleportIndex];
+                const targetT = this.allTeleports[this.selectedTeleportIndex!];
                 ctx.fillStyle = '#ffffff';
                 ctx.font = "bold 15px 'Roboto', sans-serif";
                 ctx.fillText(getTranslation('teleportJumpSector', { floor: ((targetT.z + 1) / 2) }), width / 2, modalY + 52);
@@ -6581,7 +6766,7 @@ export class Engine {
                     { x: btnCancelX, y: btnCancelY, w: buttonW, h: buttonH, selection: 'cancel' }
                 ];
 
-                const drawModalButton = (bx, by, label, selectionVal) => {
+                const drawModalButton = (bx: number, by: number, label: string, selectionVal: 'go' | 'cancel') => {
                     const isSel = (this.teleportModalSelection === selectionVal);
                     ctx.save();
                     ctx.beginPath();

@@ -10,7 +10,7 @@ export class Maze3D {
     size!: number;
     seed!: string | number | null;
     random!: () => number;
-    matrix!: Int8Array & { size?: number, get?: (x: number, y: number, z: number) => number, set?: (x: number, y: number, z: number, val: number) => void };
+    matrix!: any;
     TYPES!: Record<string, number>;
     startPos!: Point3D;
 
@@ -98,8 +98,8 @@ export class Maze3D {
         const size = this.size;
         const matrix = this.matrix;
         matrix.size = size;
-        matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
-        matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+        matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+        matrix.set = (x: number, y: number, z: number, val: number) => { matrix[(x * size * size) + (y * size) + z] = val; };
 
         return matrix;
     }
@@ -150,7 +150,7 @@ export class Maze3D {
     }
 
     _collectDeadEndsAndPaths(): { deadEnds: Point3D[], normalPaths: Point3D[] } {
-        const deadEnds = [], normalPaths = [];
+        const deadEnds: Point3D[] = [], normalPaths: Point3D[] = [];
         const dirs = [
             { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
             { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
@@ -185,7 +185,7 @@ export class Maze3D {
     _greedyFill(items: Point3D[], pool: Point3D[], count: number, excludeTypes: number[], reset: boolean): void {
         const start = { x: 0, y: 1, z: this.startPos.z };
         const exit = this._findExitPos();
-        const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
+        const getDist = (p1: Point3D, p2: Point3D) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
         let minDistToStartExit = 4, minDistToOthers = 4;
 
         while (items.length < count && minDistToStartExit > 0) {
@@ -219,7 +219,7 @@ export class Maze3D {
     placeTeleports(): void {
         const count = CONFIG.getTeleportCount(this.n);
         const { deadEnds, normalPaths } = this._collectDeadEndsAndPaths();
-        const teleports = [];
+        const teleports: Point3D[] = [];
         this._greedyFill(teleports, deadEnds, count, [], true);
         if (teleports.length < count) this._greedyFill(teleports, normalPaths, count, [], false);
         for (const t of teleports) {
@@ -230,7 +230,7 @@ export class Maze3D {
     placeKeys(): void {
         const count = CONFIG.getHunterCount(this.n) * 2;
         const { deadEnds, normalPaths } = this._collectDeadEndsAndPaths();
-        const keys = [];
+        const keys: Point3D[] = [];
         this._greedyFill(keys, deadEnds, count, [this.TYPES.TELEPORT], true);
         if (keys.length < count) this._greedyFill(keys, normalPaths, count, [this.TYPES.TELEPORT], false);
         for (const k of keys) {
@@ -245,7 +245,7 @@ export class Maze3D {
      */
     applyBraid(): void {
         const size = this.size;
-        const candidates = [];
+        const candidates: { x: number; y: number; z: number; type: string }[] = [];
 
         // 1. Gather all walls that divide exactly two path corridors
         for (let x = 1; x < size - 1; x++) {
@@ -329,7 +329,7 @@ export class Maze3D {
      */
     isWideConnection(x: number, y: number, z: number): boolean {
         const size = this.size;
-        const isOpened = (nx, ny, nz) => {
+        const isOpened = (nx: number, ny: number, nz: number) => {
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) return false;
             if (nx === x && ny === y && nz === z) return true;
             return this.matrix[this._idx(nx, ny, nz)] !== this.TYPES.WALL;
@@ -467,6 +467,7 @@ export class Maze3D {
         
         while (queue.length > 0) {
             const curr = queue.shift();
+            if (!curr) continue;
             const currStr = `${curr.x},${curr.y},${curr.z}`;
             
             if (keyCoords.includes(currStr)) {

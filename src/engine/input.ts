@@ -2,6 +2,17 @@
  * InputHandler - Handles keyboard controls and touch/gesture swipes for mobile devices.
  */
 export class InputHandler {
+    keys: Record<string, boolean>;
+    touchStart: { x: number; y: number } | null;
+    touchMoveVector: { x: number; y: number } | null;
+    preventScrollKeys: string[];
+    
+    handleKeyDown: ((e: KeyboardEvent) => void) | null;
+    handleKeyUp: ((e: KeyboardEvent) => void) | null;
+    handleTouchStart: ((e: TouchEvent) => void) | null;
+    handleTouchMove: ((e: TouchEvent) => void) | null;
+    handleTouchEnd: (() => void) | null;
+
     constructor() {
         this.keys = {};
         this.touchStart = null;
@@ -21,7 +32,7 @@ export class InputHandler {
      * Set up window keyboard listeners.
      */
     init() {
-        this.handleKeyDown = (e) => {
+        this.handleKeyDown = (e: KeyboardEvent) => {
             const key = e.key.toLowerCase();
             this.keys[key] = true;
             if (this.preventScrollKeys.includes(key)) {
@@ -29,7 +40,7 @@ export class InputHandler {
             }
         };
 
-        this.handleKeyUp = (e) => {
+        this.handleKeyUp = (e: KeyboardEvent) => {
             this.keys[e.key.toLowerCase()] = false;
         };
 
@@ -41,9 +52,10 @@ export class InputHandler {
      * Set up touch/swipe support on mobile devices.
      * Takes checking functions as arguments to prevent input handling when not applicable.
      */
-    setupTouch(isMapActiveFn, isGameOverFn) {
-        this.handleTouchStart = (e) => {
-            if (isMapActiveFn() || isGameOverFn() || e.target.closest('button')) {
+    setupTouch(isMapActiveFn: () => boolean, isGameOverFn: () => boolean) {
+        this.handleTouchStart = (e: TouchEvent) => {
+            const target = e.target as HTMLElement;
+            if (isMapActiveFn() || isGameOverFn() || (target && target.closest && target.closest('button'))) {
                 return;
             }
             if (e.cancelable) {
@@ -55,7 +67,7 @@ export class InputHandler {
             };
         };
 
-        this.handleTouchMove = (e) => {
+        this.handleTouchMove = (e: TouchEvent) => {
             if (!this.touchStart || isMapActiveFn() || isGameOverFn()) {
                 return;
             }

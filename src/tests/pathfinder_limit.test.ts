@@ -1,17 +1,21 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 import { CONFIG } from '../engine/config';
 
 // Mock UI and pathfinder functions for isolation
 class MockUIManager {
+    bannerMessage: string | null;
+    hudRemaining: number;
+    hudTotal: number;
+
     constructor() {
         this.bannerMessage = null;
         this.hudRemaining = 0;
         this.hudTotal = 0;
     }
-    showInfoBanner(msg) {
+    showInfoBanner(msg: string) {
         this.bannerMessage = msg;
     }
-    updatePathfindersHUD(remaining, total) {
+    updatePathfindersHUD(remaining: number, total: number) {
         this.hudRemaining = remaining;
         this.hudTotal = total;
     }
@@ -19,7 +23,13 @@ class MockUIManager {
 
 // Mock engine structure to simulate triggerPathReveal behavior
 class MockEngine {
-    constructor(degree) {
+    degree: number;
+    totalPathfinders: number;
+    pathfindersRemaining: number;
+    ui: MockUIManager;
+    pathRevealTriggered: boolean;
+
+    constructor(degree: number) {
         this.degree = degree;
         this.totalPathfinders = CONFIG.getPathfinderCount(degree);
         this.pathfindersRemaining = this.totalPathfinders;
@@ -30,7 +40,7 @@ class MockEngine {
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
     }
 
-    triggerPathReveal(tx, ty, tz) {
+    triggerPathReveal(tx: number, ty: number, tz: number) {
         if (this.pathfindersRemaining <= 0) {
             this.ui.showInfoBanner("No pathfinders remaining");
             return;
@@ -45,7 +55,7 @@ class MockEngine {
         this.pathRevealTriggered = true;
     }
 
-    restoreFromSave(snapshot) {
+    restoreFromSave(snapshot: { degree: number; totalPathfinders: number; pathfindersRemaining: number }) {
         this.totalPathfinders = snapshot.totalPathfinders !== undefined ? snapshot.totalPathfinders : CONFIG.getPathfinderCount(this.degree);
         this.pathfindersRemaining = snapshot.pathfindersRemaining !== undefined ? snapshot.pathfindersRemaining : this.totalPathfinders;
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
@@ -113,6 +123,12 @@ test('Pathfinder Limit - State save and load preservation', () => {
 
 test('Pathfinder Limit - triggerPathReveal animation cooldown and clear old trails', () => {
     class CooldownEngine {
+        pathRevealInterval: number | null;
+        pathfinderBlockedUntil: number;
+        revealedPathSet: Set<string>;
+        pathfindersRemaining: number;
+        ui: { showInfoBanner(): void; updatePathfindersHUD(): void };
+
         constructor() {
             this.pathRevealInterval = null;
             this.pathfinderBlockedUntil = 0;
@@ -121,7 +137,7 @@ test('Pathfinder Limit - triggerPathReveal animation cooldown and clear old trai
             this.ui = { showInfoBanner() {}, updatePathfindersHUD() {} };
         }
         
-        triggerPathReveal(tx, ty, tz) {
+        triggerPathReveal(tx: number, ty: number, tz: number) {
             if (this.pathRevealInterval || (this.pathfinderBlockedUntil && Date.now() < this.pathfinderBlockedUntil)) {
                 return;
             }

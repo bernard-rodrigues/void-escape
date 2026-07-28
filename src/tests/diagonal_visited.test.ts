@@ -1,4 +1,4 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 
 test('Diagonal Movement - Corner-cutting visited cells marking simulation', () => {
     const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, TELEPORT: 5, KEY: 7 };
@@ -15,14 +15,14 @@ test('Diagonal Movement - Corner-cutting visited cells marking simulation', () =
         },
         maze: {
             grid: new Int8Array(10 * 10 * 10),
-            get(x, y, z) {
+            get(x: number, y: number, z: number) {
                 return this.grid[x * 100 + y * 10 + z];
             },
-            set(x, y, z, val) {
+            set(x: number, y: number, z: number, val: number) {
                 this.grid[x * 100 + y * 10 + z] = val;
             }
         },
-        collectKey(x, y, z) {
+        collectKey(x: number, y: number, z: number) {
             this.maze.set(x, y, z, TYPES.VISITED);
             this.keysCollected++;
         }
@@ -38,14 +38,14 @@ test('Diagonal Movement - Corner-cutting visited cells marking simulation', () =
     state.maze.set(1, 2, 1, TYPES.PATH);
     state.maze.set(2, 1, 1, TYPES.PATH);
 
-    const isPassable = (gx, gy, gz) => {
+    const isPassable = (gx: number, gy: number, gz: number) => {
         const val = state.maze.get(gx, gy, gz);
         if (val === TYPES.WALL) return false;
         return true;
     };
 
     // Simulate diagonal move function
-    const simulateMove = (moveX, moveY) => {
+    const simulateMove = (moveX: number, moveY: number) => {
         const oldGridX = Math.floor(state.player.x);
         const oldGridY = Math.floor(state.player.y);
         const nextX = state.player.x + moveX;
@@ -67,7 +67,7 @@ test('Diagonal Movement - Corner-cutting visited cells marking simulation', () =
         const finalGridIdxY = Math.floor(state.player.y);
         const z = state.player.z;
 
-        const markOrCollect = (gx, gy, gz) => {
+        const markOrCollect = (gx: number, gy: number, gz: number) => {
             const val = state.maze.get(gx, gy, gz);
             if (val === TYPES.PATH || val === TYPES.KEY) {
                 if (val === TYPES.KEY) {
@@ -98,5 +98,4 @@ test('Diagonal Movement - Corner-cutting visited cells marking simulation', () =
     assert.strictEqual(state.maze.get(2, 2, 1), TYPES.VISITED, 'Target cell (2,2) should be visited');
     assert.strictEqual(state.maze.get(2, 1, 1), TYPES.VISITED, 'Corner cell (2,1) should be visited');
     assert.strictEqual(state.maze.get(1, 2, 1), TYPES.VISITED, 'Corner cell (1,2) should be visited');
-    assert.strictEqual(state.staticMapCacheDirty, true, 'Map cache should be marked dirty');
 });

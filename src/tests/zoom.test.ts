@@ -1,8 +1,8 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 
 test('Minimap Zoom - Scale and camera bounds calculation', () => {
     // Helper function reproducing the camera bounding calculations from engine.js
-    const calculateCameraBounds = (px, py, size, visibleCells = 11) => {
+    const calculateCameraBounds = (px: number, py: number, size: number, visibleCells = 11) => {
         const zoomScale = size / visibleCells;
         const half = visibleCells / 2;
 
@@ -68,7 +68,7 @@ test('Minimap Zoom - Smooth transition LERP updates', () => {
 
 test('Minimap Zoom - Bypassed for smaller mazes', () => {
     // Helper reproducing zoom eligibility logic
-    const isZoomAllowed = (size) => size > 11;
+    const isZoomAllowed = (size: number) => size > 11;
 
     // Size <= 11 (degree <= 5) -> zoom should not be allowed
     assert.strictEqual(isZoomAllowed(5), false);   // degree 2

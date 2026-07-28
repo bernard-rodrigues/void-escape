@@ -1,6 +1,5 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 import { Maze3D } from '../engine/maze3d';
-import { CONFIG } from '../engine/config';
 
 test('Maze3D - Seeded Mulberry32 PRNG consistency', () => {
     const seed = 'void-escape-test';
@@ -25,14 +24,14 @@ test('Maze3D - Grid dimensions and boundaries', () => {
     
     assert.strictEqual(mazeGen.size, size);
     
-    const matrix = mazeGen.generate();
+    const matrix = mazeGen.generate() as any;
     assert.strictEqual(matrix.length, size * size * size);
     assert.strictEqual(matrix.size, size);
 });
 
 test('Maze3D - Entry and exit placements', () => {
     const mazeGen = new Maze3D(5, 0.2, 12345);
-    const matrix = mazeGen.generate();
+    const matrix = mazeGen.generate() as any;
     
     let hasStart = false;
     let hasExit = false;
@@ -52,7 +51,7 @@ test('Maze3D - Entry and exit placements', () => {
 
 test('Maze3D - Braid constraints (no 2x2 wide path corridors)', () => {
     const mazeGen = new Maze3D(6, 0.5, 999); // high braid factor candidate
-    const matrix = mazeGen.generate();
+    const matrix = mazeGen.generate() as any;
     
     // Scan all cells and check if there are 2x2 path clusters on any plane
     for (let x = 1; x < mazeGen.size - 1; x++) {
@@ -70,7 +69,7 @@ test('Maze3D - Braid constraints (no 2x2 wide path corridors)', () => {
 
 test('Maze3D - Elevator constraints (no adjacent/diagonal elevators)', () => {
     const mazeGen = new Maze3D(6, 0.5, 888);
-    const matrix = mazeGen.generate();
+    const matrix = mazeGen.generate() as any;
     
     for (let x = 1; x < mazeGen.size - 1; x++) {
         for (let y = 1; y < mazeGen.size - 1; y++) {
@@ -88,7 +87,7 @@ test('Maze3D - Elevator constraints (no adjacent/diagonal elevators)', () => {
 
 test('Maze3D - Statue placement in Z dead-ends and solvability', () => {
     const mazeGen = new Maze3D(6, 0.2, 777);
-    const matrix = mazeGen.generate();
+    const matrix = mazeGen.generate() as any;
     
     // 1. Verify that the maze is solvable after generation
     const solvable = mazeGen.isSolvable();
@@ -132,7 +131,7 @@ test('Maze3D - Statue placement in Z dead-ends and solvability', () => {
 
 test('Maze3D - Reachability of all playable corridor/path cells', () => {
     const mazeGen = new Maze3D(6, 0.2, 555);
-    const matrix = mazeGen.generate();
+    const matrix = mazeGen.generate() as any;
     
     // We run a BFS from startPos to verify connectivity of all cells
     const visited = new Set<string>();

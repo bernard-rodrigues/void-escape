@@ -1,16 +1,18 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 import { Maze3D } from '../engine/maze3d';
 import { CONFIG } from '../engine/config';
-import { saveGame, loadSave, clearSave, hasSave, restoreMatrix } from '../engine/save';
+import { saveGame, loadSave, clearSave } from '../engine/save';
 
 // Mock localStorage globally
 globalThis.localStorage = {
-    _data: {},
-    setItem(key, val) { this._data[key] = String(val); },
-    getItem(key) { return this._data[key] || null; },
-    removeItem(key) { delete this._data[key]; },
-    clear() { this._data = {}; }
-};
+    _data: {} as Record<string, string>,
+    length: 0,
+    key(index: number) { return null; },
+    setItem(key: string, val: string) { this._data[key] = String(val); this.length = Object.keys(this._data).length; },
+    getItem(key: string) { return this._data[key] || null; },
+    removeItem(key: string) { delete this._data[key]; this.length = Object.keys(this._data).length; },
+    clear() { this._data = {}; this.length = 0; }
+} as any;
 
 test('Keys System - Spawn rate and strict dead-end distribution', () => {
     const branchingFactors = [0.0, 0.5, 1.0];
@@ -20,10 +22,10 @@ test('Keys System - Spawn rate and strict dead-end distribution', () => {
 
     for (const bf of branchingFactors) {
         const mazeGen = new Maze3D(degree, bf, `keys-seed-${bf}`);
-        const matrix = mazeGen.generate();
+        const matrix = mazeGen.generate() as any;
         const size = mazeGen.size;
 
-        let placedKeys = [];
+        let placedKeys: { x: number; y: number; z: number }[] = [];
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
@@ -70,15 +72,15 @@ test('Keys System - Locked exit door blocking & key collection logic simulation'
         totalKeys: 4,
         maze: {
             grid: new Int8Array(100),
-            get(x, y, z) { return this.grid[x * 10 + y]; },
-            set(x, y, z, val) { this.grid[x * 10 + y] = val; }
+            get(x: number, y: number, z: number) { return this.grid[x * 10 + y]; },
+            set(x: number, y: number, z: number, val: number) { this.grid[x * 10 + y] = val; }
         }
     };
 
     state.maze.set(5, 5, 1, TYPES.EXIT);
     
     // Simulate player colliding with locked exit
-    const isPassable = (gx, gy, gz) => {
+    const isPassable = (gx: number, gy: number, gz: number) => {
         const val = state.maze.get(gx, gy, gz);
         if (val === TYPES.WALL) return false;
         if (val === TYPES.EXIT && state.keysCollected < state.totalKeys) {
@@ -90,7 +92,7 @@ test('Keys System - Locked exit door blocking & key collection logic simulation'
     assert.strictEqual(isPassable(5, 5, 1), false, 'Locked exit must not be passable');
 
     // Simulate key collection function
-    const collectKey = (x, y, z) => {
+    const collectKey = (x: number, y: number, z: number) => {
         state.maze.set(x, y, z, TYPES.VISITED);
         state.keysCollected++;
     };
@@ -133,7 +135,7 @@ test('Keys System - Save and restore state snapshot', () => {
     };
 
     clearSave();
-    saveGame(mockEngine);
+    saveGame(mockEngine as any);
 
     const snapshot = loadSave();
     assert.ok(snapshot, 'Save should exist');
@@ -144,7 +146,7 @@ test('Keys System - Save and restore state snapshot', () => {
 test('Keys System - Fallback behavior on degree 3 maze when dead-ends are exhausted', () => {
     const degree = 3;
     const mazeGen = new Maze3D(degree, 0.10, 'fallback-test-seed');
-    const matrix = mazeGen.generate();
+    const matrix = mazeGen.generate() as any;
     
     let keyCount = 0;
     for (let x = 0; x < mazeGen.size; x++) {

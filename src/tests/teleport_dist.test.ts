@@ -1,6 +1,12 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 import { Maze3D } from '../engine/maze3d';
 import { CONFIG } from '../engine/config';
+
+interface TeleportPos {
+    x: number;
+    y: number;
+    z: number;
+}
 
 test('Maze3D - Teleports strictly in dead-ends', () => {
     // Test with different branching factors (0.0, 0.5, 1.0)
@@ -10,11 +16,11 @@ test('Maze3D - Teleports strictly in dead-ends', () => {
 
     for (const bf of branchingFactors) {
         const mazeGen = new Maze3D(degree, bf, `seed-${bf}`);
-        const matrix = mazeGen.generate();
+        const matrix = mazeGen.generate() as any;
         const size = mazeGen.size;
 
-        let placedTeleports = [];
-        let entranceTeleport = null;
+        let placedTeleports: TeleportPos[] = [];
+        let entranceTeleport: TeleportPos | null = null;
 
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
@@ -36,7 +42,7 @@ test('Maze3D - Teleports strictly in dead-ends', () => {
         assert.ok(entranceTeleport, 'Entrance teleport should exist at x=0');
 
         // 2. Verify all teleports are strictly in dead-ends (exactly 1 neighbor that is not WALL)
-        const allTeleports = [entranceTeleport, ...placedTeleports];
+        const allTeleports = [entranceTeleport!, ...placedTeleports];
         const dirs = [
             { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
             { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
@@ -68,11 +74,11 @@ test('Maze3D - Teleport dead-end requirement under exhaustion', () => {
     // Test multiple random seeds to ensure robustness
     for (let i = 0; i < 5; i++) {
         const mazeGen = new Maze3D(degree, branchingFactor, `exhaustion-seed-${i}`);
-        const matrix = mazeGen.generate();
+        const matrix = mazeGen.generate() as any;
         const size = mazeGen.size;
 
-        let placedTeleports = [];
-        let entranceTeleport = null;
+        let placedTeleports: TeleportPos[] = [];
+        let entranceTeleport: TeleportPos | null = null;
 
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
@@ -88,7 +94,7 @@ test('Maze3D - Teleport dead-end requirement under exhaustion', () => {
             }
         }
 
-        const allTeleports = [entranceTeleport, ...placedTeleports];
+        const allTeleports = [entranceTeleport!, ...placedTeleports];
         const dirs = [
             { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
             { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },

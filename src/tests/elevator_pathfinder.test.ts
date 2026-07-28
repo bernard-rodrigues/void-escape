@@ -1,4 +1,4 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 
 test('Elevator Pathfinder Direction - Traveled direction detection', () => {
     const x = 2, y = 2, z = 1;
@@ -13,7 +13,13 @@ test('Elevator Pathfinder Direction - Traveled direction detection', () => {
     };
 
     // Emulated drawer logic matching drawElevator2D implementation in engine.js
-    const getElevatorDrawingColors = (isRevealed, upVisited, downVisited, activePathReveal, revealedPathSet) => {
+    const getElevatorDrawingColors = (
+        isRevealed: boolean,
+        upVisited: boolean,
+        downVisited: boolean,
+        activePathReveal: { x: number; y: number; z: number }[] | null,
+        revealedPathSet: Set<string>
+    ) => {
         let routeUsesUp = false;
         let routeUsesDown = false;
         
@@ -47,7 +53,7 @@ test('Elevator Pathfinder Direction - Traveled direction detection', () => {
     };
 
     // 1. Unrevealed elevator (regular rendering)
-    const colorsNormal = getElevatorDrawingColors(false, true, false, null, new Set());
+    const colorsNormal = getElevatorDrawingColors(false, true, false, null, new Set<string>());
     assert.strictEqual(colorsNormal.upColor, CONFIG.COLORS.NEON_UP);
     assert.strictEqual(colorsNormal.downColor, CONFIG.COLORS.NEON_DOWN_UNUSED);
 
@@ -57,7 +63,7 @@ test('Elevator Pathfinder Direction - Traveled direction detection', () => {
         { x: 2, y: 2, z: 1 }, // Elevator
         { x: 2, y: 2, z: 3 }  // Ascends
     ];
-    const colorsUp = getElevatorDrawingColors(true, false, false, activePathUp, new Set());
+    const colorsUp = getElevatorDrawingColors(true, false, false, activePathUp, new Set<string>());
     assert.strictEqual(colorsUp.upColor, CONFIG.COLORS.REVEALED_PATH); // UP half becomes white
     assert.strictEqual(colorsUp.downColor, CONFIG.COLORS.NEON_DOWN_UNUSED); // DOWN half stays inactive neon
 
@@ -67,7 +73,7 @@ test('Elevator Pathfinder Direction - Traveled direction detection', () => {
         { x: 2, y: 2, z: 1 }, // Elevator
         { x: 2, y: 2, z: -1 } // Descends
     ];
-    const colorsDown = getElevatorDrawingColors(true, true, true, activePathDown, new Set());
+    const colorsDown = getElevatorDrawingColors(true, true, true, activePathDown, new Set<string>());
     assert.strictEqual(colorsDown.upColor, CONFIG.COLORS.NEON_UP); // UP stays active cyan
     assert.strictEqual(colorsDown.downColor, CONFIG.COLORS.REVEALED_PATH); // DOWN half becomes white
 
@@ -78,7 +84,7 @@ test('Elevator Pathfinder Direction - Traveled direction detection', () => {
     assert.strictEqual(colorsFallbackUp.downColor, CONFIG.COLORS.NEON_DOWN_UNUSED);
 
     // 5. Revealed elevator - no directional indicators on path (both halves become white)
-    const colorsFallbackNone = getElevatorDrawingColors(true, false, false, null, new Set());
+    const colorsFallbackNone = getElevatorDrawingColors(true, false, false, null, new Set<string>());
     assert.strictEqual(colorsFallbackNone.upColor, CONFIG.COLORS.REVEALED_PATH);
     assert.strictEqual(colorsFallbackNone.downColor, CONFIG.COLORS.REVEALED_PATH);
 });
@@ -86,17 +92,17 @@ test('Elevator Pathfinder Direction - Traveled direction detection', () => {
 test('Elevator Pathfinder Direction - Highlight retention until player exits cell', () => {
     const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, TELEPORT: 5 };
     const mazeData = {
-        get: (x, y, z) => {
+        get: (x: number, y: number, z: number) => {
             // Emulate non-WALL shafts adjacent vertically to the elevator cells at 2,2,1 and 2,2,3
             return TYPES.PATH;
         },
         size: 5
     };
 
-    const revealedPathSet = new Set(['2,2,1', '2,2,3']);
+    const revealedPathSet = new Set<string>(['2,2,1', '2,2,3']);
 
     // Emulated coordinate cleanup step inside movePlayer
-    const processMovement = (playerIdxX, playerIdxY, playerIdxZ, lastPlayerCell) => {
+    const processMovement = (playerIdxX: number, playerIdxY: number, playerIdxZ: number, lastPlayerCell: { x: number; y: number; z: number } | null) => {
         const hUp = playerIdxZ < mazeData.size - 1 && mazeData.get(playerIdxX, playerIdxY, playerIdxZ + 1) !== TYPES.WALL;
         const hDown = playerIdxZ > 0 && mazeData.get(playerIdxX, playerIdxY, playerIdxZ - 1) !== TYPES.WALL;
         const isCurrentElevator = hUp || hDown;
@@ -122,7 +128,7 @@ test('Elevator Pathfinder Direction - Highlight retention until player exits cel
     };
 
     // 1. Player walks into the elevator (2,2,1) from corridor (1,2,1)
-    let lastPlayerCell = { x: 1, y: 2, z: 1 };
+    let lastPlayerCell: { x: number; y: number; z: number } | null = { x: 1, y: 2, z: 1 };
     processMovement(2, 2, 1, lastPlayerCell);
 
     // Highlight at 2,2,1 must be retained
@@ -155,7 +161,7 @@ test('Elevator Pathfinder Direction - 3D material color highlight mapping', () =
     };
 
     // Emulated 3D double-sided elevator coloring logic matching engine.js
-    const get3DElevatorMaterials = (isRevealedPath, activePathReveal, revealedPathSet) => {
+    const get3DElevatorMaterials = (isRevealedPath: boolean, activePathReveal: { x: number; y: number; z: number }[] | null, revealedPathSet: Set<string>) => {
         let routeUsesUp = false;
         let routeUsesDown = false;
         if (isRevealedPath) {
@@ -185,7 +191,7 @@ test('Elevator Pathfinder Direction - 3D material color highlight mapping', () =
     };
 
     // 1. Inactive path (regular 3D elevator colors)
-    const normal = get3DElevatorMaterials(false, null, new Set());
+    const normal = get3DElevatorMaterials(false, null, new Set<string>());
     assert.strictEqual(normal.bottomColor, CONFIG.COLORS.THREE_ELEVATOR_DOWN);
     assert.strictEqual(normal.topColor, CONFIG.COLORS.THREE_ELEVATOR_UP);
     assert.strictEqual(normal.bottomIntensity, 0.4);
@@ -197,7 +203,7 @@ test('Elevator Pathfinder Direction - 3D material color highlight mapping', () =
         { x: 2, y: 2, z: 1 },
         { x: 2, y: 2, z: 3 }
     ];
-    const up = get3DElevatorMaterials(true, activePathUp, new Set());
+    const up = get3DElevatorMaterials(true, activePathUp, new Set<string>());
     // Only the top block (UP) becomes white and glowing. The bottom block stays pink.
     assert.strictEqual(up.topColor, 0xffffff);
     assert.strictEqual(up.topIntensity, 2.0);
@@ -210,7 +216,7 @@ test('Elevator Pathfinder Direction - 3D material color highlight mapping', () =
         { x: 2, y: 2, z: 1 },
         { x: 2, y: 2, z: -1 }
     ];
-    const down = get3DElevatorMaterials(true, activePathDown, new Set());
+    const down = get3DElevatorMaterials(true, activePathDown, new Set<string>());
     // Only the bottom block (DOWN) becomes white and glowing. The top block stays cyan.
     assert.strictEqual(down.bottomColor, 0xffffff);
     assert.strictEqual(down.bottomIntensity, 2.0);
@@ -219,10 +225,10 @@ test('Elevator Pathfinder Direction - 3D material color highlight mapping', () =
 });
 
 test('Elevator Pathfinder Direction - Floor transition integration', () => {
-    const revealedPathSet = new Set(['2,2,1', '2,2,2', '2,2,3', '2,2,4', '2,2,5']);
+    const revealedPathSet = new Set<string>(['2,2,1', '2,2,2', '2,2,3', '2,2,4', '2,2,5']);
 
     // Emulated floor transition logic
-    const processChangeFloor = (currentX, currentY, currentZ, delta) => {
+    const processChangeFloor = (currentX: number, currentY: number, currentZ: number, delta: number) => {
         const shaftZ = currentZ + delta / 2;
         const shaftKey = `${currentX},${currentY},${shaftZ}`;
         // Deletes only the intermediate shaft key

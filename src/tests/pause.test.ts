@@ -1,18 +1,32 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 
 // Mock UIManager and engine structures for Pause test
 class MockUIManager {
+    pauseShown: boolean;
+    uiMobilePauseBtn: {
+        classList: {
+            add(cls: string): void;
+            remove(cls: string): void;
+        }
+    };
+    uiMobileControls: {
+        classList: {
+            contains(cls: string): boolean;
+        }
+    };
+
     constructor() {
         this.pauseShown = false;
+        const self = this;
         this.uiMobilePauseBtn = {
             classList: {
-                add(cls) { this[cls] = true; },
-                remove(cls) { this[cls] = false; }
+                add(cls: string) { (self.uiMobilePauseBtn as any)[cls] = true; },
+                remove(cls: string) { (self.uiMobilePauseBtn as any)[cls] = false; }
             }
         };
         this.uiMobileControls = {
             classList: {
-                contains(cls) { return false; }
+                contains(cls: string) { return false; }
             }
         };
     }
@@ -20,56 +34,17 @@ class MockUIManager {
     hidePause() { this.pauseShown = false; }
 }
 
-// Function copies to test keyboard/gamepad pause toggling in isolation
-function handleKeyDownExtra(engine, e) {
-    const key = e.key.toLowerCase();
-    if (key === 'escape') {
-        engine.togglePause();
-        return;
-    }
-    if (engine.isPaused) return;
-    if (key === 'm') {
-        engine.mPressed = true;
-    }
-}
-
-function updateGamepad(engine, dt) {
-    const gamepads = [{
-        axes: [0, 0, 0, 0],
-        buttons: Array.from({ length: 16 }, (_, i) => ({
-            pressed: engine.mockPressedButtons.includes(i)
-        }))
-    }];
-    const gp = gamepads[0];
-
-    if (!engine.prevGamepadButtons) {
-        engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
-        return;
-    }
-
-    const wasPressed = (btnIdx) => engine.prevGamepadButtons[btnIdx];
-    const isPressed = (btnIdx) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
-    const justPressed = (btnIdx) => isPressed(btnIdx) && !wasPressed(btnIdx);
-
-    if (justPressed(9)) {
-        engine.togglePause();
-        engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
-        return;
-    }
-
-    if (engine.isPaused) {
-        engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
-        return;
-    }
-
-    if (justPressed(0)) {
-        engine.aPressed = true;
-    }
-
-    engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
-}
-
 class MockEngine {
+    isGameOver: boolean;
+    isDestroyed: boolean;
+    isIntroPlaying: boolean;
+    isPaused: boolean;
+    ui: MockUIManager;
+    mPressed: boolean;
+    aPressed: boolean;
+    mockPressedButtons: number[];
+    prevGamepadButtons: boolean[] | null;
+
     constructor() {
         this.isGameOver = false;
         this.isDestroyed = false;
@@ -98,6 +73,55 @@ class MockEngine {
             }
         }
     }
+}
+
+// Function copies to test keyboard/gamepad pause toggling in isolation
+function handleKeyDownExtra(engine: MockEngine, e: { key: string }) {
+    const key = e.key.toLowerCase();
+    if (key === 'escape') {
+        engine.togglePause();
+        return;
+    }
+    if (engine.isPaused) return;
+    if (key === 'm') {
+        engine.mPressed = true;
+    }
+}
+
+function updateGamepad(engine: MockEngine, dt: number) {
+    const gamepads = [{
+        axes: [0, 0, 0, 0],
+        buttons: Array.from({ length: 16 }, (_, i) => ({
+            pressed: engine.mockPressedButtons.includes(i)
+        }))
+    }];
+    const gp = gamepads[0];
+
+    if (!engine.prevGamepadButtons) {
+        engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+        return;
+    }
+
+    const wasPressed = (btnIdx: number) => engine.prevGamepadButtons![btnIdx];
+    const isPressed = (btnIdx: number) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
+    const justPressed = (btnIdx: number) => isPressed(btnIdx) && !wasPressed(btnIdx);
+
+    if (justPressed(9)) {
+        engine.togglePause();
+        engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+        return;
+    }
+
+    if (engine.isPaused) {
+        engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+        return;
+    }
+
+    if (justPressed(0)) {
+        engine.aPressed = true;
+    }
+
+    engine.prevGamepadButtons = gp.buttons.map(b => b.pressed);
 }
 
 test('Pause Screen - Initialization and mobile/toggle states', () => {
