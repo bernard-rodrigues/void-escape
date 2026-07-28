@@ -1,16 +1,18 @@
-import { test, beforeAll as before, assert } from 'vitest';
+import { test, assert } from 'vitest';
 
 // Mock localStorage globally before importing save.js
 globalThis.localStorage = {
-    _data: {},
-    setItem(key, val) { this._data[key] = String(val); },
-    getItem(key) { return this._data[key] || null; },
-    removeItem(key) { delete this._data[key]; },
-    clear() { this._data = {}; }
-};
+    _data: {} as Record<string, string>,
+    length: 0,
+    key(index: number) { return null; },
+    setItem(key: string, val: string) { this._data[key] = String(val); this.length = Object.keys(this._data).length; },
+    getItem(key: string) { return this._data[key] || null; },
+    removeItem(key: string) { delete this._data[key]; this.length = Object.keys(this._data).length; },
+    clear() { this._data = {}; this.length = 0; }
+} as any;
 
 // Import save manager functions
-import { saveGame, loadSave, clearSave, hasSave, restoreHunter, restoreMatrix, SAVE_KEY } from '../engine/save';
+import { saveGame, loadSave, clearSave, hasSave, restoreMatrix, SAVE_KEY } from '../engine/save';
 
 test('SaveManager - Base64 Matrix serialization and deserialization', () => {
     // Save manager uses encodeMatrix/decodeMatrix inside.
@@ -47,7 +49,7 @@ test('SaveManager - Base64 Matrix serialization and deserialization', () => {
         revealedPathSet: new Set(['2,2,1'])
     };
     
-    saveGame(mockEngine);
+    saveGame(mockEngine as any);
     assert.ok(hasSave(), 'Save should be successfully stored');
     
     const snapshot = loadSave();
@@ -72,7 +74,7 @@ test('SaveManager - Base64 Matrix serialization and deserialization', () => {
     const newMazeGen = {
         matrix: new Int8Array(10)
     };
-    restoreMatrix(newMazeGen, snapshot.matrix);
+    restoreMatrix(newMazeGen as any, snapshot.matrix);
     assert.strictEqual(newMazeGen.matrix[0], 3);
     assert.strictEqual(newMazeGen.matrix[1], 0);
     assert.strictEqual(newMazeGen.matrix[2], 2);

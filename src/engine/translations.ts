@@ -176,7 +176,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgFoundPathfinder: "Localizador encontrado!",
         msgWorldSaved: "Salvei o mundo. E agora?",
         msgKeyDropped: "Ih... Derrubei uma chave...",
-        msgPlayerRespawn: "Ok.. ok.. pelo visto continuo viva..",
+        msgPlayerRespawn: "Ok.. ok.. sobrevivi..",
 
         // Hunter Status Panel Marquee
         statusLabel: "STATUS DO CAÇADOR:",
@@ -459,7 +459,7 @@ export function setLanguage(lang: string) {
 
 export function detectAndSetLanguage() {
     if (typeof navigator !== 'undefined') {
-        const browserLang = navigator.language || navigator.userLanguage;
+        const browserLang = navigator.language || (navigator as any).userLanguage;
         if (browserLang) {
             const lowerLang = browserLang.toLowerCase();
             if (lowerLang.startsWith('pt')) {
@@ -495,12 +495,14 @@ export function localizeDOM(lang: string = CURRENT_LANG) {
         const elements = document.querySelectorAll('[data-i18n]');
         elements.forEach(el => {
             const key = el.getAttribute('data-i18n');
-            const translation = getTranslation(key, {}, lang);
-            if (translation !== key) {
-                if (el.tagName === 'INPUT' && el.type === 'button') {
-                    el.value = translation;
-                } else {
-                    el.textContent = translation;
+            if (key) {
+                const translation = getTranslation(key, {}, lang);
+                if (translation !== key) {
+                    if (el instanceof HTMLInputElement && el.type === 'button') {
+                        el.value = translation;
+                    } else {
+                        el.textContent = translation;
+                    }
                 }
             }
         });

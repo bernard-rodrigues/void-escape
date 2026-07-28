@@ -1,4 +1,4 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 import { Hunter } from '../engine/hunter';
 import { Maze3D } from '../engine/maze3d';
 import { CONFIG } from '../engine/config';
@@ -6,12 +6,14 @@ import { saveGame, loadSave, clearSave, hasSave, restoreHunter } from '../engine
 
 // Mock localStorage globally for save/restore tests
 globalThis.localStorage = {
-    _data: {},
-    setItem(key, val) { this._data[key] = String(val); },
-    getItem(key) { return this._data[key] || null; },
-    removeItem(key) { delete this._data[key]; },
-    clear() { this._data = {}; }
-};
+    _data: {} as Record<string, string>,
+    length: 0,
+    key(index: number) { return null; },
+    setItem(key: string, val: string) { this._data[key] = String(val); this.length = Object.keys(this._data).length; },
+    getItem(key: string) { return this._data[key] || null; },
+    removeItem(key: string) { delete this._data[key]; this.length = Object.keys(this._data).length; },
+    clear() { this._data = {}; this.length = 0; }
+} as any;
 
 test('Hunter Sleep - Initialization in SLEEP state', () => {
     const mockMaze = { startPos: { x: 1, y: 1, z: 1 } };
@@ -33,16 +35,16 @@ test('Hunter Sleep - Sleeping hunter does not move', () => {
     const hunter = new Hunter(mockMaze, null, 1);
 
     const size = 5;
-    const matrix = new Int8Array(size * size * size);
+    const matrix = new Int8Array(size * size * size) as any;
     matrix.size = size;
-    matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
-    matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+    matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+    matrix.set = (x: number, y: number, z: number, val: number) => { matrix[(x * size * size) + (y * size) + z] = val; };
 
     const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4 };
     matrix.set(1, 2, 1, TYPES.PATH);
 
     // Call move — should return immediately and keep coordinates null
-    hunter.move({ x: 1.5, y: 1.5, z: 1 }, matrix, TYPES);
+    hunter.move({ x: 1.5, y: 1.5, z: 1 } as any, matrix, TYPES as any);
 
     assert.strictEqual(hunter.state, 'SLEEP');
     assert.strictEqual(hunter.x, null);
@@ -53,7 +55,7 @@ test('Hunter Sleep - Sleeping hunter does not move', () => {
 test('Hunter Sleep - Spawning / Wake-up placement algorithm simulation', () => {
     const degree = 3;
     const mazeGen = new Maze3D(degree, 0.2, 'sleep-test-seed');
-    const matrix = mazeGen.generate();
+    const matrix = mazeGen.generate() as any;
     const size = mazeGen.size;
 
     // Simulate player position at starting position
@@ -74,10 +76,11 @@ test('Hunter Sleep - Spawning / Wake-up placement algorithm simulation', () => {
 
     assert.ok(candidates.length > 0, 'There should be eligible path cells');
 
-    const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
+    const getDist = (p1: { x: number; y: number; z: number }, p2: { x: number; y: number; z: number }) =>
+        Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
 
     // Run the placement algorithm simulation
-    const spawnedPos = [];
+    const spawnedPos: { x: number; y: number; z: number }[] = [];
     const hunterCount = CONFIG.getHunterCount(degree); // 1 hunter for degree 3
     const sleepingHunters = Array.from({ length: hunterCount }, (_, i) => new Hunter(mazeGen, null, i + 1));
 
@@ -142,10 +145,10 @@ test('Hunter Sleep - Spawning / Wake-up placement algorithm simulation', () => {
         // Check chosen cell is indeed a PATH cell
         assert.strictEqual(matrix.get(h.x, h.y, h.z), mazeGen.TYPES.PATH);
         // Check player distance threshold
-        const dist = getDist(h, { x: px, y: py, z: pz });
+        const dist = getDist(h as any, { x: px, y: py, z: pz });
         assert.ok(dist >= minPlayerDist, `Spawning position should be at least ${minPlayerDist} steps from player`);
         // Garante que o caçador foi spawnado em um andar jogável (ímpar)
-        assert.ok(h.z % 2 !== 0, 'Spawning floor Z index must be odd (playable floor)');
+        assert.ok(h.z! % 2 !== 0, 'Spawning floor Z index must be odd (playable floor)');
     }
 });
 
@@ -175,7 +178,7 @@ test('Hunter Sleep - State serialization and restoration', () => {
         totalKeys: 2
     };
 
-    saveGame(mockEngine);
+    saveGame(mockEngine as any);
     assert.ok(hasSave());
 
     const snapshot = loadSave();

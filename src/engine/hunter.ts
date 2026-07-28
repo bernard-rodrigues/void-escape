@@ -158,7 +158,8 @@ export class Hunter {
         if (neighbors.length === 0) return;
 
         // Transition to TRACKING if stepping on player's trail (VISITED, START, EXIT)
-        const currentCellVal = matrix[this.x * matrix.length + this.y * matrix.length + this.z] ?? 0;
+        const size = Math.round(Math.cbrt(matrix.length));
+        const currentCellVal = (matrix as any).get ? (matrix as any).get(this.x, this.y, this.z) : (matrix[this.x * size * size + this.y * size + this.z] ?? 0);
         if (currentCellVal === types.VISITED && this.state !== 'TELEPORT_TRACKING') {
             if (this.state !== 'TRACKING') {
                 this.state = 'TRACKING';
@@ -172,7 +173,6 @@ export class Hunter {
         
         if (this.pathToTarget.length > 0) {
             const checkNext = this.pathToTarget[0];
-            const size = Math.round(Math.cbrt(matrix.length));
             const checkVal = matrix[checkNext.x * size * size + checkNext.y * size + checkNext.z];
             const stillValid = this.state === 'TRACKING' ? 
                 (checkVal === types.VISITED || checkVal === types.START || checkVal === types.EXIT) :

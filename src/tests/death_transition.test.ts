@@ -50,7 +50,7 @@ test('Death Transition - Collision triggers non-blocking death loop', () => {
             scale: () => {},
             translate: () => {},
             ellipse: () => {},
-            measureText: (text) => ({ width: text.length * 10 })
+            measureText: (text: string) => ({ width: text.length * 10 })
         } as any;
 
         engine.ctx = mockCtx;

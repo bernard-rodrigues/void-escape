@@ -1,4 +1,4 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 import { aStarPath } from '../engine/pathfinder';
 
 test('Exit Pathfinder - Restricted A* pathfinding prefers visited nodes', () => {
@@ -7,7 +7,7 @@ test('Exit Pathfinder - Restricted A* pathfinding prefers visited nodes', () => 
     
     // Setup a simple 5x5x5 grid (using 1D flat array mapping)
     const maze = new Int8Array(size * size * size);
-    const getIdx = (x, y, z) => x * size * size + y * size + z;
+    const getIdx = (x: number, y: number, z: number) => x * size * size + y * size + z;
     
     // Create two possible paths from player (0,0,1) to exit (4,0,1):
     // Path 1 (Shorter, but unvisited PATH cells):
@@ -73,7 +73,7 @@ test('Exit Pathfinder - checkExitNeighborVisited emulates visited neighbors chec
     const size = 5;
     const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4 };
     const maze = new Int8Array(size * size * size);
-    const getIdx = (x, y, z) => x * size * size + y * size + z;
+    const getIdx = (x: number, y: number, z: number) => x * size * size + y * size + z;
     
     const exitPos = { x: 4, y: 3, z: 1 };
     maze[getIdx(exitPos.x, exitPos.y, exitPos.z)] = TYPES.EXIT;
@@ -119,7 +119,7 @@ test('General Pathfinder - Restricted to visited or known cells', () => {
     // Setup a grid:
     // (0,0,1) -> (1,0,1) -> (2,0,1) -> (3,0,1) -> (4,0,1)
     const maze = new Int8Array(size * size * size);
-    const getIdx = (x, y, z) => x * size * size + y * size + z;
+    const getIdx = (x: number, y: number, z: number) => x * size * size + y * size + z;
     
     for (let x = 0; x <= 4; x++) {
         maze[getIdx(x, 0, 1)] = TYPES.PATH;
@@ -134,7 +134,7 @@ test('General Pathfinder - Restricted to visited or known cells', () => {
     // Node (2,0,1) is unvisited but "known" because it is adjacent to visited (1,0,1)
     // Nodes (3,0,1) and (4,0,1) are unvisited and "unknown" (not adjacent to any visited cells)
     
-    const isNearVisited = (x, y, z) => {
+    const isNearVisited = (x: number, y: number, z: number) => {
         const dirs = [
             { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
             { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
@@ -153,7 +153,7 @@ test('General Pathfinder - Restricted to visited or known cells', () => {
     };
 
     // Emulated findShortestPath logic
-    const findShortestPathEmulated = (start, end) => {
+    const findShortestPathEmulated = (start: { x: number; y: number; z: number }, end: { x: number; y: number; z: number }) => {
         const tempMaze = new Int8Array(size * size * size);
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {

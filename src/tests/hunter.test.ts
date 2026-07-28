@@ -1,10 +1,10 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 import { Hunter } from '../engine/hunter';
 import { CONFIG } from '../engine/config';
 
 test('Hunter - Initialization state', () => {
     const mockMaze = { startPos: { x: 0.5, y: 1.5, z: 1 } };
-    const hunter = new Hunter(mockMaze, { x: 3, y: 3, z: 1 }, 9);
+    const hunter = new Hunter(mockMaze as any, { x: 3, y: 3, z: 1 }, 9);
     
     assert.strictEqual(hunter.id, 9);
     assert.strictEqual(hunter.x, 3);
@@ -16,13 +16,13 @@ test('Hunter - Initialization state', () => {
 
 test('Hunter - State transitions on player visited trail', () => {
     const mockMaze = { startPos: { x: 0.5, y: 1.5, z: 1 } };
-    const hunter = new Hunter(mockMaze, { x: 3, y: 3, z: 1 }, 0);
+    const hunter = new Hunter(mockMaze as any, { x: 3, y: 3, z: 1 }, 0);
     
     const size = 5;
-    const matrix = new Int8Array(size * size * size);
+    const matrix = new Int8Array(size * size * size) as any;
     matrix.size = size;
-    matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
-    matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+    matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+    matrix.set = (x: number, y: number, z: number, val: number) => { matrix[(x * size * size) + (y * size) + z] = val; };
     
     // Set cell types
     const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4 };
@@ -36,25 +36,25 @@ test('Hunter - State transitions on player visited trail', () => {
     
     // First move: hunter is WANDERING
     assert.strictEqual(hunter.state, 'WANDERING');
-    hunter.move(playerPos, matrix, TYPES);
+    hunter.move(playerPos as any, matrix, TYPES as any);
     
     // Mark current hunter cell as visited (simulating player was here)
-    matrix.set(hunter.x, hunter.y, hunter.z, TYPES.VISITED);
+    matrix.set(hunter.x!, hunter.y!, hunter.z!, TYPES.VISITED);
     
     // Next move should transition hunter to TRACKING state
-    hunter.move(playerPos, matrix, TYPES);
+    hunter.move(playerPos as any, matrix, TYPES as any);
     assert.strictEqual(hunter.state, 'TRACKING', 'Hunter should transition to TRACKING when stepping on a player VISITED cell');
 });
 
 test('Hunter - Avoid player starting safe position', () => {
     const mockMaze = { startPos: { x: 1, y: 1, z: 1 } }; // Safe zone
-    const hunter = new Hunter(mockMaze, { x: 1, y: 2, z: 1 }, 0);
+    const hunter = new Hunter(mockMaze as any, { x: 1, y: 2, z: 1 }, 0);
     
     const size = 5;
-    const matrix = new Int8Array(size * size * size);
+    const matrix = new Int8Array(size * size * size) as any;
     matrix.size = size;
-    matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
-    matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+    matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+    matrix.set = (x: number, y: number, z: number, val: number) => { matrix[(x * size * size) + (y * size) + z] = val; };
     
     const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4 };
     
@@ -63,7 +63,7 @@ test('Hunter - Avoid player starting safe position', () => {
     matrix.set(1, 1, 1, TYPES.PATH); // startPos
     matrix.set(1, 3, 1, TYPES.PATH);
     
-    const neighbors = hunter.getValidNeighbors(matrix, TYPES);
+    const neighbors = hunter.getValidNeighbors(matrix, TYPES as any);
     
     // Verify starting safe zone (1,1,1) is filtered out and NOT in valid neighbors list
     const hasSafeZone = neighbors.some(n => n.x === 1 && n.y === 1 && n.z === 1);
@@ -75,13 +75,13 @@ test('Hunter - Avoid player starting safe position', () => {
 
 test('Hunter - Avoid exit cell', () => {
     const mockMaze = { startPos: { x: 1, y: 1, z: 1 } };
-    const hunter = new Hunter(mockMaze, { x: 3, y: 3, z: 1 }, 0);
+    const hunter = new Hunter(mockMaze as any, { x: 3, y: 3, z: 1 }, 0);
     
     const size = 5;
-    const matrix = new Int8Array(size * size * size);
+    const matrix = new Int8Array(size * size * size) as any;
     matrix.size = size;
-    matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
-    matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+    matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+    matrix.set = (x: number, y: number, z: number, val: number) => { matrix[(x * size * size) + (y * size) + z] = val; };
     
     const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4 };
     
@@ -90,7 +90,7 @@ test('Hunter - Avoid exit cell', () => {
     matrix.set(3, 4, 1, TYPES.EXIT); 
     matrix.set(3, 2, 1, TYPES.PATH);
     
-    const neighbors = hunter.getValidNeighbors(matrix, TYPES);
+    const neighbors = hunter.getValidNeighbors(matrix, TYPES as any);
     
     const hasExit = neighbors.some(n => n.x === 3 && n.y === 4 && n.z === 1);
     assert.strictEqual(hasExit, false, 'Hunter must not route into exit cell');
@@ -106,18 +106,18 @@ test('Hunter - State transition when teleport ticks end', () => {
     };
     
     const size = 5;
-    const matrix = new Int8Array(size * size * size);
+    const matrix = new Int8Array(size * size * size) as any;
     matrix.size = size;
-    matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
-    matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+    matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+    matrix.set = (x: number, y: number, z: number, val: number) => { matrix[(x * size * size) + (y * size) + z] = val; };
     
     // Hunter 1: sits on VISITED path
-    const hunter1 = new Hunter(mockMaze, { x: 3, y: 3, z: 1 }, 1);
+    const hunter1 = new Hunter(mockMaze as any, { x: 3, y: 3, z: 1 }, 1);
     hunter1.state = 'TELEPORT_TRACKING';
     matrix.set(3, 3, 1, mockMaze.TYPES.VISITED);
     
     // Hunter 2: sits on normal PATH (unvisited)
-    const hunter2 = new Hunter(mockMaze, { x: 3, y: 4, z: 1 }, 2);
+    const hunter2 = new Hunter(mockMaze as any, { x: 3, y: 4, z: 1 }, 2);
     hunter2.state = 'TELEPORT_TRACKING';
     matrix.set(3, 4, 1, mockMaze.TYPES.PATH);
     
@@ -125,7 +125,7 @@ test('Hunter - State transition when teleport ticks end', () => {
     
     // Simulate engine tick end transition logic:
     for (const hunter of hunters) {
-        const cellVal = matrix.get(hunter.x, hunter.y, hunter.z);
+        const cellVal = matrix.get(hunter.x!, hunter.y!, hunter.z!);
         if (cellVal === mockMaze.TYPES.VISITED || cellVal === mockMaze.TYPES.START || cellVal === mockMaze.TYPES.EXIT) {
             hunter.state = 'TRACKING';
         } else {
@@ -144,14 +144,14 @@ test('Hunter - State transition when teleport ticks end', () => {
 
 test('Hunter - Reset visited nodes when tracking trail is fully explored', () => {
     const mockMaze = { startPos: { x: 0.5, y: 1.5, z: 1 } };
-    const hunter = new Hunter(mockMaze, { x: 1, y: 1, z: 1 }, 0);
+    const hunter = new Hunter(mockMaze as any, { x: 1, y: 1, z: 1 }, 0);
     hunter.state = 'TRACKING';
     
     const size = 5;
-    const matrix = new Int8Array(size * size * size);
+    const matrix = new Int8Array(size * size * size) as any;
     matrix.size = size;
-    matrix.get = (x, y, z) => matrix[(x * size * size) + (y * size) + z];
-    matrix.set = (x, y, z, val) => { matrix[(x * size * size) + (y * size) + z] = val; };
+    matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+    matrix.set = (x: number, y: number, z: number, val: number) => { matrix[(x * size * size) + (y * size) + z] = val; };
     
     const TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4 };
     
@@ -167,7 +167,7 @@ test('Hunter - Reset visited nodes when tracking trail is fully explored', () =>
     
     // Call move() which internally finds path, triggers clear/reset, and steps forward
     const playerPos = { x: 1.5, y: 3.5, z: 1 };
-    hunter.move(playerPos, matrix, TYPES);
+    hunter.move(playerPos as any, matrix, TYPES as any);
     
     // Assert hunter moved to the next cell on the path (1,2,1)
     assert.strictEqual(hunter.x, 1);
@@ -187,7 +187,7 @@ test('Safe Mode - No hunters spawned, no teleport tracking activated', () => {
     assert.strictEqual(count, 0, 'Hunter count must be 0 in Safe Mode');
     
     // 2. Teleport logic with empty hunters array does not activate teleport tracking on any hunter
-    const hunters = []; // Empty in Safe Mode
+    const hunters: any[] = []; // Empty in Safe Mode
     
     // Simulate teleportTo loop:
     let trackingHuntersCount = 0;

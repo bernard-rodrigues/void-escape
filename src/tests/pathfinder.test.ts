@@ -1,4 +1,4 @@
-import { test, describe, assert } from 'vitest';
+import { test, assert } from 'vitest';
 import { aStarPath, aStarDistance, proximeterDistance, bfsNearestUnvisited } from '../engine/pathfinder';
 
 test('Pathfinder - MinHeap priority sorting', () => {
@@ -11,7 +11,7 @@ test('Pathfinder - A* Shortest Path', () => {
     const maze = new Int8Array(size * size * size);
     
     // Clear out a path from (1,1,1) -> (1,2,1) -> (1,3,1)
-    const _idx = (x, y, z) => (x * size * size) + (y * size) + z;
+    const _idx = (x: number, y: number, z: number) => (x * size * size) + (y * size) + z;
     maze[_idx(1, 1, 1)] = 1;
     maze[_idx(1, 2, 1)] = 1;
     maze[_idx(1, 3, 1)] = 1;
@@ -25,9 +25,9 @@ test('Pathfinder - A* Shortest Path', () => {
     // Test direct path (should be 2 steps: 1,2,1 then 1,3,1)
     const pathDirect = aStarPath({ x: 1, y: 1, z: 1 }, { x: 1, y: 3, z: 1 }, maze, size, 0);
     assert.ok(pathDirect, 'Path should be found');
-    assert.strictEqual(pathDirect.length, 2);
-    assert.deepStrictEqual(pathDirect[0], { x: 1, y: 2, z: 1 });
-    assert.deepStrictEqual(pathDirect[1], { x: 1, y: 3, z: 1 });
+    assert.strictEqual(pathDirect!.length, 2);
+    assert.deepStrictEqual(pathDirect![0], { x: 1, y: 2, z: 1 });
+    assert.deepStrictEqual(pathDirect![1], { x: 1, y: 3, z: 1 });
     
     // Block (1,2,1) with wall (0)
     maze[_idx(1, 2, 1)] = 0;
@@ -35,15 +35,15 @@ test('Pathfinder - A* Shortest Path', () => {
     // Path should detour: (2,1,1) -> (2,2,1) -> (2,3,1) -> (1,3,1)
     const pathDetour = aStarPath({ x: 1, y: 1, z: 1 }, { x: 1, y: 3, z: 1 }, maze, size, 0);
     assert.ok(pathDetour, 'Detour path should be found');
-    assert.strictEqual(pathDetour.length, 4);
-    assert.deepStrictEqual(pathDetour[0], { x: 2, y: 1, z: 1 });
-    assert.deepStrictEqual(pathDetour[3], { x: 1, y: 3, z: 1 });
+    assert.strictEqual(pathDetour!.length, 4);
+    assert.deepStrictEqual(pathDetour![0], { x: 2, y: 1, z: 1 });
+    assert.deepStrictEqual(pathDetour![3], { x: 1, y: 3, z: 1 });
 });
 
 test('Pathfinder - A* Distance', () => {
     const size = 5;
     const maze = new Int8Array(size * size * size);
-    const _idx = (x, y, z) => (x * size * size) + (y * size) + z;
+    const _idx = (x: number, y: number, z: number) => (x * size * size) + (y * size) + z;
     
     maze[_idx(1, 1, 1)] = 1;
     maze[_idx(1, 2, 1)] = 1;
@@ -60,7 +60,7 @@ test('Pathfinder - A* Distance', () => {
 test('Pathfinder - Proximeter 0-1 BFS Distance (elevator shafts free)', () => {
     const size = 5;
     const maze = new Int8Array(size * size * size);
-    const _idx = (x, y, z) => (x * size * size) + (y * size) + z;
+    const _idx = (x: number, y: number, z: number) => (x * size * size) + (y * size) + z;
     
     // Elevators sit at even z indices: z=2. Paths at odd z: z=1, z=3.
     // Connect floor 1 and floor 3 vertically at (1,1)
@@ -82,17 +82,17 @@ test('Pathfinder - Proximeter 0-1 BFS Distance (elevator shafts free)', () => {
 test('Pathfinder - BFS Nearest Unvisited', () => {
     const size = 5;
     const maze = new Int8Array(size * size * size);
-    const _idx = (x, y, z) => (x * size * size) + (y * size) + z;
+    const _idx = (x: number, y: number, z: number) => (x * size * size) + (y * size) + z;
     
     maze[_idx(1, 1, 1)] = 1;
     maze[_idx(1, 2, 1)] = 1;
     maze[_idx(1, 3, 1)] = 1;
     
-    const visited = new Set();
+    const visited = new Set<string>();
     visited.add('1,1,1');
     visited.add('1,2,1');
     
-    const getNeighbors = (cx, cy, cz) => {
+    const getNeighbors = (cx: number, cy: number, cz: number) => {
         const list = [];
         const dirs = [{dx:1,dy:0,dz:0}, {dx:-1,dy:0,dz:0}, {dx:0,dy:1,dz:0}, {dx:0,dy:-1,dz:0}];
         for(const d of dirs) {
@@ -106,6 +106,6 @@ test('Pathfinder - BFS Nearest Unvisited', () => {
     
     const path = bfsNearestUnvisited({ x: 1, y: 1, z: 1 }, visited, maze, size, {}, getNeighbors);
     assert.ok(path);
-    assert.strictEqual(path.length, 2);
-    assert.deepStrictEqual(path[1], { x: 1, y: 3, z: 1 }); // nearest unvisited is 1,3,1
+    assert.strictEqual(path!.length, 2);
+    assert.deepStrictEqual(path![1], { x: 1, y: 3, z: 1 }); // nearest unvisited is 1,3,1
 });
