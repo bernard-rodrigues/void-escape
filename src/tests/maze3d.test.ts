@@ -129,3 +129,72 @@ test('Maze3D - Statue placement in Z dead-ends and solvability', () => {
     // Since we generated with seed 777, there should be some dead-ends. Let's make sure it's valid
     console.log(`Placed ${statuesCount} statues in seeded test maze.`);
 });
+
+test('Maze3D - Reachability of all playable corridor/path cells', () => {
+    const mazeGen = new Maze3D(6, 0.2, 555);
+    const matrix = mazeGen.generate();
+    
+    // We run a BFS from startPos to verify connectivity of all cells
+    const visited = new Set<string>();
+    const startX = Math.floor(mazeGen.startPos.x);
+    const startY = Math.floor(mazeGen.startPos.y);
+    const startZ = mazeGen.startPos.z;
+    const queue = [{ x: startX, y: startY, z: startZ }];
+    const startStr = `${startX},${startY},${startZ}`;
+    visited.add(startStr);
+    
+    while (queue.length > 0) {
+        const curr = queue.shift()!;
+        
+        // 1. Horizontal neighbors
+        const dirs = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+        ];
+        for (const d of dirs) {
+            const nx = curr.x + d.dx;
+            const ny = curr.y + d.dy;
+            const nz = curr.z;
+            if (nx >= 0 && nx < mazeGen.size && ny >= 0 && ny < mazeGen.size) {
+                const nStr = `${nx},${ny},${nz}`;
+                const val = matrix.get(nx, ny, nz);
+                if (val !== mazeGen.TYPES.WALL && val !== mazeGen.TYPES.STATUE && !visited.has(nStr)) {
+                    visited.add(nStr);
+                    queue.push({ x: nx, y: ny, z: nz });
+                }
+            }
+        }
+        
+        // 2. Vertical neighbors (Elevators)
+        for (const dz of [-2, 2]) {
+            const nz = curr.z + dz;
+            if (nz >= 0 && nz < mazeGen.size) {
+                const midZ = curr.z + dz / 2;
+                const shaftVal = matrix.get(curr.x, curr.y, midZ);
+                const destVal = matrix.get(curr.x, curr.y, nz);
+                
+                if (shaftVal !== mazeGen.TYPES.WALL && shaftVal !== mazeGen.TYPES.STATUE &&
+                    destVal !== mazeGen.TYPES.WALL && destVal !== mazeGen.TYPES.STATUE) {
+                    const nStr = `${curr.x},${curr.y},${nz}`;
+                    if (!visited.has(nStr)) {
+                        visited.add(nStr);
+                        queue.push({ x: curr.x, y: curr.y, z: nz });
+                    }
+                }
+            }
+        }
+    }
+    
+    // Assert that every playable/walkable non-wall, non-statue cell on Z odd floors is reached by the BFS
+    for (let x = 0; x < mazeGen.size; x++) {
+        for (let y = 0; y < mazeGen.size; y++) {
+            for (let z = 1; z < mazeGen.size; z += 2) {
+                const val = matrix.get(x, y, z);
+                if (val !== mazeGen.TYPES.WALL && val !== mazeGen.TYPES.STATUE) {
+                    const coordsStr = `${x},${y},${z}`;
+                    assert.ok(visited.has(coordsStr), `Walkable path at ${x},${y},${z} should be reachable from startPos`);
+                }
+            }
+        }
+    }
+});

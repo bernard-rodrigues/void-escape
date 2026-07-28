@@ -517,7 +517,25 @@ export class Maze3D {
             }
         }
         
-        return reachedExit && (reachedKeys.size === keyCoords.length);
+        if (!reachedExit || reachedKeys.size !== keyCoords.length) {
+            return false;
+        }
+
+        // Ensure all playable corridors (non-wall, non-statue cells at odd Z floors) are reachable
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 1; z < size; z += 2) {
+                    const val = this.matrix[this._idx(x, y, z)];
+                    if (val !== this.TYPES.WALL && val !== this.TYPES.STATUE) {
+                        if (!visited.has(`${x},${y},${z}`)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     placeStatues(): number {
