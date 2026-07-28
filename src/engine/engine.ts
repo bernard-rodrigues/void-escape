@@ -25,7 +25,7 @@ import { UIManager } from './ui.js';
 import { InputHandler } from './input.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
-function moveTowards(current, target, maxDelta) {
+function moveTowards(current: number, target: number, maxDelta: number): number {
     if (Math.abs(target - current) <= maxDelta) {
         return target;
     }
@@ -36,14 +36,146 @@ function moveTowards(current, target, maxDelta) {
  * Main Game Engine - 2D Map Navigation & 3D Overview
  */
 export class Engine {
+    degree: number;
+    branchingFactor: number;
+    isSafeMode: boolean;
+    vScale: number;
+    ui: UIManager;
+    input: InputHandler;
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+    seed: number;
+    mazeGen: Maze3D;
+    maze: any;
+    isResumedFromSave: boolean;
+    mapCompletion100Triggered: boolean;
+    hunterOnSameFloorDetected: boolean;
+    dialogueUpTriggered: boolean;
+    dialogueDownTriggered: boolean;
+    dialogueWhichWayTriggered: boolean;
+    dialogueDetectedTriggered: boolean;
+    wallImage: HTMLImageElement;
+    floorImage: HTMLImageElement;
+    keyImage: HTMLImageElement;
+    statueImage: HTMLImageElement;
+    mageImages: Record<string, HTMLImageElement>;
+    playerSide: string;
+    playerVertical: string;
+    playerWalkCycle: number;
+    playerSquashTargetX: number;
+    playerSquashTargetY: number;
+    playerSquashX: number;
+    playerSquashY: number;
+    player: { x: number; y: number; z: number; dir: number };
+    hunters: Hunter[];
+    keyMeshes: any[];
+    exitMesh: any;
+    keysCollected: number;
+    totalKeys: number;
+    totalPathfinders: number;
+    pathfindersRemaining: number;
+    activeMapFloor: number;
+    visualActiveFloor: number;
+    mapCursor: { x: number; y: number; z: number };
+    pathfinderRewardsGranted: number;
+    isometricCanvas: HTMLCanvasElement | null;
+    isometricCtx: CanvasRenderingContext2D | null;
+    floorClickRects: { floor: number; rect: { x: number; y: number; w: number; h: number } }[];
+    mapZoom: number;
+    mapPanOffsetX: number;
+    isZoomTransitionActive: boolean;
+    zoomTransitionTimer: number;
+    preloadedStoryImages: HTMLImageElement[];
+    storyImagesLoadedCount: number;
+    storyImagesTotalCount: number;
+    storyImagesPreloadPromise: Promise<any> | null;
+    lastFrameTime: number;
+    revealedPathSet: Set<string>;
+    activePathReveal: any[];
+    revealedPathProgress: number;
+    knownMeshes: any[];
+    gridMeshes: any[] | null;
+    pathRevealInterval: any;
+    pathfinderBlockedUntil: number;
+    isMap3DActive: boolean;
+    isGameOver: boolean;
+    deathAnimation: any;
+    notificationQueue: string[];
+    activeNotification: any;
+    isPaused: boolean;
+    isDestroyed: boolean;
+    isIntroPlaying: boolean;
+    isStoryActive: boolean;
+    pulsatingMaterials: any[];
+    hunterMeshes: any[];
+    discoveredTeleports: Set<string>;
+    visitedCells: Set<string>;
+    lastSavePos: { x: number; y: number; z: number } | null;
+    suppressWakeHuntersBanner: boolean;
+    allTeleports: { x: number; y: number; z: number }[];
+    
+    // Additional properties set in other methods
     isTouchDevice!: boolean;
     isMouseOrTouchDetected!: boolean;
     teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
-    visitedCells!: Set<string>;
-    lastSavePos!: { x: number; y: number; z: number } | null;
-    suppressWakeHuntersBanner!: boolean;
+    staticMapCacheCanvas!: HTMLCanvasElement;
+    staticMapCacheCtx!: CanvasRenderingContext2D | null;
+    staticMapCacheDirty!: boolean;
+    zoomVisibleCells!: number;
+    
+    // Three.js instances
+    scene!: THREE.Scene;
+    camera!: THREE.PerspectiveCamera;
+    renderer!: THREE.WebGLRenderer;
+    controls!: any;
+    teleportMeshes!: any[];
+    inactiveTeleportPos!: { x: number; y: number; z: number } | null;
+    teleportCooldownTicks!: number;
+    
+    // Story animation properties
+    storyImages!: any[];
+    storyOpacity!: number;
+    storyOverlayOpacity!: number;
+    storyFrameIndex!: number;
+    storyTimer!: number;
+    storyTextQueue!: string[];
+    storyTextIndex!: number;
+    storyDisplayedText!: string;
+    storyState!: string;
+    storyWaitTimer!: number;
+    storyTextHeight!: number;
 
-    constructor(degree, branchingFactor, savedState = null) {
+    selectedTeleportIndex!: number | null;
+    teleportConfirmModalActive!: boolean;
+    teleportModalSelection!: 'go' | 'cancel';
+    isTeleportMode!: boolean;
+    floorTransition!: any;
+    hasSavePoint!: boolean;
+    lastPlayerCell!: { x: number; y: number; z: number } | null;
+    exitPathfinderUnlocked!: boolean;
+    isZoomActive!: boolean;
+    lastInputDevice!: string;
+    fullyRevealedCells!: Set<string>;
+    revealedCellsAnimation!: Map<string, number>;
+    skipCellAnimations!: boolean;
+    activeSkipHandler!: any;
+    activeIntroTimer!: any;
+    activeContinueTimer!: any;
+    raycaster!: THREE.Raycaster;
+    pointer!: THREE.Vector2;
+    handleKeyDownExtra!: any;
+    handleKeyboardDetection!: any;
+    handleResize!: any;
+    handleStoryKeyDown!: any;
+    handleStoryClick!: any;
+    handleStoryTouch!: any;
+    handleCanvasClick!: any;
+    handlePointerDown!: any;
+    handlePointerUp!: any;
+    lastHunterMove!: number;
+    lastLockedWarningTime!: number;
+
+    constructor(degree: number, branchingFactor: number, savedState: any = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
         this.branchingFactor = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
         
@@ -51,7 +183,7 @@ export class Engine {
         if (savedState) {
             this.isSafeMode = savedState.isSafeMode ?? false;
         } else {
-            const safeModeCheckbox = document.getElementById('safe-mode');
+            const safeModeCheckbox = document.getElementById('safe-mode') as HTMLInputElement;
             this.isSafeMode = safeModeCheckbox ? safeModeCheckbox.checked : false;
         }
 
@@ -62,8 +194,8 @@ export class Engine {
         this.input = new InputHandler();
         this.input.setupTouch(() => this.isMap3DActive, () => this.isGameOver);
 
-        this.canvas = document.getElementById('main-2d-canvas');
-        this.ctx = this.canvas.getContext('2d');
+        this.canvas = document.getElementById('main-2d-canvas') as HTMLCanvasElement;
+        this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
         
         this.seed = savedState ? savedState.seed : (CONFIG.SEED !== null && CONFIG.SEED !== undefined ? CONFIG.SEED : Date.now());
         this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
@@ -352,7 +484,7 @@ export class Engine {
         this.storyImagesLoadedCount = 0;
         this.storyImagesTotalCount = paths.length;
         this.storyImagesPreloadPromise = Promise.all(paths.map((path, idx) => {
-            return new Promise((resolve) => {
+            return new Promise<void>((resolve) => {
                 const img = new Image();
                 img.src = path;
                 img.onload = () => {
@@ -368,7 +500,7 @@ export class Engine {
         }));
     }
 
-    initHunters(degree) {
+    initHunters(degree: number) {
         const count = this.isSafeMode ? 0 : CONFIG.getHunterCount(degree);
         if (count === 0) return;
         
@@ -380,7 +512,7 @@ export class Engine {
 
     wakeHunters() {
         const size = this.mazeGen.size;
-        const candidates = [];
+        const candidates: { x: number; y: number; z: number }[] = [];
         const px = Math.floor(this.player.x);
         const py = Math.floor(this.player.y);
         const pz = this.player.z;
@@ -425,10 +557,10 @@ export class Engine {
             candidates[j] = temp;
         }
 
-        const getDist = (p1, p2) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
+        const getDist = (p1: { x: number; y: number; z: number }, p2: { x: number; y: number; z: number }) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
 
         // Find a valid position for each sleeping hunter
-        const spawnedPos = [];
+        const spawnedPos: { x: number; y: number; z: number }[] = [];
         const sleepingHunters = this.hunters.filter(h => h.state === 'SLEEP');
 
         let minPlayerDist = Math.max(3, Math.floor(size * 0.45));
@@ -548,7 +680,7 @@ export class Engine {
         this.ui.showDeath(this.hasSavePoint);
     }
 
-    collectKey(x, y, z) {
+    collectKey(x: number, y: number, z: number) {
         this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
         this.visitedCells.add(`${x},${y},${z}`);
         this.keysCollected++;
@@ -586,7 +718,7 @@ export class Engine {
      * only need to overwrite the matrix bytes and runtime state.
      * @param {object} snapshot - Snapshot returned by loadSave()
      */
-    restoreFromSave(snapshot) {
+    restoreFromSave(snapshot: any) {
         // Restore seed
         this.seed = snapshot.seed;
 
@@ -712,13 +844,15 @@ export class Engine {
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.ui.uiMap3dContainer.appendChild(this.renderer.domElement);
+        if (this.ui.uiMap3dContainer) {
+            this.ui.uiMap3dContainer.appendChild(this.renderer.domElement);
+        }
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
     }
 
-    init(savedState = null) {
-        this.handleKeyDownExtra = e => {
+    init(savedState: any = null) {
+        this.handleKeyDownExtra = (e: KeyboardEvent) => {
             const key = e.key.toLowerCase();
             if (key === 'escape') {
                 if (this.isMap3DActive) {
@@ -754,7 +888,7 @@ export class Engine {
                             e.preventDefault();
                         }
                         if (key === 'enter' || key === ' ' || key === 'y') {
-                            if (this.teleportModalSelection === 'go') {
+                            if (this.teleportModalSelection === 'go' && this.selectedTeleportIndex !== null) {
                                 const targetT = this.allTeleports[this.selectedTeleportIndex];
                                 this.teleportTo(targetT.x, targetT.y, targetT.z);
                                 this.toggleTeleportMap(false);
@@ -772,7 +906,7 @@ export class Engine {
 
                     const selectable = this.getSelectableTeleportIndices();
                     if (selectable.length > 0) {
-                        let currentIdx = selectable.indexOf(this.selectedTeleportIndex);
+                        let currentIdx = selectable.indexOf(this.selectedTeleportIndex as number);
                         if (key === 'a' || key === 'arrowleft') {
                             currentIdx = (currentIdx - 1 + selectable.length) % selectable.length;
                             this.selectedTeleportIndex = selectable[currentIdx];
@@ -789,7 +923,7 @@ export class Engine {
                             this.mapCursor = { x: targetT.x, y: targetT.y, z: targetT.z };
                             e.preventDefault();
                         }
-                        if (key === 'enter' || key === ' ' || key === 'y') {
+                        if ((key === 'enter' || key === ' ' || key === 'y') && this.selectedTeleportIndex !== null) {
                             const targetT = this.allTeleports[this.selectedTeleportIndex];
                             const px = Math.floor(this.player.x);
                             const py = Math.floor(this.player.y);
@@ -912,19 +1046,19 @@ export class Engine {
         let isDragging = false;
         let startX = 0;
         let startY = 0;
-        this.handlePointerDown = (e) => {
+        this.handlePointerDown = (e: PointerEvent) => {
             isDragging = false;
             startX = e.clientX;
             startY = e.clientY;
         };
-        this.handlePointerUp = (e) => {
+        this.handlePointerUp = (e: PointerEvent) => {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
             if (Math.sqrt(dx*dx + dy*dy) > 5) {
                 isDragging = true;
             }
         };
-        this.handleCanvasClick = (e) => {
+        this.handleCanvasClick = (e: MouseEvent) => {
             if (isDragging) return;
             this.onCanvasClick(e);
         };
@@ -992,7 +1126,7 @@ export class Engine {
         }
     }
 
-    drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, isRevealed = false, z = 0) {
+    drawElevator2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, hUp: boolean, hDown: boolean, px: number, py: number, isRevealed: boolean = false, z: number = 0) {
         const isPlayerHere = x === Math.floor(px) && y === Math.floor(py);
         if (isPlayerHere) {
             const pulse = 0.85 + 0.15 * Math.sin(Date.now() / 150);
@@ -1101,7 +1235,7 @@ export class Engine {
     /**
      * Draws wall-projected shadows on a 2D cell based on adjacent wall positions.
      */
-    drawCellShadow2D(ctx, x, y, cellSize, size, val, z) {
+    drawCellShadow2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, size: number, val: number, z: number) {
         if (val === 4) return; // Exclude exit cell
 
         const hasWallBelow = (y + 1 < size) && (this.maze.get(x, y + 1, z) === 0);

@@ -10,7 +10,7 @@ export class Maze3D {
     size!: number;
     seed!: string | number | null;
     random!: () => number;
-    matrix!: Int8Array & { size?: number, get?: (x: number, y: number, z: number) => number, set?: (x: number, y: number, z: number, val: number) => void };
+    matrix!: any;
     TYPES!: Record<string, number>;
     startPos!: Point3D;
 

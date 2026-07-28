@@ -6,8 +6,9 @@
 
 export interface Point3D { x: number; y: number; z: number; }
 class MinHeap {
+    _data: { f: number, node: Point3D }[];
+
     constructor() {
-        /** @type {{ f: number, node: {x:number,y:number,z:number} }[]} */
         this._data = [];
     }
 
@@ -21,7 +22,7 @@ class MinHeap {
     pop() {
         const top = this._data[0];
         const last = this._data.pop();
-        if (this._data.length > 0) {
+        if (this._data.length > 0 && last !== undefined) {
             this._data[0] = last;
             this._siftDown(0);
         }
@@ -87,8 +88,8 @@ function heuristic(ax: number, ay: number, az: number, bx: number, by: number, b
 export function aStarPath(start: Point3D, end: Point3D, maze: Int8Array, size: number, wallType: number = 0, startPosToAvoid: Point3D | null = null): Point3D[] | null {
     if (start.x === end.x && start.y === end.y && start.z === end.z) return [];
 
-    const cameFrom = new Map();
-    const gCost = new Map();
+    const cameFrom = new Map<string, Point3D>();
+    const gCost = new Map<string, number>();
 
     const startKey = `${start.x},${start.y},${start.z}`;
     gCost.set(startKey, 0);
@@ -100,14 +101,16 @@ export function aStarPath(start: Point3D, end: Point3D, maze: Int8Array, size: n
     });
 
     while (heap.size > 0) {
-        const { node: cur } = heap.pop();
+        const item = heap.pop();
+        if (!item) continue;
+        const { node: cur } = item;
         const curKey = `${cur.x},${cur.y},${cur.z}`;
 
         if (cur.x === end.x && cur.y === end.y && cur.z === end.z) {
             return _reconstructPath(cameFrom, curKey);
         }
 
-        const curG = gCost.get(curKey);
+        const curG = gCost.get(curKey) ?? 0;
 
         for (const { dx, dy, dz } of DIRS_ELEVATOR) {
             const nx = cur.x + dx, ny = cur.y + dy, nz = cur.z + dz;
@@ -148,10 +151,11 @@ export function aStarPath(start: Point3D, end: Point3D, maze: Int8Array, size: n
  * @private
  */
 function _reconstructPath(cameFrom: Map<string, Point3D>, endKey: string): Point3D[] {
-    const path = [];
+    const path: Point3D[] = [];
     let k = endKey;
     while (cameFrom.has(k)) {
         const n = cameFrom.get(k);
+        if (!n) break;
         const [nx, ny, nz] = k.split(',').map(Number);
         path.push({ x: nx, y: ny, z: nz });
         k = `${n.x},${n.y},${n.z}`;
@@ -176,7 +180,7 @@ function _reconstructPath(cameFrom: Map<string, Point3D>, endKey: string): Point
 export function aStarDistance(start: Point3D, end: Point3D, maze: Int8Array, size: number, wallType: number = 0, maxDist: number = Infinity, startPosToAvoid: Point3D | null = null): number {
     if (start.x === end.x && start.y === end.y && start.z === end.z) return 0;
 
-    const gCost = new Map();
+    const gCost = new Map<string, number>();
     const startKey = `${start.x},${start.y},${start.z}`;
     gCost.set(startKey, 0);
 
@@ -187,9 +191,11 @@ export function aStarDistance(start: Point3D, end: Point3D, maze: Int8Array, siz
     });
 
     while (heap.size > 0) {
-        const { node: cur } = heap.pop();
+        const item = heap.pop();
+        if (!item) continue;
+        const { node: cur } = item;
         const curKey = `${cur.x},${cur.y},${cur.z}`;
-        const curG = gCost.get(curKey);
+        const curG = gCost.get(curKey) ?? 0;
 
         if (curG > maxDist) return Infinity;
 
@@ -249,7 +255,7 @@ export function proximeterDistance(start: Point3D, end: Point3D, maze: Int8Array
 
     const deque = [{ x: start.x, y: start.y, z: start.z, dist: 0 }];
     let head = 0;
-    const dist = new Map();
+    const dist = new Map<string, number>();
     dist.set(`${start.x},${start.y},${start.z}`, 0);
 
     while (head < deque.length) {
@@ -301,7 +307,7 @@ export function proximeterDistance(start: Point3D, end: Point3D, maze: Int8Array
  * @returns {{x:number,y:number,z:number}[]|null}
  */
 export function bfsNearestUnvisited(start: Point3D, visitedNodes: Set<string>, maze: Int8Array, size: number, types: any, getNeighborsFn: Function): Point3D[] | null {
-    const queue = [{ x: start.x, y: start.y, z: start.z, path: [] }];
+    const queue = [{ x: start.x, y: start.y, z: start.z, path: [] as Point3D[] }];
     let head = 0;
 
     // Optimized: contiguous 1D array for tracking visited cells in current search

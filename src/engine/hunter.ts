@@ -1,11 +1,28 @@
 /**
  * Enemy Hunter Logic
  */
-import { aStarPath, bfsNearestUnvisited } from './pathfinder.js';
+import { aStarPath, bfsNearestUnvisited, Point3D } from './pathfinder.js';
 
 export interface HunterState { id: number; x: number; y: number; z: number; }
 export class Hunter {
-    constructor(maze, startPos, id) {
+    maze: any;
+    id: number;
+    history: Point3D[];
+    visitedNodes: Set<string>;
+    pathToTarget: Point3D[];
+    x: number | null;
+    y: number | null;
+    z: number | null;
+    visualX: number | null;
+    visualY: number | null;
+    visualZ: number | null;
+    state: string;
+    lastPos: Point3D | null;
+    jellyTime: number;
+    lowCanvas!: HTMLCanvasElement;
+    lctx!: CanvasRenderingContext2D | null;
+
+    constructor(maze: any, startPos: Point3D | null, id: number) {
         this.maze = maze;
         this.id = id;
         this.history = [];
@@ -43,11 +60,11 @@ export class Hunter {
         }
     }
 
-    generateCloudTexture(dt = 0.016) {
+    generateCloudTexture(dt: number = 0.016) {
         if (this.state === 'SLEEP') return;
         this.jellyTime += dt;
 
-        if (typeof document === 'undefined') return;
+        if (typeof document === 'undefined' || !this.lctx) return;
 
         const size = 64;
         const lctx = this.lctx;
@@ -135,13 +152,13 @@ export class Hunter {
         }
     }
 
-    move(playerPos, matrix, types) {
-        if (this.state === 'SLEEP') return;
+    move(playerPos: Point3D, matrix: Int8Array, types: any) {
+        if (this.state === 'SLEEP' || this.x === null || this.y === null || this.z === null) return;
         const neighbors = this.getValidNeighbors(matrix, types);
         if (neighbors.length === 0) return;
 
         // Transition to TRACKING if stepping on player's trail (VISITED, START, EXIT)
-        const currentCellVal = matrix.get(this.x, this.y, this.z);
+        const currentCellVal = matrix[this.x * matrix.length + this.y * matrix.length + this.z] ?? 0;
         if (currentCellVal === types.VISITED && this.state !== 'TELEPORT_TRACKING') {
             if (this.state !== 'TRACKING') {
                 this.state = 'TRACKING';
@@ -151,11 +168,12 @@ export class Hunter {
             }
         }
 
-        let next;
+        let next: Point3D | undefined;
         
         if (this.pathToTarget.length > 0) {
             const checkNext = this.pathToTarget[0];
-            const checkVal = matrix.get(checkNext.x, checkNext.y, checkNext.z);
+            const size = Math.round(Math.cbrt(matrix.length));
+            const checkVal = matrix[checkNext.x * size * size + checkNext.y * size + checkNext.z];
             const stillValid = this.state === 'TRACKING' ? 
                 (checkVal === types.VISITED || checkVal === types.START || checkVal === types.EXIT) :
                 (checkVal !== types.WALL);
@@ -169,7 +187,7 @@ export class Hunter {
 
         if (!next) {
             if (this.state === 'TELEPORT_TRACKING') {
-                next = null; // Wait at teleport destination
+                next = undefined; // Wait at teleport destination
             } else {
                 let path = this.findPathToNearestUnvisited(matrix, types);
                 if (!path || path.length === 0) {
@@ -182,7 +200,8 @@ export class Hunter {
                     this.pathToTarget = path;
                     next = this.pathToTarget.shift();
                 } else {
-                    const forward = neighbors.filter(n => n.x !== this.lastPos.x || n.y !== this.lastPos.y || n.z !== this.lastPos.z);
+                    const last = this.lastPos || { x: this.x, y: this.y, z: this.z };
+                    const forward = neighbors.filter(n => n.x !== last.x || n.y !== last.y || n.z !== last.z);
                     next = forward.length > 0 ? forward[Math.floor(Math.random() * forward.length)] : neighbors[0];
                 }
             }
@@ -201,41 +220,44 @@ export class Hunter {
         }
     }
 
-    findPathToTarget(targetPos, matrix, types) {
+    findPathToTarget(targetPos: Point3D, matrix: Int8Array, types: any) {
         // Delegates to optimal A* in pathfinder.js using size
+        const size = Math.round(Math.cbrt(matrix.length));
         const path = aStarPath(
-            { x: this.x, y: this.y, z: this.z },
+            { x: this.x!, y: this.y!, z: this.z! },
             targetPos,
             matrix,
-            matrix.size,
+            size,
             types.WALL,
             this.maze.startPos
         );
         return path;
     }
 
-    findPathToNearestUnvisited(matrix, types) {
+    findPathToNearestUnvisited(matrix: Int8Array, types: any) {
+        const size = Math.round(Math.cbrt(matrix.length));
         return bfsNearestUnvisited(
-            { x: this.x, y: this.y, z: this.z },
+            { x: this.x!, y: this.y!, z: this.z! },
             this.visitedNodes,
             matrix,
-            matrix.size,
+            size,
             types,
-            (cx, cy, cz, mat, t) => this.getValidNeighbors(mat, t, cx, cy, cz, this.state === 'TRACKING')
+            (cx: number, cy: number, cz: number, mat: Int8Array, t: any) => this.getValidNeighbors(mat, t, cx, cy, cz, this.state === 'TRACKING')
         );
     }
 
-    getValidNeighbors(matrix, types, cx = this.x, cy = this.y, cz = this.z, restrictToPlayerTrail = (this.state === 'TRACKING')) {
-        const neighbors = [];
+    getValidNeighbors(matrix: Int8Array, types: any, cx: number = this.x!, cy: number = this.y!, cz: number = this.z!, restrictToPlayerTrail: boolean = (this.state === 'TRACKING')) {
+        const neighbors: Point3D[] = [];
         const dirs = [
             { dx: 1, dy: 0, dz: 0 }, { dx: -1, dy: 0, dz: 0 },
             { dx: 0, dy: 1, dz: 0 }, { dx: 0, dy: -1, dz: 0 },
             { dx: 0, dy: 0, dz: 2 }, { dx: 0, dy: 0, dz: -2 }
         ];
+        const size = Math.round(Math.cbrt(matrix.length));
         
         for (const d of dirs) {
             const nx = cx + d.dx, ny = cy + d.dy, nz = cz + d.dz;
-            if (nx >= 0 && nx < matrix.size && ny >= 0 && ny < matrix.size && nz >= 0 && nz < matrix.size) {
+            if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size) {
                 // Caçadores não podem entrar na célula de partida segura
                 const startX = Math.floor(this.maze.startPos.x);
                 const startY = Math.floor(this.maze.startPos.y);
@@ -244,7 +266,7 @@ export class Hunter {
                     continue;
                 }
 
-                const cellVal = matrix.get(nx, ny, nz);
+                const cellVal = matrix[nx * size * size + ny * size + nz];
                 if (cellVal === types.EXIT) {
                     continue;
                 }
@@ -252,7 +274,7 @@ export class Hunter {
                 if (cellVal !== types.WALL && cellVal !== 8) {
                     if (d.dz !== 0) {
                         const midZ = cz + d.dz / 2;
-                        if (matrix.get(cx, cy, midZ) === types.WALL) {
+                        if (matrix[cx * size * size + cy * size + midZ] === types.WALL) {
                             continue; // No elevator connecting these floors on this cell
                         }
                     }
