@@ -3554,7 +3554,7 @@ export class Engine {
                     continue;
                 }
 
-                const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                const isTeleport = this.allTeleports.some(t => t.x === x && t.y === y && t.z === z);
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
                 const isKey = val === this.mazeGen.TYPES.KEY;
@@ -3633,11 +3633,27 @@ export class Engine {
                     drawCellWithFade(x, y, () => {
                         const isVisitedKey = this.visitedCells.has(`${x},${y},${z}`);
                         if (isVisitedKey) {
-                            if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
-                                ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
-                            } else {
-                                ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                            if (isTeleportDiscovered) {
+                                const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
+                                if (isStartTeleport) {
+                                    ctx.fillStyle = CONFIG.COLORS.START;
+                                } else {
+                                    const isInactive = this.inactiveTeleportPos && 
+                                                       this.inactiveTeleportPos.x === x && 
+                                                       this.inactiveTeleportPos.y === y && 
+                                                       this.inactiveTeleportPos.z === z;
+                                    ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                }
                                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            } else if (isElevator) {
+                                this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
+                            } else {
+                                if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                                    ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                                } else {
+                                    ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                }
                             }
                         }
 
