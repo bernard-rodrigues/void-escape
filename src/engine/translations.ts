@@ -84,6 +84,9 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         victoryText: "You have successfully navigated the 3D void.",
         victoryCompletion: "MAP COMPLETION: {percent}%",
         mapCompletion: "MAP COMPLETION",
+        victoryDeaths: "DEATHS",
+        victoryDegree: "MAZE DEGREE",
+        victoryTime: "COMPLETION TIME",
         playAgain: "PLAY AGAIN",
         mainMenu: "MAIN MENU",
 
@@ -195,6 +198,9 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         victoryText: "Você atravessou o vazio 3D com sucesso.",
         victoryCompletion: "MAPA COMPLETO: {percent}%",
         mapCompletion: "MAPA COMPLETO",
+        victoryDeaths: "MORTES",
+        victoryDegree: "GRAU DO LABIRINTO",
+        victoryTime: "TEMPO DE CONCLUSÃO",
         playAgain: "JOGAR NOVAMENTE",
         mainMenu: "MENU PRINCIPAL",
 
@@ -306,6 +312,9 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         victoryText: "3Dの虚空を無事に踏破した。",
         victoryCompletion: "マップ達成度: {percent}%",
         mapCompletion: "マップ達成度",
+        victoryDeaths: "死亡数",
+        victoryDegree: "迷路の次数",
+        victoryTime: "クリア時間",
         playAgain: "もう一度プレイ",
         mainMenu: "メインメニュー",
 
@@ -418,6 +427,9 @@ es: {
         victoryText: "Atravesaste el vacío 3D con éxito.",
         victoryCompletion: "MAPA COMPLETADO: {percent}%",
         mapCompletion: "MAPA COMPLETADO",
+        victoryDeaths: "MUERTES",
+        victoryDegree: "GRADO DEL LABERINTO",
+        victoryTime: "TIEMPO DE FINALIZACIÓN",
         playAgain: "JUGAR DE NUEVO",
         mainMenu: "MENÚ PRINCIPAL",
 

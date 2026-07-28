@@ -106,7 +106,7 @@ export class UIManager {
     /**
      * Show victory overlay and hide game controls.
      */
-    showVictory(mapCompletionPercent = 0) {
+    showVictory(mapCompletionPercent = 0, deathsCount = 0, degree = 8, elapsedTime = 0) {
         this.hideGameUI();
         if (this.uiVictoryScreen) {
             this.uiVictoryScreen.classList.remove('hidden');
@@ -114,6 +114,23 @@ export class UIManager {
         const completionEl = document.getElementById('victory-completion-rate');
         if (completionEl) {
             completionEl.innerText = `${mapCompletionPercent}%`;
+        }
+        const deathsEl = document.getElementById('victory-deaths-count');
+        if (deathsEl) {
+            deathsEl.innerText = String(deathsCount);
+        }
+        const degreeEl = document.getElementById('victory-maze-degree');
+        if (degreeEl) {
+            degreeEl.innerText = String(degree);
+        }
+        const timeEl = document.getElementById('victory-completion-time');
+        if (timeEl) {
+            const hrs = Math.floor(elapsedTime / 3600);
+            const mins = Math.floor((elapsedTime % 3600) / 60);
+            const secs = Math.floor(elapsedTime % 60);
+            const pad = (n: number) => String(n).padStart(2, '0');
+            const formatted = hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
+            timeEl.innerText = formatted;
         }
     }
 

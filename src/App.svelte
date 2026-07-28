@@ -289,6 +289,9 @@
         <h1 data-i18n="victoryTitle">Mission Accomplished</h1>
         <p data-i18n="victoryText">You have successfully navigated the 3D void.</p>
         <p class="victory-stats"><span data-i18n="mapCompletion">MAP COMPLETION</span>: <span id="victory-completion-rate">0%</span></p>
+        <p class="victory-stats"><span data-i18n="victoryDeaths">DEATHS</span>: <span id="victory-deaths-count">0</span></p>
+        <p class="victory-stats"><span data-i18n="victoryDegree">MAZE DEGREE</span>: <span id="victory-maze-degree">0</span></p>
+        <p class="victory-stats"><span data-i18n="victoryTime">COMPLETION TIME</span>: <span id="victory-completion-time">00:00</span></p>
         <div class="end-game-btns">
             <button id="restart-btn-victory" class="end-btn" data-i18n="playAgain">PLAY AGAIN</button>
             <button id="menu-btn-victory" class="end-btn" data-i18n="mainMenu">MAIN MENU</button>

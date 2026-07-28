@@ -186,6 +186,8 @@ export class Engine {
     isPreloadingActive!: boolean;
     prevGamepadStick!: { left: boolean; right: boolean; up: boolean; down: boolean; } | null;
     gamepadTeleportSelectedIndex!: number | null;
+    deathsCount!: number;
+    elapsedTime!: number;
 
     constructor(degree: number, branchingFactor: number, savedState: any = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
@@ -213,6 +215,8 @@ export class Engine {
         this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
         this.maze = this.mazeGen.generate();
         this.isResumedFromSave = !!savedState;
+        this.deathsCount = savedState ? (savedState.deathsCount || 0) : 0;
+        this.elapsedTime = savedState ? (savedState.elapsedTime || 0) : 0;
         this.mapCompletion100Triggered = false;
         this.hunterOnSameFloorDetected = false;
         this.dialogueUpTriggered = false;
@@ -684,7 +688,7 @@ export class Engine {
         this.isGameOver = true;
         clearSave(); // Victory clears the save so "Continue" is no longer offered
         const percent = this.getMapVisitedPercentage();
-        this.ui.showVictory(percent);
+        this.ui.showVictory(percent, this.deathsCount, this.degree, this.elapsedTime);
     }
 
     triggerDeath() {
@@ -774,6 +778,8 @@ export class Engine {
         this.dialogueDownTriggered = snapshot.dialogueDownTriggered || false;
         this.dialogueWhichWayTriggered = snapshot.dialogueWhichWayTriggered || false;
         this.dialogueDetectedTriggered = snapshot.dialogueDetectedTriggered || false;
+        this.deathsCount = snapshot.deathsCount !== undefined ? snapshot.deathsCount : 0;
+        this.elapsedTime = snapshot.elapsedTime !== undefined ? snapshot.elapsedTime : 0;
 
         this.populateVisitedCells();
         this.lastSavePos = { x: snapshot.player.x, y: snapshot.player.y, z: snapshot.player.z };
@@ -818,8 +824,8 @@ export class Engine {
                 hunter.visualX = hunter.x;
                 hunter.visualY = hunter.y;
                 hunter.visualZ = hunter.z;
-
                 this.isGameOver = true;
+                this.deathsCount++;
                 this.hideGameUI(); // Desativa o mapa 3D se ativo, controles etc.
 
                 this.ui.showInfoBanner(getTranslation('msgKeyDropped'));
@@ -1850,6 +1856,10 @@ export class Engine {
 
     update(dt: number) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        if (!this.isPaused && !this.isIntroPlaying && !this.isStoryActive) {
+            this.elapsedTime += dt;
+        }
 
         if (this.isStoryActive) {
             this.updateGamepad(dt);
