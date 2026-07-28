@@ -3009,6 +3009,9 @@ export class Engine {
                     this.deathAnimation = null;
                     this.isGameOver = false;
                     this.ui.initGameUI(this.isSafeMode);
+                    if (this.ui.uiMobileMap) {
+                        (this.ui.uiMobileMap as HTMLButtonElement).disabled = false;
+                    }
                     this.ui.showInfoBanner(getTranslation('msgPlayerRespawn'));
                 }
             }
