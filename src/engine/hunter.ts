@@ -258,7 +258,11 @@ export class Hunter {
                     }
                     
                     if (restrictToPlayerTrail) {
-                        if (cellVal === types.VISITED || cellVal === types.START || cellVal === types.EXIT) {
+                        const isVisited = cellVal === types.VISITED || 
+                                          cellVal === types.START || 
+                                          cellVal === types.EXIT ||
+                                          (this.maze.visitedCells && this.maze.visitedCells.has(`${nx},${ny},${nz}`));
+                        if (isVisited) {
                             neighbors.push({ x: nx, y: ny, z: nz });
                         }
                     } else {

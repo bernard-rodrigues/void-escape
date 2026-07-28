@@ -39,6 +39,9 @@ export class Engine {
     isTouchDevice!: boolean;
     isMouseOrTouchDetected!: boolean;
     teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
+    visitedCells!: Set<string>;
+    lastSavePos!: { x: number; y: number; z: number } | null;
+    suppressWakeHuntersBanner!: boolean;
 
     constructor(degree, branchingFactor, savedState = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
@@ -180,6 +183,9 @@ export class Engine {
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
+        this.visitedCells = new Set();
+        this.lastSavePos = null;
+        this.suppressWakeHuntersBanner = false;
         const startGridX = Math.floor(this.player.x);
         const startGridY = Math.floor(this.player.y);
         const startGridZ = this.player.z;
@@ -248,7 +254,23 @@ export class Engine {
         this.exitPathfinderUnlocked = this.checkExitNeighborVisited();
 
         this.initThree();
+        this.populateVisitedCells();
         this.init(savedState);
+    }
+
+    populateVisitedCells() {
+        this.visitedCells.clear();
+        const size = this.mazeGen.size;
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val === 2 || val === 3 || val === 5) {
+                        this.visitedCells.add(`${x},${y},${z}`);
+                    }
+                }
+            }
+        }
     }
 
     destroy() {
@@ -483,7 +505,10 @@ export class Engine {
             hunter.history = [];
         }
 
-        this.ui.showInfoBanner(getTranslation('msgVoidHuntersDetected'));
+        if (!this.suppressWakeHuntersBanner) {
+            this.ui.showInfoBanner(getTranslation('msgVoidHuntersDetected'));
+        }
+        this.suppressWakeHuntersBanner = false;
         this.staticMapCacheDirty = true;
         if (this.isMap3DActive) {
             this.build3DMap();
@@ -507,6 +532,7 @@ export class Engine {
     triggerSave() {
         saveGame(this);
         this.hasSavePoint = true;
+        this.lastSavePos = { x: this.player.x, y: this.player.y, z: this.player.z };
         this.ui.showSavingIndicator();
     }
 
@@ -524,6 +550,7 @@ export class Engine {
 
     collectKey(x, y, z) {
         this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
+        this.visitedCells.add(`${x},${y},${z}`);
         this.keysCollected++;
         this.staticMapCacheDirty = true;
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
@@ -603,6 +630,9 @@ export class Engine {
         this.dialogueDownTriggered = snapshot.dialogueDownTriggered || false;
         this.dialogueWhichWayTriggered = snapshot.dialogueWhichWayTriggered || false;
         this.dialogueDetectedTriggered = snapshot.dialogueDetectedTriggered || false;
+
+        this.populateVisitedCells();
+        this.lastSavePos = { x: snapshot.player.x, y: snapshot.player.y, z: snapshot.player.z };
         this.hunterOnSameFloorDetected = snapshot.hunterOnSameFloorDetected || false;
 
         // Mark that this session was loaded from a save (so Continue remains available
@@ -648,6 +678,8 @@ export class Engine {
                 this.isGameOver = true;
                 this.hideGameUI(); // Desativa o mapa 3D se ativo, controles etc.
 
+                this.ui.showInfoBanner(getTranslation('msgKeyDropped'));
+
                 this.deathAnimation = {
                     active: true,
                     hunter: hunter,
@@ -655,6 +687,9 @@ export class Engine {
                     elapsed: 0,
                     duration: 1.8, // 1.8 segundos para a corrupção cobrir toda a tela
                     screenFilled: false,
+                    reversing: false,
+                    delayElapsed: 0,
+                    delayDuration: 1.5, // 1.5s de delay com tela congelada antes da corrupção
                     glitchElapsed: 0,
                     glitchDuration: 1.5,
                     uiFade: 0,
@@ -2004,6 +2039,7 @@ export class Engine {
                             this.collectKey(gx, gy, gz);
                         } else {
                             this.maze.set(gx, gy, gz, this.mazeGen.TYPES.VISITED);
+                            this.visitedCells.add(`${gx},${gy},${gz}`);
                         }
                         this.staticMapCacheDirty = true;
                     }
@@ -2048,6 +2084,7 @@ export class Engine {
             if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
                 if (this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.PATH) {
                     this.maze.set(playerIdxX, playerIdxY, playerIdxZ, this.mazeGen.TYPES.VISITED);
+                    this.visitedCells.add(`${playerIdxX},${playerIdxY},${playerIdxZ}`);
                     this.staticMapCacheDirty = true;
                 } else if (isOnTeleport) {
                     const key = `${playerIdxX},${playerIdxY},${playerIdxZ}`;
@@ -2341,7 +2378,7 @@ export class Engine {
         const isFloorVisited = (fx, fy, fz) => {
             if (fz < 0 || fz >= size) return false;
             const fVal = this.maze.get(fx, fy, fz);
-            return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`));
+            return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`)) || this.visitedCells.has(`${fx},${fy},${fz}`);
         };
 
         this.gridMeshes = new Array(size * size * size).fill(null);
@@ -2503,7 +2540,12 @@ export class Engine {
                         this.scene.add(mesh);
                         this.keyMeshes.push(mesh);
                         this.pulsatingMaterials.push(keyMat);
-                        continue;
+                        
+                        // If the key coordinate is not in visitedCells, skip rendering the floor tile
+                        const isVisitedKey = this.visitedCells.has(`${x},${y},${z}`);
+                        if (!isVisitedKey) {
+                            continue;
+                        }
                     }
 
                     const key = `${x},${y},${z}`;
@@ -2752,25 +2794,71 @@ export class Engine {
     
     draw2DMap(dt = 0.016) {
         if (this.deathAnimation && this.deathAnimation.active) {
-            if (!this.deathAnimation.screenFilled) {
+            if (this.deathAnimation.delayElapsed < this.deathAnimation.delayDuration) {
+                // Phase 0: Pre-death delay (key jumping, sprite flashing, message showing, time frozen)
+                this.deathAnimation.delayElapsed += dt;
+                this.updateNotification(dt);
+            } else if (!this.deathAnimation.screenFilled) {
+                // Phase 1: Corruption overlay expands
                 this.deathAnimation.elapsed += dt;
+                this.updateNotification(dt);
                 if (this.deathAnimation.elapsed >= this.deathAnimation.duration) {
                     this.deathAnimation.screenFilled = true;
-                }
-            } else {
-                this.deathAnimation.glitchElapsed += dt;
-                if (!this.deathAnimation.uiTriggered) {
-                    this.deathAnimation.uiTriggered = true;
-                    this.ui.showDeath(this.hasSavePoint);
-                    const el = document.getElementById('game-over-screen');
-                    if (el) {
-                        el.style.opacity = '0';
+                    
+                    // Clear the death/key drop notification so it doesn't linger after respawn!
+                    this.activeNotification = null;
+                    this.notificationQueue = [];
+                    
+                    // --- TRANSITION RUNNING BEHIND BLACKOUT ---
+                    
+                    // 1. Drop a key at the player's death position
+                    const deathX = Math.floor(this.deathAnimation.playerPos.x);
+                    const deathY = Math.floor(this.deathAnimation.playerPos.y);
+                    const deathZ = this.deathAnimation.playerPos.z;
+                    
+                    this.maze.set(deathX, deathY, deathZ, this.mazeGen.TYPES.KEY);
+                    this.totalKeys++;
+                    this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
+                    this.staticMapCacheDirty = true;
+                    
+                    // 2. Teleport player to the last visited save point (or startPos)
+                    let targetX = this.mazeGen.startPos.x;
+                    let targetY = this.mazeGen.startPos.y;
+                    let targetZ = this.mazeGen.startPos.z;
+                    
+                    if (this.lastSavePos) {
+                        targetX = this.lastSavePos.x;
+                        targetY = this.lastSavePos.y;
+                        targetZ = this.lastSavePos.z;
                     }
+                    
+                    this.player.x = targetX;
+                    this.player.y = targetY;
+                    this.player.z = targetZ;
+                    this.activeMapFloor = targetZ;
+                    this.visualActiveFloor = targetZ;
+                    this.lastPlayerCell = { x: Math.floor(targetX), y: Math.floor(targetY), z: targetZ };
+                    
+                    // 3. Re-initialize / Reset Hunters to sleep mode & suppress wake banner
+                    this.hunters = [];
+                    this.initHunters(this.degree);
+                    this.suppressWakeHuntersBanner = true;
+                    
+                    // 4. Update the saved state in localStorage automatically
+                    saveGame(this);
+                    
+                    // 5. Start reversing the animation
+                    this.deathAnimation.reversing = true;
                 }
-                this.deathAnimation.uiFade = Math.min(1, this.deathAnimation.glitchElapsed / this.deathAnimation.glitchDuration);
-                const el = document.getElementById('game-over-screen');
-                if (el) {
-                    el.style.opacity = this.deathAnimation.uiFade;
+            } else if (this.deathAnimation.reversing) {
+                // Phase 3: Corruption shrinking
+                this.deathAnimation.elapsed -= dt;
+                if (this.deathAnimation.elapsed <= 0) {
+                    // --- END TRANSITION ---
+                    this.deathAnimation = null;
+                    this.isGameOver = false;
+                    this.ui.initGameUI(this.isSafeMode);
+                    this.ui.showInfoBanner(getTranslation('msgPlayerRespawn'));
                 }
             }
         }
@@ -3020,7 +3108,7 @@ export class Engine {
         }
 
         // 4. Draw Player (isometric sprite with direction memory and squash/squeeze animation)
-        if (!this.deathAnimation || !this.deathAnimation.active) {
+        if (!this.deathAnimation || !this.deathAnimation.screenFilled) {
             const stateKey = `${this.playerVertical}_${this.playerSide}`;
             const img = this.mageImages[stateKey];
             
@@ -3069,8 +3157,18 @@ export class Engine {
                 }
             }
 
+            let playerOpacity = 1.0;
+            if (this.deathAnimation && this.deathAnimation.active) {
+                const flashInterval = 120; // ms
+                const show = Math.floor(Date.now() / flashInterval) % 2 === 0;
+                if (!show) {
+                    playerOpacity = 0.2;
+                }
+            }
+
             if (img && img.complete) {
                 ctx.save();
+                ctx.globalAlpha = playerOpacity;
                 
                 const drawSize = cellSize * 0.90; 
                 const imgW = drawSize;
@@ -3087,10 +3185,11 @@ export class Engine {
             } else {
                 // Fallback to original ball and direction line if image is not loaded
                 ctx.save();
+                ctx.globalAlpha = playerOpacity;
+                
                 ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
                 ctx.lineWidth = 1;
                 ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
-                ctx.restore();
                 
                 ctx.fillStyle = CONFIG.COLORS.PLAYER;
                 ctx.beginPath();
@@ -3103,6 +3202,8 @@ export class Engine {
                 ctx.moveTo(cx, cy);
                 ctx.lineTo(cx + Math.cos(this.player.dir) * cellSize * 1, cy + Math.sin(this.player.dir) * cellSize * 1);
                 ctx.stroke();
+                
+                ctx.restore();
             }
 
             if (CONFIG.SHOW_COLLISION_DEBUG) {
@@ -3114,6 +3215,33 @@ export class Engine {
                 const drawOffsetY = (CONFIG.PLAYER_COLLISION_OFFSET_Y || 0) * cellSize;
                 ctx.strokeRect(cx + drawOffsetX - boxSize / 2, cy + drawOffsetY - boxSize / 2, boxSize, boxSize);
                 ctx.restore();
+            }
+
+            if (this.deathAnimation && this.deathAnimation.active) {
+                // Key jumps/arcs up and down during the pre-death freeze phase (vertical throw starting at head and landing on ground)
+                const progress = Math.min(1.0, this.deathAnimation.delayElapsed / this.deathAnimation.delayDuration);
+                
+                // Mage height (head level is negative Y offset)
+                const startH = -(img && img.complete ? (cellSize * 0.90 * (img.height / img.width) * 0.85) : (cellSize * 0.5));
+                const peakHeight = cellSize * 0.7; // peak height above player head
+                
+                // Parabolic interpolation from head (startH) to ground (0)
+                const keyYOffset = (1.0 - progress) * startH - 4 * peakHeight * progress * (1.0 - progress);
+                
+                if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
+                    ctx.save();
+                    const keySize = cellSize * 0.55;
+                    ctx.drawImage(this.keyImage, cx - keySize / 2, cy + keyYOffset - keySize / 2, keySize, keySize);
+                    ctx.restore();
+                } else {
+                    // Fallback gold dot
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + keyYOffset, cellSize * 0.15, 0, 2*Math.PI);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fill();
+                    ctx.restore();
+                }
             }
         }
 
@@ -3195,8 +3323,14 @@ export class Engine {
         // Draw death animation corruption / glitch overlay
         if (this.deathAnimation && this.deathAnimation.active) {
             const h = this.deathAnimation.hunter;
+            let centerGridX = h.visualX + 0.5;
+            let centerGridY = h.visualY + 0.5;
+            if (this.deathAnimation.reversing) {
+                centerGridX = this.player.x;
+                centerGridY = this.player.y;
+            }
             
-            // Calcula o centro do hunter na tela
+            // Calcula o centro na tela
             let screenX, screenY;
             if (useZoom) {
                 const scaleTransition = 11 / this.zoomVisibleCells;
@@ -3210,14 +3344,14 @@ export class Engine {
                 
                 const cx = ctx.canvas.width / 2;
                 const cy = ctx.canvas.height / 2;
-                screenX = cx + (h.visualX + 0.5 - camX) * cellSize * scaleTransition;
-                screenY = cy + (h.visualY + 0.5 - camY) * cellSize * scaleTransition;
+                screenX = cx + (centerGridX - camX) * cellSize * scaleTransition;
+                screenY = cy + (centerGridY - camY) * cellSize * scaleTransition;
             } else {
-                screenX = (h.visualX + 0.5) * cellSize;
-                screenY = (h.visualY + 0.5) * cellSize;
+                screenX = centerGridX * cellSize;
+                screenY = centerGridY * cellSize;
             }
 
-            if (!this.deathAnimation.screenFilled) {
+            if (!this.deathAnimation.screenFilled || this.deathAnimation.reversing) {
                 const maxRadius = Math.hypot(ctx.canvas.width, ctx.canvas.height) * 1.1;
                 const progress = this.deathAnimation.elapsed / this.deathAnimation.duration;
                 // Easing in out para a expansão da corrupção
@@ -3420,7 +3554,7 @@ export class Engine {
                     continue;
                 }
 
-                const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                const isTeleport = this.allTeleports.some(t => t.x === x && t.y === y && t.z === z);
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
                 const isKey = val === this.mazeGen.TYPES.KEY;
@@ -3497,6 +3631,32 @@ export class Engine {
                     });
                 } else if (isKey) {
                     drawCellWithFade(x, y, () => {
+                        const isVisitedKey = this.visitedCells.has(`${x},${y},${z}`);
+                        if (isVisitedKey) {
+                            if (isTeleportDiscovered) {
+                                const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
+                                if (isStartTeleport) {
+                                    ctx.fillStyle = CONFIG.COLORS.START;
+                                } else {
+                                    const isInactive = this.inactiveTeleportPos && 
+                                                       this.inactiveTeleportPos.x === x && 
+                                                       this.inactiveTeleportPos.y === y && 
+                                                       this.inactiveTeleportPos.z === z;
+                                    ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                }
+                                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            } else if (isElevator) {
+                                this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
+                            } else {
+                                if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                                    ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                                } else {
+                                    ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                }
+                            }
+                        }
+
                         const bobbingOffset = cellSize * 0.05 * Math.sin(Date.now() / 300);
                         if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
                             ctx.drawImage(this.keyImage, x * cellSize + cellSize * 0.15, y * cellSize + cellSize * 0.15 + bobbingOffset, cellSize * 0.7, cellSize * 0.7);
@@ -4638,6 +4798,7 @@ export class Engine {
         
         if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH) {
             this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
+            this.visitedCells.add(`${x},${y},${z}`);
         }
 
         if (!this.isSafeMode) {
@@ -5777,6 +5938,15 @@ export class Engine {
             const stateKey = `${this.playerVertical}_${this.playerSide}`;
             const img = this.mageImages[stateKey];
             
+            let playerOpacity = opacity;
+            if (this.deathAnimation && this.deathAnimation.active) {
+                const flashInterval = 120; // ms
+                const show = Math.floor(Date.now() / flashInterval) % 2 === 0;
+                if (!show) {
+                    playerOpacity = 0.2;
+                }
+            }
+
             // ==========================================
             // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR AQUI:
             // ==========================================
@@ -5788,13 +5958,13 @@ export class Engine {
             ctx.save();
             ctx.beginPath();
             ctx.ellipse(shadowX, shadowY, shadowW, shadowH, 0, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+            ctx.fillStyle = `rgba(0, 0, 0, ${playerOpacity * 0.45})`;
             ctx.fill();
             ctx.restore();
 
             if (img && img.complete) {
                 ctx.save();
-                ctx.globalAlpha = opacity;
+                ctx.globalAlpha = playerOpacity;
                 
                 const drawSize = tileWidth * 0.70; 
                 const imgW = drawSize;
@@ -5806,7 +5976,7 @@ export class Engine {
                 ctx.restore();
             } else {
                 ctx.save();
-                ctx.globalAlpha = opacity;
+                ctx.globalAlpha = playerOpacity;
                 ctx.beginPath();
                 ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
                 ctx.fillStyle = CONFIG.COLORS.PLAYER;
@@ -5815,6 +5985,33 @@ export class Engine {
                 ctx.lineWidth = 1.5;
                 ctx.stroke();
                 ctx.restore();
+            }
+
+            if (this.deathAnimation && this.deathAnimation.active) {
+                // Key jumps/arcs up and down during the pre-death freeze phase (vertical throw starting at head and landing on ground)
+                const progress = Math.min(1.0, this.deathAnimation.delayElapsed / this.deathAnimation.delayDuration);
+                
+                // Mage height (head level is negative Y offset)
+                const startH = -(img && img.complete ? (tileWidth * 0.70 * (img.height / img.width)) : (tileWidth * 0.5));
+                const peakHeight = tileWidth * 0.7; // peak height above player head
+                
+                // Parabolic interpolation from head (startH) to ground (0)
+                const keyYOffset = (1.0 - progress) * startH - 4 * peakHeight * progress * (1.0 - progress);
+                
+                if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
+                    ctx.save();
+                    const keySize = tileWidth * 0.55;
+                    ctx.drawImage(this.keyImage, cx - keySize / 2, cy - keySize / 2 + keyYOffset, keySize, keySize);
+                    ctx.restore();
+                } else {
+                    // Fallback gold dot
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + keyYOffset, tileWidth * 0.15, 0, 2*Math.PI);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fill();
+                    ctx.restore();
+                }
             }
 
             if (CONFIG.SHOW_COLLISION_DEBUG) {
