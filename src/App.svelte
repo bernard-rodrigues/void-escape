@@ -130,6 +130,16 @@
             };
         }
 
+        const mobileTeleportExitBtn = document.getElementById('mobile-teleport-exit-btn');
+        if (mobileTeleportExitBtn) {
+            mobileTeleportExitBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (currentGame && currentGame.isTeleportMode) {
+                    currentGame.toggleTeleportMap(false);
+                }
+            };
+        }
+
         // Bind clicks for the start menu
         const startBtn = document.getElementById('start-btn');
         if (startBtn && degreeSlider) {
