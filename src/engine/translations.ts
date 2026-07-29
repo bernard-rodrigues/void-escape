@@ -97,6 +97,9 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         // Loading / Saving indicators
         saving: "SAVING...",
         generatingMaze: "GENERATING MAZE...",
+        hudMana: "Mana",
+        victoryMana: "MANA COLLECTED",
+        msgManaSecured: "Mana secured ({collected}/{total})",
         teleportAnomaly: "TELEPORT ANOMALY",
         ticks: "TICKS",
 
@@ -212,6 +215,9 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         // Loading / Saving indicators
         saving: "SALVANDO...",
         generatingMaze: "GERANDO LABIRINTO...",
+        hudMana: "Mana",
+        victoryMana: "MANA COLETADA",
+        msgManaSecured: "Mana absorvida ({collected}/{total})",
         teleportAnomaly: "ANOMALIA DE TELEPORTE",
         ticks: "TICKS",
 
@@ -327,6 +333,9 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         // Loading / Saving indicators
         saving: "セーブ中…",
         generatingMaze: "迷路生成中...",
+        hudMana: "マナ",
+        victoryMana: "マナ回収量",
+        msgManaSecured: "マナを獲得しました ({collected}/{total})",
         teleportAnomaly: "テレポート異常",
         ticks: "ティック",
 
@@ -442,7 +451,10 @@ es: {
 
         // Loading / Saving indicators
         saving: "GUARDANDO...",
-        generatingMaze: "GENERANDO LABERINTO...",
+        generatingMaze: "GENERANDO LABIRINTO...",
+        hudMana: "Maná",
+        victoryMana: "MANÁ RECOLECTADA",
+        msgManaSecured: "Maná asegurado ({collected}/{total})",
         teleportAnomaly: "ANOMALÍA DE TELETRANSPORTE",
         ticks: "TICKS",
 

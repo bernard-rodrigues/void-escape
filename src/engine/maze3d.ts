@@ -31,7 +31,7 @@ export class Maze3D {
 
         this.matrix = this.initMatrix();
         
-        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6, KEY: 7, STATUE: 8 };
+        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6, KEY: 7, STATUE: 8, MANA: 9 };
         this.startPos = {
             x: CONFIG.PLAYER_START_X !== undefined ? CONFIG.PLAYER_START_X : 0.5,
             y: CONFIG.PLAYER_START_Y !== undefined ? CONFIG.PLAYER_START_Y : 1.5,
@@ -93,6 +93,7 @@ export class Maze3D {
         this.placeKeys();
         this.applyBraid();
         this.placeStatues();
+        this.placeManas();
 
         // Enrich the TypedArray with convenience O(1) coordinate mapping methods
         const size = this.size;
@@ -587,5 +588,27 @@ export class Maze3D {
             }
         }
         return placedCount;
+    }
+
+    placeManas(): void {
+        const { deadEnds } = this._collectDeadEndsAndPaths();
+        for (const p of deadEnds) {
+            const idx = this._idx(p.x, p.y, p.z);
+            const val = this.matrix[idx];
+            if (val === this.TYPES.PATH) {
+                // Verify if there is an elevator passing vertically through this cell
+                let hasElevator = false;
+                if (p.z - 1 >= 0 && this.matrix[this._idx(p.x, p.y, p.z - 1)] !== this.TYPES.WALL) {
+                    hasElevator = true;
+                }
+                if (p.z + 1 < this.size && this.matrix[this._idx(p.x, p.y, p.z + 1)] !== this.TYPES.WALL) {
+                    hasElevator = true;
+                }
+                
+                if (!hasElevator) {
+                    this.matrix[idx] = this.TYPES.MANA;
+                }
+            }
+        }
     }
 }

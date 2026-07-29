@@ -57,6 +57,7 @@ export class Engine {
     wallImage: HTMLImageElement;
     floorImage: HTMLImageElement;
     keyImage: HTMLImageElement;
+    manaImage: HTMLImageElement;
     statueImage: HTMLImageElement;
     mageImages: Record<string, HTMLImageElement>;
     playerSide: string;
@@ -72,6 +73,9 @@ export class Engine {
     exitMesh: any;
     keysCollected: number;
     totalKeys: number;
+    manaCollected: number;
+    totalMana: number;
+    manaMeshes: any[];
     totalPathfinders: number;
     pathfindersRemaining: number;
     activeMapFloor: number;
@@ -241,7 +245,13 @@ export class Engine {
         this.keyImage.onload = () => {
             this.staticMapCacheDirty = true;
         };
-        this.keyImage.src = 'assets/images/key.svg';
+        this.keyImage.src = 'assets/images/key.png';
+
+        this.manaImage = new Image();
+        this.manaImage.onload = () => {
+            this.staticMapCacheDirty = true;
+        };
+        this.manaImage.src = 'assets/images/mana.png';
         
         this.statueImage = new Image();
         this.statueImage.onload = () => {
@@ -315,9 +325,24 @@ export class Engine {
         this.pathRevealInterval = null;
         this.pathfinderBlockedUntil = 0;
 
+        this.manaCollected = 0;
+        this.totalMana = 0;
+        this.manaMeshes = [];
+        const mazeSizeForMana = this.mazeGen.size;
+        for (let x = 0; x < mazeSizeForMana; x++) {
+            for (let y = 0; y < mazeSizeForMana; y++) {
+                for (let z = 0; z < mazeSizeForMana; z++) {
+                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.MANA) {
+                        this.totalMana++;
+                    }
+                }
+            }
+        }
+
         this.ui.initGameUI(this.isSafeMode);
         this.ui.onInfoBanner = (msg) => this.queueNotification(msg);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
+        this.ui.updateManaHUD(this.manaCollected, this.totalMana);
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
 
         this.isMap3DActive = false;
@@ -690,7 +715,7 @@ export class Engine {
         this.isGameOver = true;
         clearSave(); // Victory clears the save so "Continue" is no longer offered
         const percent = this.getMapVisitedPercentage();
-        this.ui.showVictory(percent, this.deathsCount, this.degree, this.elapsedTime);
+        this.ui.showVictory(percent, this.deathsCount, this.degree, this.elapsedTime, this.manaCollected, this.totalMana);
     }
 
     triggerDeath() {
@@ -718,6 +743,15 @@ export class Engine {
                 }
             }
         }
+    }
+
+    collectMana(x: number, y: number, z: number) {
+        this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
+        this.visitedCells.add(`${x},${y},${z}`);
+        this.manaCollected++;
+        this.staticMapCacheDirty = true;
+        this.ui.updateManaHUD(this.manaCollected, this.totalMana);
+        this.ui.showInfoBanner(getTranslation('msgManaSecured', { collected: this.manaCollected, total: this.totalMana }));
     }
 
     triggerLockedExitWarning() {
@@ -761,6 +795,10 @@ export class Engine {
         this.keysCollected = snapshot.keysCollected !== undefined ? snapshot.keysCollected : 0;
         this.totalKeys = snapshot.totalKeys !== undefined ? snapshot.totalKeys : (CONFIG.getHunterCount(this.degree) * 2);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
+
+        this.manaCollected = snapshot.manaCollected !== undefined ? snapshot.manaCollected : 0;
+        this.totalMana = snapshot.totalMana !== undefined ? snapshot.totalMana : 0;
+        this.ui.updateManaHUD(this.manaCollected, this.totalMana);
 
         this.totalPathfinders = snapshot.totalPathfinders !== undefined ? snapshot.totalPathfinders : CONFIG.getPathfinderCount(this.degree);
         this.pathfindersRemaining = snapshot.pathfindersRemaining !== undefined ? snapshot.pathfindersRemaining : this.totalPathfinders;
@@ -2197,9 +2235,11 @@ export class Engine {
                 
                 const markOrCollect = (gx: number, gy: number, gz: number) => {
                     const val = this.maze.get(gx, gy, gz);
-                    if (val === this.mazeGen.TYPES.PATH || val === this.mazeGen.TYPES.KEY) {
+                    if (val === this.mazeGen.TYPES.PATH || val === this.mazeGen.TYPES.KEY || val === this.mazeGen.TYPES.MANA) {
                         if (val === this.mazeGen.TYPES.KEY) {
                             this.collectKey(gx, gy, gz);
+                        } else if (val === this.mazeGen.TYPES.MANA) {
+                            this.collectMana(gx, gy, gz);
                         } else {
                             this.maze.set(gx, gy, gz, this.mazeGen.TYPES.VISITED);
                             this.visitedCells.add(`${gx},${gy},${gz}`);
@@ -2536,6 +2576,7 @@ export class Engine {
         this.teleportMeshes = []; // Reset the array
         this.knownMeshes = []; // Reset the array
         this.keyMeshes = [];
+        this.manaMeshes = [];
         this.exitMesh = null;
         const size = this.mazeGen.size;
         const isFloorVisited = (fx: number, fy: number, fz: number) => {
@@ -2707,6 +2748,29 @@ export class Engine {
                         // If the key coordinate is not in visitedCells, skip rendering the floor tile
                         const isVisitedKey = this.visitedCells.has(`${x},${y},${z}`);
                         if (!isVisitedKey) {
+                            continue;
+                        }
+                    }
+
+                    const isMana = val === this.mazeGen.TYPES.MANA;
+                    if (isMana) {
+                        const manaGeom = new THREE.IcosahedronGeometry(0.22, 0);
+                        const manaMat = new THREE.MeshPhongMaterial({
+                            color: 0x00ffff,
+                            emissive: 0x00ffff,
+                            emissiveIntensity: 0.7 * opFactor,
+                            shininess: 120
+                        });
+                        const mesh = new THREE.Mesh(manaGeom, manaMat);
+                        mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
+                        mesh.userData = { isMana: true, gridX: x, gridY: y, gridZ: z };
+                        this.scene.add(mesh);
+                        this.manaMeshes.push(mesh);
+                        this.pulsatingMaterials.push(manaMat);
+
+                        // If the mana coordinate is not in visitedCells, skip rendering the floor tile
+                        const isVisitedMana = this.visitedCells.has(`${x},${y},${z}`);
+                        if (!isVisitedMana) {
                             continue;
                         }
                     }
@@ -3714,6 +3778,7 @@ export class Engine {
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
                 const isKey = val === this.mazeGen.TYPES.KEY;
+                const isMana = val === this.mazeGen.TYPES.MANA;
                 const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
                 const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
 
@@ -3839,6 +3904,30 @@ export class Engine {
                             ctx.beginPath();
                             ctx.arc(x * cellSize + cellSize/2, y * cellSize + cellSize/2 + bobbingOffset, cellSize * 0.25, 0, 2*Math.PI);
                             ctx.fillStyle = '#ffd700';
+                            ctx.fill();
+                        }
+                        this.drawCellShadow2D(ctx, x, y, cellSize, size, val, z);
+                    });
+                    hasActiveAnimations = true;
+                } else if (isMana) {
+                    drawCellWithFade(x, y, () => {
+                        const isVisitedMana = this.visitedCells.has(`${x},${y},${z}`);
+                        if (isVisitedMana) {
+                            if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                                ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                            } else {
+                                ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            }
+                        }
+
+                        const bobbingOffset = cellSize * 0.05 * Math.sin(Date.now() / 250);
+                        if (this.manaImage.complete && this.manaImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.manaImage, x * cellSize + cellSize * 0.15, y * cellSize + cellSize * 0.15 + bobbingOffset, cellSize * 0.7, cellSize * 0.7);
+                        } else {
+                            ctx.beginPath();
+                            ctx.arc(x * cellSize + cellSize/2, y * cellSize + cellSize/2 + bobbingOffset, cellSize * 0.2, 0, 2*Math.PI);
+                            ctx.fillStyle = '#00ffff';
                             ctx.fill();
                         }
                         this.drawCellShadow2D(ctx, x, y, cellSize, size, val, z);
@@ -6092,6 +6181,7 @@ export class Engine {
                     const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
 
                     const isKey = val === TYPES.KEY;
+                    const isMana = val === TYPES.MANA;
                     const isExit = val === TYPES.EXIT;
 
                     if (val === TYPES.WALL || val === TYPES.STATUE) {
@@ -6132,7 +6222,7 @@ export class Engine {
                         }
                     }
 
-                    const isVisible = isVisited || isKnown || isRevealedPath || isKey || isExit;
+                    const isVisible = isVisited || isKnown || isRevealedPath || isKey || isMana || isExit;
 
                     if (isVisible) {
                         const H = 1.5;
@@ -6188,8 +6278,8 @@ export class Engine {
                                 } else {
                                     color = '#1f3a52';
                                 }
-                            } else if (isKey) {
-                                color = '#111111'; // dark tile under unvisited keys
+                            } else if (isKey || isMana) {
+                                color = '#111111'; // dark tile under unvisited keys and mana
                             }
 
                             if (isVortex) {
@@ -6201,6 +6291,10 @@ export class Engine {
 
                         if (isKey) {
                             drawKey(coords.x, coords.y - H, opacity);
+                        }
+
+                        if (isMana) {
+                            drawMana(coords.x, coords.y - H, opacity);
                         }
 
                         if (isTeleportDiscovered) {
@@ -6316,17 +6410,48 @@ export class Engine {
             ctx.globalAlpha = opacity;
             const bounce = Math.sin(performance.now() / 200) * 3 - 6;
             const y = cy + bounce;
-            ctx.beginPath();
-            ctx.moveTo(cx, y - 5);
-            ctx.lineTo(cx + 4, y);
-            ctx.lineTo(cx, y + 5);
-            ctx.lineTo(cx - 4, y);
-            ctx.closePath();
-            ctx.fillStyle = '#ffd700';
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 1;
-            ctx.stroke();
+
+            if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
+                const size = tileWidth * 0.55;
+                ctx.drawImage(this.keyImage, cx - size / 2, y - size / 2, size, size);
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(cx, y - 5);
+                ctx.lineTo(cx + 4, y);
+                ctx.lineTo(cx, y + 5);
+                ctx.lineTo(cx - 4, y);
+                ctx.closePath();
+                ctx.fillStyle = '#ffd700';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            ctx.restore();
+        };
+
+        const drawMana = (cx: number, cy: number, opacity: number) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            const bounce = Math.sin(performance.now() / 250) * 3 - 6;
+            const y = cy + bounce;
+
+            if (this.manaImage.complete && this.manaImage.naturalWidth !== 0) {
+                const size = tileWidth * 0.55;
+                ctx.drawImage(this.manaImage, cx - size / 2, y - size / 2, size, size);
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(cx, y - 5);
+                ctx.lineTo(cx + 4, y);
+                ctx.lineTo(cx, y + 5);
+                ctx.lineTo(cx - 4, y);
+                ctx.closePath();
+                ctx.fillStyle = '#00ffff';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
             ctx.restore();
         };
 
