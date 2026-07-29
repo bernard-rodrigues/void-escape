@@ -1296,9 +1296,15 @@ export class Engine {
     drawCellShadow2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, size: number, val: number, z: number) {
         if (val === 4) return; // Exclude exit cell
 
-        const hasWallBelow = (y + 1 < size) && (this.maze.get(x, y + 1, z) === 0);
-        const hasWallRight = (x + 1 < size) && (this.maze.get(x + 1, y, z) === 0);
-        const hasWallDiagonal = (x + 1 < size) && (y + 1 < size) && (this.maze.get(x + 1, y + 1, z) === 0);
+        const isWallVisible = (wx: number, wy: number) => {
+            if (wx < 0 || wx >= size || wy < 0 || wy >= size) return false;
+            const wVal = this.maze.get(wx, wy, z);
+            return wVal === 0 && (this.isNearVisited(wx, wy, z) || this.isAdjacentToStatue(wx, wy, z));
+        };
+
+        const hasWallBelow = isWallVisible(x, y + 1);
+        const hasWallRight = isWallVisible(x + 1, y);
+        const hasWallDiagonal = isWallVisible(x + 1, y + 1);
 
         if (hasWallBelow || hasWallRight || hasWallDiagonal) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Sombra com 40% de opacidade
