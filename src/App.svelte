@@ -14,7 +14,19 @@
         document.getElementById('victory-screen')?.classList.add('hidden');
         document.getElementById('game-over-screen')?.classList.add('hidden');
 
-        currentGame = new Engine(degree, CONFIG.BRANCHING_FACTOR);
+        const loader = document.getElementById('loading-screen');
+        if (loader) {
+            loader.classList.remove('hidden');
+            localizeDOM();
+        }
+
+        setTimeout(() => {
+            try {
+                currentGame = new Engine(degree, CONFIG.BRANCHING_FACTOR);
+            } finally {
+                if (loader) loader.classList.add('hidden');
+            }
+        }, 50);
     }
 
     function continueGame() {
@@ -26,7 +38,19 @@
         document.getElementById('victory-screen')?.classList.add('hidden');
         document.getElementById('game-over-screen')?.classList.add('hidden');
 
-        currentGame = new Engine(snapshot.degree, snapshot.branchingFactor, snapshot);
+        const loader = document.getElementById('loading-screen');
+        if (loader) {
+            loader.classList.remove('hidden');
+            localizeDOM();
+        }
+
+        setTimeout(() => {
+            try {
+                currentGame = new Engine(snapshot.degree, snapshot.branchingFactor, snapshot);
+            } finally {
+                if (loader) loader.classList.add('hidden');
+            }
+        }, 50);
     }
 
     function returnToMenu() {
@@ -436,3 +460,10 @@
     <!-- 3D Holographic Map Container -->
     <div id="map3d-container" class="hidden"></div>
 </main>
+
+<section id="loading-screen" class="hidden">
+    <div class="story-loader">
+        <div class="spinner"></div>
+        <span data-i18n="generatingMaze">GENERATING MAZE...</span>
+    </div>
+</section>
