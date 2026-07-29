@@ -23,6 +23,8 @@ export interface Config {
   MOVE_SPEED_FACTOR: number;
   ROT_SPEED: number;
   HUNTER_SPEED: number;
+  VORTEX_SPEED_NORMAL: number;
+  VORTEX_SPEED_FAST: number;
   getHunterCount: (degree: number) => number;
   getTeleportCount: (degree: number) => number;
   getPathfinderCount: (degree: number) => number;
@@ -52,6 +54,8 @@ export const CONFIG: Config = {
     MOVE_SPEED_FACTOR: 2, // player is 2x faster than hunter speed
     ROT_SPEED: 3.0, // radians per second
     HUNTER_SPEED: 800, // ms per move
+    VORTEX_SPEED_NORMAL: 1.5, // Default slow rotation speed for the vortex (rad/s)
+    VORTEX_SPEED_FAST: 6.0,   // Fast rotation speed when player is on the vortex tile (rad/s)
     getHunterCount(degree: number) {
         if (degree >= 16) return 3;
         if (degree >= 8) return 2;
