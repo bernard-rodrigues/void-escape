@@ -208,7 +208,8 @@ export class UIManager {
      */
     updateFloor(z: number, hasUp: boolean, hasDown: boolean) {
         if (this.uiFloorSpan) {
-            this.uiFloorSpan.innerText = String(z);
+            const normalizedFloor = (z + 1) / 2;
+            this.uiFloorSpan.innerText = String(normalizedFloor);
         }
         if (this.uiMobileUp) {
             this.uiMobileUp.disabled = !hasUp;
