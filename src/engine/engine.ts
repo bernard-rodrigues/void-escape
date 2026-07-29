@@ -115,6 +115,7 @@ export class Engine {
     lastSavePos: { x: number; y: number; z: number } | null;
     suppressWakeHuntersBanner: boolean;
     allTeleports: { x: number; y: number; z: number }[];
+    vortexAngles!: Map<string, number>;
     
     // Additional properties set in other methods
     isTouchDevice!: boolean;
@@ -388,6 +389,7 @@ export class Engine {
         this.staticMapCacheDirty = true;
         this.fullyRevealedCells = new Set();
         this.revealedCellsAnimation = new Map();
+        this.vortexAngles = new Map();
         this.skipCellAnimations = true;
         this.populateFullyRevealedCells(this.player.z);
 
@@ -3091,6 +3093,8 @@ export class Engine {
         const cellSize = useZoom ? ctx.canvas.width / 11 : ctx.canvas.width / size;
         const px = this.player.x;
         const py = this.player.y;
+        const pCellX = Math.floor(px);
+        const pCellY = Math.floor(py);
 
         let isZooming = useZoom || this.isZoomTransitionActive;
         let visibleCells = useZoom ? this.zoomVisibleCells : size;
@@ -3136,26 +3140,7 @@ export class Engine {
         }
         ctx.drawImage(this.staticMapCacheCanvas, 0, 0);
 
-        // 2. Dynamic portal pulsation (drawn only when player stands on active portal)
-        const pCellX = Math.floor(px);
-        const pCellY = Math.floor(py);
-        const val = this.maze.get(pCellX, pCellY, z);
-        const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
-        const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${pCellX},${pCellY},${z}`);
-        if (isTeleportDiscovered) {
-            const isInactive = this.inactiveTeleportPos && 
-                               this.inactiveTeleportPos.x === pCellX && 
-                               this.inactiveTeleportPos.y === pCellY && 
-                               this.inactiveTeleportPos.z === z;
-            if (!isInactive) {
-                const portalPulse = 0.85 + 0.15 * Math.sin(Date.now() / 150);
-                ctx.save();
-                ctx.globalAlpha = portalPulse;
-                ctx.fillStyle = CONFIG.COLORS.TELEPORT;
-                ctx.fillRect(pCellX * cellSize, pCellY * cellSize, cellSize, cellSize);
-                ctx.restore();
-            }
-        }
+        // 2. Dynamic portal pulsation is no longer needed as the vortex tile itself accelerates as feedback when player stands on it
 
         // 3. Draw Hunters (dynamic, constantly moving)
         const pulse = Math.sin(Date.now() / 200) * 5 + 10;
@@ -3749,16 +3734,21 @@ export class Engine {
                     drawCellWithFade(x, y, () => {
                         if (isTeleportDiscovered) {
                             const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
-                            if (isStartTeleport) {
-                                ctx.fillStyle = CONFIG.COLORS.START;
+                            const key = `${x},${y},${z}`;
+                             if (isStartTeleport) {
+                                const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
+                                const baseColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
+                                this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere, key);
                             } else {
                                 const isInactive = this.inactiveTeleportPos && 
                                                    this.inactiveTeleportPos.x === x && 
                                                    this.inactiveTeleportPos.y === y && 
                                                    this.inactiveTeleportPos.z === z;
-                                ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
+                                this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
                             }
-                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            hasActiveAnimations = true;
                         } else if (isElevator) {
                             this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
                         } else {
@@ -3766,8 +3756,9 @@ export class Engine {
                                 ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
                             } else {
                                 if (val === this.mazeGen.TYPES.EXIT) {
-                                    ctx.fillStyle = CONFIG.COLORS.EXIT;
-                                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                    const key = `${x},${y},${z}`;
+                                    this.drawVortex2D(ctx, x, y, cellSize, CONFIG.COLORS.EXIT, false, key);
+                                    hasActiveAnimations = true;
                                     
                                     if (this.keysCollected < this.totalKeys) {
                                         ctx.strokeStyle = '#ff3300';
@@ -3791,8 +3782,16 @@ export class Engine {
                                         ctx.fillText(String(this.totalKeys - this.keysCollected), cx, cy + r * 0.6);
                                     }
                                 } else {
-                                    ctx.fillStyle = val === 2 ? CONFIG.COLORS.PATH_VISITED : CONFIG.COLORS.START;
-                                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                    if (val === 2) {
+                                        ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                    } else {
+                                        const key = `${x},${y},${z}`;
+                                        const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
+                                        const baseColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
+                                        this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere, key);
+                                        hasActiveAnimations = true;
+                                    }
                                 }
                             }
                         }
@@ -3806,16 +3805,21 @@ export class Engine {
                         if (isVisitedKey) {
                             if (isTeleportDiscovered) {
                                 const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
+                                const key = `${x},${y},${z}`;
                                 if (isStartTeleport) {
-                                    ctx.fillStyle = CONFIG.COLORS.START;
+                                    const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
+                                    const baseColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
+                                    this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere, key);
                                 } else {
                                     const isInactive = this.inactiveTeleportPos && 
                                                        this.inactiveTeleportPos.x === x && 
                                                        this.inactiveTeleportPos.y === y && 
                                                        this.inactiveTeleportPos.z === z;
-                                    ctx.fillStyle = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                    const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                    const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
+                                    this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
                                 }
-                                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                hasActiveAnimations = true;
                             } else if (isElevator) {
                                 this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
                             } else {
@@ -3960,6 +3964,8 @@ export class Engine {
             this.controls.update(); // drive auto-rotate during intro
         }
 
+        this.updateVortexAngles(clampedDt);
+
         if (this.isMap3DActive || this.isIntroPlaying) {
             if (this.isIntroPlaying) {
                 this.renderer.render(this.scene, this.camera);
@@ -3976,6 +3982,131 @@ export class Engine {
             this.draw2DMap(clampedDt);
         }
         requestAnimationFrame(() => this.loop());
+    }
+
+    updateVortexAngles(dt: number) {
+        if (!this.vortexAngles) return;
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+
+        // 1. Start Pos
+        const startX = Math.floor(this.mazeGen.startPos.x);
+        const startY = Math.floor(this.mazeGen.startPos.y);
+        const startZ = this.mazeGen.startPos.z;
+        const startKey = `${startX},${startY},${startZ}`;
+        const isPlayerOnStart = px === startX && py === startY && pz === startZ;
+        const startSpeed = isPlayerOnStart ? CONFIG.VORTEX_SPEED_FAST : CONFIG.VORTEX_SPEED_NORMAL;
+        this.vortexAngles.set(startKey, (this.vortexAngles.get(startKey) || 0) + dt * startSpeed);
+
+        // 2. Teleports
+        if (this.allTeleports) {
+            this.allTeleports.forEach(t => {
+                const key = `${t.x},${t.y},${t.z}`;
+                const isPlayerOnTeleport = px === t.x && py === t.y && pz === t.z;
+                const isInactive = this.inactiveTeleportPos && 
+                                   this.inactiveTeleportPos.x === t.x && 
+                                   this.inactiveTeleportPos.y === t.y && 
+                                   this.inactiveTeleportPos.z === t.z;
+                const speed = (isPlayerOnTeleport && !isInactive) ? CONFIG.VORTEX_SPEED_FAST : CONFIG.VORTEX_SPEED_NORMAL;
+                this.vortexAngles.set(key, (this.vortexAngles.get(key) || 0) + dt * speed);
+            });
+        }
+
+        // 3. Exit Pos
+        const exitPos = this.getExitPos();
+        if (exitPos) {
+            const exitKey = `${exitPos.x},${exitPos.y},${exitPos.z}`;
+            const exitSpeed = CONFIG.VORTEX_SPEED_NORMAL;
+            this.vortexAngles.set(exitKey, (this.vortexAngles.get(exitKey) || 0) + dt * exitSpeed);
+        }
+    }
+
+    getHexColorVariation(hex: string, amount: number): string {
+        let color = hex.replace('#', '');
+        if (color.length === 3) {
+            color = color.split('').map(c => c + c).join('');
+        }
+        let num = parseInt(color, 16);
+        let r = (num >> 16) + amount;
+        let g = ((num >> 8) & 0x00FF) + amount;
+        let b = (num & 0x0000FF) + amount;
+        
+        r = Math.max(0, Math.min(255, r));
+        g = Math.max(0, Math.min(255, g));
+        b = Math.max(0, Math.min(255, b));
+        
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    }
+
+    drawVortex2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, baseColor: string, isPlayerOnCell: boolean, cellKey: string) {
+        const cx = x * cellSize + cellSize / 2;
+        const cy = y * cellSize + cellSize / 2;
+        
+        ctx.save();
+        ctx.translate(cx, cy);
+        
+        // 1. Desenha o fundo sólido ANTES de aplicar a rotação para mantê-lo estático
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(-cellSize / 2, -cellSize / 2, cellSize, cellSize);
+        
+        // 2. Aplica a rotação apenas ao redemoinho interno
+        const angle = this.vortexAngles.get(cellKey) || 0;
+        ctx.rotate(angle);
+        
+        // Variações de cor
+        const varLight = this.getHexColorVariation(baseColor, 45);
+        const varDark = this.getHexColorVariation(baseColor, -45);
+        
+        // Criação de gradientes radiais dinâmicos centralizados em (0, 0)
+        const gradDark = ctx.createRadialGradient(0, 0, 0, 0, 0, cellSize * 0.45);
+        gradDark.addColorStop(0, varLight);
+        gradDark.addColorStop(0.4, baseColor);
+        gradDark.addColorStop(1, varDark);
+
+        const gradLight = ctx.createRadialGradient(0, 0, 0, 0, 0, cellSize * 0.45);
+        gradLight.addColorStop(0, '#ffffff');
+        gradLight.addColorStop(0.3, varLight);
+        gradLight.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Dissipação suave
+        
+        const numArms = 3;
+        const maxRadius = cellSize * 0.45;
+        
+        for (let arm = 0; arm < numArms; arm++) {
+            const startArmAngle = (arm * 2 * Math.PI) / numArms;
+            
+            // Braço externo / grosso com gradiente escuro
+            ctx.beginPath();
+            ctx.strokeStyle = gradDark;
+            ctx.lineWidth = cellSize * 0.09;
+            ctx.lineCap = 'round';
+            for (let r = 0; r <= maxRadius; r += 1) {
+                const spiralFactor = 5 / maxRadius;
+                const theta = startArmAngle + r * spiralFactor;
+                const lx = r * Math.cos(theta);
+                const ly = r * Math.sin(theta);
+                if (r === 0) ctx.moveTo(lx, ly);
+                else ctx.lineTo(lx, ly);
+            }
+            ctx.stroke();
+
+            // Brilho interno / fino com gradiente claro
+            ctx.beginPath();
+            ctx.strokeStyle = gradLight;
+            ctx.lineWidth = cellSize * 0.04;
+            ctx.lineCap = 'round';
+            for (let r = cellSize * 0.12; r <= maxRadius; r += 1) {
+                const spiralFactor = 5 / maxRadius;
+                const theta = startArmAngle + r * spiralFactor + 0.15;
+                const lx = r * Math.cos(theta);
+                const ly = r * Math.sin(theta);
+                if (r === Math.floor(cellSize * 0.12)) ctx.moveTo(lx, ly);
+                else ctx.lineTo(lx, ly);
+            }
+            ctx.stroke();
+        }
+        
+        ctx.restore();
     }
 
     /**
@@ -5743,6 +5874,113 @@ export class Engine {
             ctx.restore();
         };
 
+        const drawVortexIsometric = (cx: number, cy: number, w: number, h: number, H: number, baseColor: string, isPlayerOnCell: boolean, cellKey: string, opacity = 1.0) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+
+            // 1. Face lateral esquerda
+            ctx.beginPath();
+            ctx.moveTo(cx - w, cy);
+            ctx.lineTo(cx, cy + h);
+            ctx.lineTo(cx, cy + h - H);
+            ctx.lineTo(cx - w, cy - H);
+            ctx.closePath();
+            ctx.fillStyle = baseColor;
+            ctx.fill();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fill();
+
+            // 2. Face lateral direita
+            ctx.beginPath();
+            ctx.moveTo(cx, cy + h);
+            ctx.lineTo(cx + w, cy);
+            ctx.lineTo(cx + w, cy - H);
+            ctx.lineTo(cx, cy + h - H);
+            ctx.closePath();
+            ctx.fillStyle = baseColor;
+            ctx.fill();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fill();
+
+            // 3. Face superior (tampa) com clipping e escala isométrica
+            ctx.restore();
+            
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            
+            // Fundo losango angular para máscara
+            ctx.beginPath();
+            ctx.moveTo(cx - w, cy - H);
+            ctx.lineTo(cx, cy + h - H);
+            ctx.lineTo(cx + w, cy - H);
+            ctx.lineTo(cx, cy - h - H);
+            ctx.closePath();
+            ctx.fillStyle = baseColor;
+            ctx.fill();
+            ctx.clip(); // Limita o vortex ao losango
+
+            // Translação e escala para projeção isométrica
+            ctx.translate(cx, cy - H);
+            ctx.scale(1, 0.5);
+
+            // Rotação
+            const angle = this.vortexAngles.get(cellKey) || 0;
+            ctx.rotate(angle);
+
+            // Tons de cor
+            const varLight = this.getHexColorVariation(baseColor, 45);
+            const varDark = this.getHexColorVariation(baseColor, -45);
+
+            // Gradientes radiais
+            const maxRadius = w;
+            const gradDark = ctx.createRadialGradient(0, 0, 0, 0, 0, maxRadius);
+            gradDark.addColorStop(0, varLight);
+            gradDark.addColorStop(0.4, baseColor);
+            gradDark.addColorStop(1, varDark);
+
+            const gradLight = ctx.createRadialGradient(0, 0, 0, 0, 0, maxRadius);
+            gradLight.addColorStop(0, '#ffffff');
+            gradLight.addColorStop(0.3, varLight);
+            gradLight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+            const numArms = 3;
+            for (let arm = 0; arm < numArms; arm++) {
+                const startArmAngle = (arm * 2 * Math.PI) / numArms;
+
+                // Braço principal
+                ctx.beginPath();
+                ctx.strokeStyle = gradDark;
+                ctx.lineWidth = w * 0.18;
+                ctx.lineCap = 'round';
+                for (let r = 0; r <= maxRadius; r += 1) {
+                    const spiralFactor = 5 / maxRadius;
+                    const theta = startArmAngle + r * spiralFactor;
+                    const lx = r * Math.cos(theta);
+                    const ly = r * Math.sin(theta);
+                    if (r === 0) ctx.moveTo(lx, ly);
+                    else ctx.lineTo(lx, ly);
+                }
+                ctx.stroke();
+
+                // Braço de brilho
+                ctx.beginPath();
+                ctx.strokeStyle = gradLight;
+                ctx.lineWidth = w * 0.08;
+                ctx.lineCap = 'round';
+                for (let r = maxRadius * 0.12; r <= maxRadius; r += 1) {
+                    const spiralFactor = 5 / maxRadius;
+                    const theta = startArmAngle + r * spiralFactor + 0.15;
+                    const lx = r * Math.cos(theta);
+                    const ly = r * Math.sin(theta);
+                    if (r === Math.floor(maxRadius * 0.12)) ctx.moveTo(lx, ly);
+                    else ctx.lineTo(lx, ly);
+                }
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        };
+
         const isFloorVisited = (fx: number, fy: number, fz: number) => {
             if (fz < 0 || fz >= size) return false;
             const fVal = this.maze.get(fx, fy, fz);
@@ -5861,7 +6099,7 @@ export class Engine {
                             const subW = tileWidthHalf * 0.45;
                             const subH = tileHeightHalf * 0.45;
                             const boxH = tileHeight * 0.25;
-                            const color = 'rgba(0, 255, 0, 0.7)'; // matrix green
+                            const color = 'rgba(90, 20, 160, 0.8)'; // dark purple neon
 
                             const offsets = [
                                 { dx: -0.23, dy: -0.23 },
@@ -5913,17 +6151,33 @@ export class Engine {
                             drawElevatorBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, hUp, hDown, isVisited, isRevealedPath, opacity);
                         } else {
                             let color = '#222222';
+                            let isVortex = false;
+                            let vortexColor = '';
+                            const isPlayerHere = Math.floor(this.player.x) === x && Math.floor(this.player.y) === y && z === this.player.z;
+                            const key = `${x},${y},${z}`;
 
                             if (isRevealedPath) {
                                 color = '#ffffff';
                             } else if (isExit) {
                                 const isUnlocked = this.keysCollected === this.totalKeys;
-                                color = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
+                                vortexColor = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
+                                isVortex = true;
                             } else if (isTeleportDiscovered) {
-                                color = '#ffd700';
+                                const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
+                                if (isStartTeleport) {
+                                    vortexColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
+                                } else {
+                                    const isInactive = this.inactiveTeleportPos && 
+                                                       this.inactiveTeleportPos.x === x && 
+                                                       this.inactiveTeleportPos.y === y && 
+                                                       this.inactiveTeleportPos.z === z;
+                                    vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                }
+                                isVortex = true;
                             } else if (isVisited) {
                                 if (val === TYPES.START) {
-                                    color = CONFIG.COLORS.START;
+                                    vortexColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
+                                    isVortex = true;
                                 } else {
                                     color = '#444444';
                                 }
@@ -5938,7 +6192,11 @@ export class Engine {
                                 color = '#111111'; // dark tile under unvisited keys
                             }
 
-                            drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity);
+                            if (isVortex) {
+                                drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, vortexColor, isPlayerHere, key, opacity);
+                            } else {
+                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity);
+                            }
                         }
 
                         if (isKey) {

@@ -42,6 +42,7 @@ test('Death Transition - Collision triggers non-blocking death loop', () => {
             strokeRect: () => {},
             fillText: () => {},
             createLinearGradient: () => ({ addColorStop: () => {} }),
+            createRadialGradient: () => ({ addColorStop: () => {} }),
             stroke: () => {},
             fill: () => {},
             moveTo: () => {},
@@ -49,6 +50,7 @@ test('Death Transition - Collision triggers non-blocking death loop', () => {
             closePath: () => {},
             scale: () => {},
             translate: () => {},
+            rotate: () => {},
             ellipse: () => {},
             measureText: (text: string) => ({ width: text.length * 10 })
         } as any;
