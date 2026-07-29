@@ -3899,7 +3899,19 @@ export class Engine {
 
                         const bobbingOffset = cellSize * 0.05 * Math.sin(Date.now() / 300);
                         if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
-                            ctx.drawImage(this.keyImage, x * cellSize + cellSize * 0.15, y * cellSize + cellSize * 0.15 + bobbingOffset, cellSize * 0.7, cellSize * 0.7);
+                            const img = this.keyImage;
+                            const aspect = img.naturalWidth / img.naturalHeight;
+                            const maxDim = cellSize * 0.7;
+                            let dw = maxDim;
+                            let dh = maxDim;
+                            if (aspect > 1) {
+                                dh = maxDim / aspect;
+                            } else {
+                                dw = maxDim * aspect;
+                            }
+                            const dx = x * cellSize + (cellSize - dw) / 2;
+                            const dy = y * cellSize + (cellSize - dh) / 2 + bobbingOffset;
+                            ctx.drawImage(img, dx, dy, dw, dh);
                         } else {
                             ctx.beginPath();
                             ctx.arc(x * cellSize + cellSize/2, y * cellSize + cellSize/2 + bobbingOffset, cellSize * 0.25, 0, 2*Math.PI);
@@ -3923,7 +3935,26 @@ export class Engine {
 
                         const bobbingOffset = cellSize * 0.05 * Math.sin(Date.now() / 250);
                         if (this.manaImage.complete && this.manaImage.naturalWidth !== 0) {
-                            ctx.drawImage(this.manaImage, x * cellSize + cellSize * 0.15, y * cellSize + cellSize * 0.15 + bobbingOffset, cellSize * 0.7, cellSize * 0.7);
+                            const img = this.manaImage;
+                            const aspect = img.naturalWidth / img.naturalHeight;
+                            const maxDim = cellSize * 0.7;
+                            let dw = maxDim;
+                            let dh = maxDim;
+                            if (aspect > 1) {
+                                dh = maxDim / aspect;
+                            } else {
+                                dw = maxDim * aspect;
+                            }
+                            const dx = x * cellSize + (cellSize - dw) / 2;
+                            const dy = y * cellSize + (cellSize - dh) / 2 + bobbingOffset;
+                            
+                            ctx.save();
+                            ctx.shadowColor = 'rgba(0, 255, 255, 0.85)';
+                            ctx.shadowBlur = cellSize * 0.35;
+                            ctx.shadowOffsetX = 0;
+                            ctx.shadowOffsetY = 0;
+                            ctx.drawImage(img, dx, dy, dw, dh);
+                            ctx.restore();
                         } else {
                             ctx.beginPath();
                             ctx.arc(x * cellSize + cellSize/2, y * cellSize + cellSize/2 + bobbingOffset, cellSize * 0.2, 0, 2*Math.PI);
@@ -6412,8 +6443,17 @@ export class Engine {
             const y = cy + bounce;
 
             if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
-                const size = tileWidth * 0.55;
-                ctx.drawImage(this.keyImage, cx - size / 2, y - size / 2, size, size);
+                const img = this.keyImage;
+                const aspect = img.naturalWidth / img.naturalHeight;
+                const maxDim = tileWidth * 0.55;
+                let dw = maxDim;
+                let dh = maxDim;
+                if (aspect > 1) {
+                    dh = maxDim / aspect;
+                } else {
+                    dw = maxDim * aspect;
+                }
+                ctx.drawImage(img, cx - dw / 2, y - dh / 2, dw, dh);
             } else {
                 ctx.beginPath();
                 ctx.moveTo(cx, y - 5);
@@ -6437,8 +6477,22 @@ export class Engine {
             const y = cy + bounce;
 
             if (this.manaImage.complete && this.manaImage.naturalWidth !== 0) {
-                const size = tileWidth * 0.55;
-                ctx.drawImage(this.manaImage, cx - size / 2, y - size / 2, size, size);
+                const img = this.manaImage;
+                const aspect = img.naturalWidth / img.naturalHeight;
+                const maxDim = tileWidth * 0.55;
+                let dw = maxDim;
+                let dh = maxDim;
+                if (aspect > 1) {
+                    dh = maxDim / aspect;
+                } else {
+                    dw = maxDim * aspect;
+                }
+                
+                ctx.shadowColor = 'rgba(0, 255, 255, 0.85)';
+                ctx.shadowBlur = tileWidth * 0.25;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+                ctx.drawImage(img, cx - dw / 2, y - dh / 2, dw, dh);
             } else {
                 ctx.beginPath();
                 ctx.moveTo(cx, y - 5);
