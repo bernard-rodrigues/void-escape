@@ -316,6 +316,7 @@
         <p class="victory-stats"><span data-i18n="victoryDeaths">DEATHS</span>: <span id="victory-deaths-count">0</span></p>
         <p class="victory-stats"><span data-i18n="victoryDegree">MAZE DEGREE</span>: <span id="victory-maze-degree">0</span></p>
         <p class="victory-stats"><span data-i18n="victoryTime">COMPLETION TIME</span>: <span id="victory-completion-time">00:00</span></p>
+        <p class="victory-stats"><span data-i18n="victoryMana">MANA COLLECTED</span>: <span id="victory-mana-count">0/0</span></p>
         <div class="end-game-btns">
             <button id="restart-btn-victory" class="end-btn" data-i18n="playAgain">PLAY AGAIN</button>
             <button id="menu-btn-victory" class="end-btn" data-i18n="mainMenu">MAIN MENU</button>
@@ -374,11 +375,17 @@
 
     <!-- 2D Map Container and its Top Marquee -->
     <div id="map-area-container" class="intro-hidden">
-        <!-- Hunter Status Marquee Panel (centered above the 2D map) -->
-        <div id="hunter-status-panel">
-            <span class="status-label" data-i18n="statusLabel">HUNTER STATUS:</span>
-            <div class="status-marquee-container">
-                <span id="hunter-status-val" class="status-marquee-text status--scanning" data-i18n="statusScanning">SCANNING</span>
+        <!-- Row for desktop HUD: contains Mana and Hunter Status -->
+        <div id="desktop-hud-row">
+            <div id="mana-counter-desktop" class="mana-panel-hud">
+                <span class="mana-icon">✨</span> <span class="mana-label" data-i18n="hudMana">MANA:</span> <span id="mana-collected-count-desktop">0</span>/<span id="mana-total-count-desktop">0</span>
+            </div>
+            <!-- Hunter Status Marquee Panel (centered above the 2D map) -->
+            <div id="hunter-status-panel">
+                <span class="status-label" data-i18n="statusLabel">HUNTER STATUS:</span>
+                <div class="status-marquee-container">
+                    <span id="hunter-status-val" class="status-marquee-text status--scanning" data-i18n="statusScanning">SCANNING</span>
+                </div>
             </div>
         </div>
         <!-- Primary 2D Navigation Map -->
@@ -399,20 +406,26 @@
             </button>
         </div>
         
-        <!-- Proximeter Container -->
-        <div id="proximeter-container" class="hidden">
-            <div class="proximeter-label" data-i18n="proximityDetector">PROXIMITY DETECTOR</div>
-            <div class="proximeter-bar">
-                <span class="proximeter-cell" data-index="1"></span>
-                <span class="proximeter-cell" data-index="2"></span>
-                <span class="proximeter-cell" data-index="3"></span>
-                <span class="proximeter-cell" data-index="4"></span>
-                <span class="proximeter-cell" data-index="5"></span>
-                <span class="proximeter-cell" data-index="6"></span>
-                <span class="proximeter-cell" data-index="7"></span>
-                <span class="proximeter-cell" data-index="8"></span>
-                <span class="proximeter-cell" data-index="9"></span>
-                <span class="proximeter-cell" data-index="10"></span>
+        <!-- Row for mobile HUD: contains Mana (aligned left) and Proximeter -->
+        <div id="mobile-proximeter-row">
+            <div id="mana-counter-mobile" class="mana-panel-hud">
+                <span class="mana-icon">✨</span> <span class="mana-label" data-i18n="hudMana">MANA:</span> <span id="mana-collected-count-mobile">0</span>/<span id="mana-total-count-mobile">0</span>
+            </div>
+            <!-- Proximeter Container -->
+            <div id="proximeter-container" class="hidden">
+                <div class="proximeter-label" data-i18n="proximityDetector">PROXIMITY DETECTOR</div>
+                <div class="proximeter-bar">
+                    <span class="proximeter-cell" data-index="1"></span>
+                    <span class="proximeter-cell" data-index="2"></span>
+                    <span class="proximeter-cell" data-index="3"></span>
+                    <span class="proximeter-cell" data-index="4"></span>
+                    <span class="proximeter-cell" data-index="5"></span>
+                    <span class="proximeter-cell" data-index="6"></span>
+                    <span class="proximeter-cell" data-index="7"></span>
+                    <span class="proximeter-cell" data-index="8"></span>
+                    <span class="proximeter-cell" data-index="9"></span>
+                    <span class="proximeter-cell" data-index="10"></span>
+                </div>
             </div>
         </div>
 

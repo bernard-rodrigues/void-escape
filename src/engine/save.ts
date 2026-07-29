@@ -90,6 +90,9 @@ export function saveGame(engine: any): void {
             // Key collection state
             keysCollected: engine.keysCollected,
             totalKeys: engine.totalKeys,
+            // Mana collection state
+            manaCollected: engine.manaCollected,
+            totalMana: engine.totalMana,
             // Pathfinder state
             totalPathfinders: engine.totalPathfinders,
             pathfindersRemaining: engine.pathfindersRemaining,

@@ -31,6 +31,10 @@ export class UIManager {
     uiPathfindersRemaining: HTMLElement | null;
     uiPathfindersTotal: HTMLElement | null;
     uiControlsHintContent: HTMLElement | null;
+    uiManaCollectedDesktop: HTMLElement | null;
+    uiManaTotalDesktop: HTMLElement | null;
+    uiManaCollectedMobile: HTMLElement | null;
+    uiManaTotalMobile: HTMLElement | null;
     onInfoBanner?: (message: string) => void;
     bannerMessage: string = "";
 
@@ -75,6 +79,11 @@ export class UIManager {
         // Controls Hint DOM bindings
         this.uiControlsHintContent = document.getElementById('controls-hint-content');
 
+        this.uiManaCollectedDesktop = document.getElementById('mana-collected-count-desktop');
+        this.uiManaTotalDesktop = document.getElementById('mana-total-count-desktop');
+        this.uiManaCollectedMobile = document.getElementById('mana-collected-count-mobile');
+        this.uiManaTotalMobile = document.getElementById('mana-total-count-mobile');
+
         this.localizeDOM();
     }
 
@@ -106,10 +115,14 @@ export class UIManager {
     /**
      * Show victory overlay and hide game controls.
      */
-    showVictory(mapCompletionPercent = 0, deathsCount = 0, degree = 8, elapsedTime = 0) {
+    showVictory(mapCompletionPercent = 0, deathsCount = 0, degree = 8, elapsedTime = 0, manaCollected = 0, totalMana = 0) {
         this.hideGameUI();
         if (this.uiVictoryScreen) {
             this.uiVictoryScreen.classList.remove('hidden');
+        }
+        const manaEl = document.getElementById('victory-mana-count');
+        if (manaEl) {
+            manaEl.innerText = `${manaCollected}/${totalMana}`;
         }
         const completionEl = document.getElementById('victory-completion-rate');
         if (completionEl) {
@@ -201,6 +214,16 @@ export class UIManager {
         if (this.uiVisitedPercent) {
             this.uiVisitedPercent.innerText = String(percent);
         }
+    }
+
+    /**
+     * Update mana counter display.
+     */
+    updateManaHUD(collected: number, total: number) {
+        if (this.uiManaCollectedDesktop) this.uiManaCollectedDesktop.innerText = String(collected);
+        if (this.uiManaTotalDesktop) this.uiManaTotalDesktop.innerText = String(total);
+        if (this.uiManaCollectedMobile) this.uiManaCollectedMobile.innerText = String(collected);
+        if (this.uiManaTotalMobile) this.uiManaTotalMobile.innerText = String(total);
     }
 
     /**
