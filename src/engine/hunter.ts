@@ -258,11 +258,15 @@ export class Hunter {
         for (const d of dirs) {
             const nx = cx + d.dx, ny = cy + d.dy, nz = cz + d.dz;
             if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size) {
-                // Caçadores não podem entrar na célula de partida segura
+                // Caçadores não podem entrar na célula de partida segura (a menos que esteja inativa)
                 const startX = Math.floor(this.maze.startPos.x);
                 const startY = Math.floor(this.maze.startPos.y);
                 const startZ = this.maze.startPos.z;
-                if (nx === startX && ny === startY && nz === startZ) {
+                const isStartInactive = this.maze.inactiveTeleportPos && 
+                                        this.maze.inactiveTeleportPos.x === startX && 
+                                        this.maze.inactiveTeleportPos.y === startY && 
+                                        this.maze.inactiveTeleportPos.z === startZ;
+                if (nx === startX && ny === startY && nz === startZ && !isStartInactive) {
                     continue;
                 }
 

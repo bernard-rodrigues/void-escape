@@ -422,15 +422,21 @@ export class UIManager {
     /**
      * Update the action text / visual style of the Map button on mobile HUD.
      */
-    updateMobileMapButton(isOnTeleport: boolean, isInactive: boolean, isPortrait: boolean) {
+    updateMobileMapButton(isOnTeleport: boolean, isInactive: boolean, isPortrait: boolean, isJelly: boolean = false) {
         if (!this.uiMobileMap) return;
 
         if (isPortrait) {
             if (isOnTeleport && !isInactive) {
                 this.uiMobileMap.innerText = getTranslation('teleport');
-                this.uiMobileMap.style.borderColor = "var(--clr-teleport, #ff8c00)";
-                this.uiMobileMap.style.color = "var(--clr-teleport, #ff8c00)";
-                this.uiMobileMap.style.background = "rgba(255, 140, 0, 0.2)";
+                if (isJelly) {
+                    this.uiMobileMap.style.borderColor = "#a020f0";
+                    this.uiMobileMap.style.color = "#a020f0";
+                    this.uiMobileMap.style.background = "rgba(160, 32, 240, 0.2)";
+                } else {
+                    this.uiMobileMap.style.borderColor = "var(--clr-teleport, #ff8c00)";
+                    this.uiMobileMap.style.color = "var(--clr-teleport, #ff8c00)";
+                    this.uiMobileMap.style.background = "rgba(255, 140, 0, 0.2)";
+                }
             } else {
                 this.uiMobileMap.innerText = getTranslation('map');
                 this.uiMobileMap.style.borderColor = "";
