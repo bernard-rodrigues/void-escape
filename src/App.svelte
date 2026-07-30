@@ -164,6 +164,14 @@
             };
         }
 
+        const mobileJellyPortalBtn = document.getElementById('mobile-jelly-portal-btn');
+        if (mobileJellyPortalBtn) {
+            mobileJellyPortalBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (currentGame) currentGame.tryActivateJellyPortal();
+            };
+        }
+
         // Bind clicks for the start menu
         const startBtn = document.getElementById('start-btn');
         if (startBtn && degreeSlider) {
@@ -387,10 +395,22 @@
                     <span id="hunter-status-val" class="status-marquee-text status--scanning" data-i18n="statusScanning">SCANNING</span>
                 </div>
             </div>
+            <div id="jelly-portal-counter-desktop" class="jelly-portal-panel-hud">
+                <div class="jelly-balls-container">
+                    <span class="jelly-ball gold-ball-1"></span>
+                    <span class="jelly-ball gold-ball-2"></span>
+                </div>
+                <span class="jelly-portal-count-label">x<span id="jelly-portal-count-desktop">0</span></span>
+            </div>
         </div>
         <!-- Primary 2D Navigation Map -->
         <div style="position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 90vw; margin-bottom: calc(var(--h-unit) * 2); margin-bottom: calc(var(--d-h-unit) * 2);">
             <canvas id="main-2d-canvas" aria-label="2D Navigation Map" style="margin-bottom: 0;"></canvas>
+            <button id="mobile-jelly-portal-btn" aria-label="Jelly God Portal">
+                <svg class="jelly-portal-spiral" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round">
+                    <path d="M12 12a1 1 0 0 1 1 1c0 1.1-.9 2-2 2a3 3 0 0 1-3-3c0-2.2 1.8-4 4-4a5 5 0 0 1 5 5c0 3.3-2.7 6-6 6a7 7 0 0 1-7-7c0-4.4 3.6-8 8-8a9 9 0 0 1 9 9" />
+                </svg>
+            </button>
             <button id="mobile-zoom-btn" aria-label="Toggle Zoom">
                 <svg id="zoom-out-icon" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 100%; height: 100%;">
                     <circle cx="11" cy="11" r="6"></circle>
@@ -426,6 +446,13 @@
                     <span class="proximeter-cell" data-index="9"></span>
                     <span class="proximeter-cell" data-index="10"></span>
                 </div>
+            </div>
+            <div id="jelly-portal-counter-mobile" class="jelly-portal-panel-hud">
+                <div class="jelly-balls-container">
+                    <span class="jelly-ball gold-ball-1"></span>
+                    <span class="jelly-ball gold-ball-2"></span>
+                </div>
+                <span class="jelly-portal-count-label">x<span id="jelly-portal-count-mobile">0</span></span>
             </div>
         </div>
 

@@ -35,6 +35,9 @@ export class UIManager {
     uiManaTotalDesktop: HTMLElement | null;
     uiManaCollectedMobile: HTMLElement | null;
     uiManaTotalMobile: HTMLElement | null;
+    uiJellyPortalCountDesktop: HTMLElement | null;
+    uiJellyPortalCountMobile: HTMLElement | null;
+    uiMobileJellyPortalBtn: HTMLElement | null;
     onInfoBanner?: (message: string) => void;
     bannerMessage: string = "";
 
@@ -83,6 +86,9 @@ export class UIManager {
         this.uiManaTotalDesktop = document.getElementById('mana-total-count-desktop');
         this.uiManaCollectedMobile = document.getElementById('mana-collected-count-mobile');
         this.uiManaTotalMobile = document.getElementById('mana-total-count-mobile');
+        this.uiJellyPortalCountDesktop = document.getElementById('jelly-portal-count-desktop');
+        this.uiJellyPortalCountMobile = document.getElementById('jelly-portal-count-mobile');
+        this.uiMobileJellyPortalBtn = document.getElementById('mobile-jelly-portal-btn');
 
         this.localizeDOM();
     }
@@ -224,6 +230,22 @@ export class UIManager {
         if (this.uiManaTotalDesktop) this.uiManaTotalDesktop.innerText = String(total);
         if (this.uiManaCollectedMobile) this.uiManaCollectedMobile.innerText = String(collected);
         if (this.uiManaTotalMobile) this.uiManaTotalMobile.innerText = String(total);
+    }
+
+    /**
+     * Update jelly portal counter display and mobile activation button status.
+     */
+    updateJellyPortalHUD(count: number) {
+        if (this.uiJellyPortalCountDesktop) this.uiJellyPortalCountDesktop.innerText = String(count);
+        if (this.uiJellyPortalCountMobile) this.uiJellyPortalCountMobile.innerText = String(count);
+        
+        if (this.uiMobileJellyPortalBtn) {
+            if (count > 0) {
+                this.uiMobileJellyPortalBtn.classList.add('jelly-portal-btn--active');
+            } else {
+                this.uiMobileJellyPortalBtn.classList.remove('jelly-portal-btn--active');
+            }
+        }
     }
 
     /**

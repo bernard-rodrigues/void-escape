@@ -31,7 +31,7 @@ export class Maze3D {
 
         this.matrix = this.initMatrix();
         
-        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6, KEY: 7, STATUE: 8, MANA: 9 };
+        this.TYPES = { WALL: 0, PATH: 1, VISITED: 2, START: 3, EXIT: 4, ELEVATOR_VISITED: 5, TELEPORT: 6, KEY: 7, STATUE: 8, MANA: 9, JELLY_PORTAL: 10 };
         this.startPos = {
             x: CONFIG.PLAYER_START_X !== undefined ? CONFIG.PLAYER_START_X : 0.5,
             y: CONFIG.PLAYER_START_Y !== undefined ? CONFIG.PLAYER_START_Y : 1.5,

@@ -116,7 +116,13 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         teleportJumpSector: "Jump to Sector {floor}F?",
         teleportTargetGrid: "Target Grid: ({x}, {y})",
         teleportGo: "GO",
-        teleportCancel: "CANCEL"
+        teleportCancel: "CANCEL",
+        actionJellyPortal: "Jelly God Portal",
+        msgJellyPortalEarned: "I got a little power!",
+        msgJellyPortalNotHere: "I can't do this here...",
+        msgJellyPortalActivated: "Portal of the Jelly God!",
+        msgJellyPortalNoPortalCount: "I need mana...",
+        msgJellyPortalNotSafe: "Not safe, but teleport-able..."
     },
     ptBr: {
         // Main Menu / Start Menu
@@ -234,7 +240,13 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         teleportJumpSector: "Pular para o Setor {floor}F?",
         teleportTargetGrid: "Coordenada Alvo: ({x}, {y})",
         teleportGo: "IR",
-        teleportCancel: "CANCELAR"
+        teleportCancel: "CANCELAR",
+        actionJellyPortal: "Portal do Deus Geléia",
+        msgJellyPortalEarned: "Ganhei um poderzinho!",
+        msgJellyPortalNotHere: "Aqui eu não posso...",
+        msgJellyPortalActivated: "Portal do Deus Geléia!",
+        msgJellyPortalNoPortalCount: "Preciso de mana...",
+        msgJellyPortalNotSafe: "Não seguro, mas teleportável..."
     },
     ja: {
         // Main Menu / Start Menu
@@ -352,7 +364,13 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         teleportJumpSector: "{floor}階のセクターへ移動する?",
         teleportTargetGrid: "目標座標: ({x}, {y})",
         teleportGo: "移動",
-        teleportCancel: "キャンセル"
+        teleportCancel: "キャンセル",
+        actionJellyPortal: "ゼリー神のポータル",
+        msgJellyPortalEarned: "ちょっとした力を手に入れた！",
+        msgJellyPortalNotHere: "ここでは使えないわ...",
+        msgJellyPortalActivated: "ゼリー神のポータル！",
+        msgJellyPortalNoPortalCount: "マナが必要よ...",
+        msgJellyPortalNotSafe: "安全ではないけれど、テレポートはできるわ..."
     },
 
 es: {
@@ -471,7 +489,13 @@ es: {
         teleportJumpSector: "¿Saltar al Sector {floor}F?",
         teleportTargetGrid: "Coordenada Objetivo: ({x}, {y})",
         teleportGo: "IR",
-        teleportCancel: "CANCELAR"
+        teleportCancel: "CANCELAR",
+        actionJellyPortal: "Portal del Dios Gelatina",
+        msgJellyPortalEarned: "¡Tengo un pequeno poder!",
+        msgJellyPortalNotHere: "No puedo hacer esto aquí...",
+        msgJellyPortalActivated: "¡Portal del Dios Gelatina!",
+        msgJellyPortalNoPortalCount: "Necesito maná...",
+        msgJellyPortalNotSafe: "No es seguro, pero se puede teletransportar..."
     }
 };
 
