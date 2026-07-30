@@ -477,6 +477,12 @@ export class UIManager {
                     </div>
                     <span class="hint-action">${getTranslation('actionZoom')}</span>
                 </div>
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd class="kbd-dark">RB</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionJellyPortal')}</span>
+                </div>
             `;
         } else {
             this.uiControlsHintContent.innerHTML = `
@@ -506,6 +512,12 @@ export class UIManager {
                         <kbd>Z</kbd>
                     </div>
                     <span class="hint-action">${getTranslation('actionZoom')}</span>
+                </div>
+                <div class="hint-row">
+                    <div class="hint-keys">
+                        <kbd>R</kbd>
+                    </div>
+                    <span class="hint-action">${getTranslation('actionJellyPortal')}</span>
                 </div>
             `;
         }
