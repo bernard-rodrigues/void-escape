@@ -1076,11 +1076,15 @@ export class Engine {
         const py = Math.floor(this.player.y);
         const pz = this.player.z;
 
-        // Ignora colisão se o jogador estiver no ponto seguro de partida
+        // Ignora colisão se o jogador estiver no ponto seguro de partida (a menos que esteja inativo)
         const startGridX = Math.floor(this.mazeGen.startPos.x);
         const startGridY = Math.floor(this.mazeGen.startPos.y);
         const startGridZ = this.mazeGen.startPos.z;
-        if (px === startGridX && py === startGridY && pz === startGridZ) {
+        const isStartInactive = this.inactiveTeleportPos && 
+                                this.inactiveTeleportPos.x === startGridX && 
+                                this.inactiveTeleportPos.y === startGridY && 
+                                this.inactiveTeleportPos.z === startGridZ;
+        if (px === startGridX && py === startGridY && pz === startGridZ && !isStartInactive) {
             return;
         }
 
@@ -1310,7 +1314,8 @@ export class Engine {
                 const px = Math.floor(this.player.x);
                 const py = Math.floor(this.player.y);
                 const pz = this.player.z;
-                const isOnTeleport = this.maze.get(px, py, pz) === this.mazeGen.TYPES.TELEPORT;
+                const isJelly = this.maze.get(px, py, pz) === this.mazeGen.TYPES.JELLY_PORTAL;
+                const isOnTeleport = this.maze.get(px, py, pz) === this.mazeGen.TYPES.TELEPORT || isJelly;
                 const isInactive = this.inactiveTeleportPos && 
                                    this.inactiveTeleportPos.x === px && 
                                    this.inactiveTeleportPos.y === py && 
@@ -1956,7 +1961,8 @@ export class Engine {
                 const py = Math.floor(this.player.y);
                 const pz = this.player.z;
                 const val = this.maze.get(px, py, pz);
-                const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                const isJelly = val === this.mazeGen.TYPES.JELLY_PORTAL;
+                const isTeleport = val === this.mazeGen.TYPES.TELEPORT || isJelly;
                 const isInactive = this.inactiveTeleportPos && 
                                    this.inactiveTeleportPos.x === px && 
                                    this.inactiveTeleportPos.y === py && 
@@ -2322,10 +2328,7 @@ export class Engine {
                         }
                     } else {
                         const isPlayerHere = gridX === Math.floor(this.player.x) && gridY === Math.floor(this.player.y) && gridZ === this.player.z;
-                        const isInactive = this.inactiveTeleportPos && 
-                                           this.inactiveTeleportPos.x === gridX && 
-                                           this.inactiveTeleportPos.y === gridY && 
-                                           this.inactiveTeleportPos.z === gridZ;
+                        const isInactive = this.teleportCooldownTicks > 0;
                         
                         let baseScale = 1.0;
                         if (isPlayerHere) {
@@ -2335,15 +2338,30 @@ export class Engine {
 
                         if (mesh.material && mesh.material.emissive) {
                             if (isInactive) {
+                                mesh.material.color.setHex(0x444444);
                                 mesh.material.emissive.setHex(0x444444);
                                 mesh.material.emissiveIntensity = 0.0;
+                                mesh.material.opacity = 0.4;
                             } else if (isPlayerHere) {
+                                mesh.material.color.setHex(0x00ffff);
                                 mesh.material.emissive.setHex(0x00ffff);
                                 mesh.material.emissiveIntensity = 3.0;
+                                mesh.material.opacity = 0.5;
                             } else {
-                                const isJelly = this.maze.get(gridX, gridY, gridZ) === this.mazeGen.TYPES.JELLY_PORTAL;
-                                mesh.material.emissive.setHex(isJelly ? CONFIG.COLORS.THREE_JELLY_PORTAL : CONFIG.COLORS.THREE_TELEPORT);
-                                mesh.material.emissiveIntensity = 2.5;
+                                const isStart = gridX === Math.floor(this.mazeGen.startPos.x) && gridY === Math.floor(this.mazeGen.startPos.y) && gridZ === this.mazeGen.startPos.z;
+                                if (isStart) {
+                                    mesh.material.color.setHex(CONFIG.COLORS.THREE_START);
+                                    mesh.material.emissive.setHex(CONFIG.COLORS.THREE_START);
+                                    mesh.material.emissiveIntensity = this.isTeleportMode ? 2.5 : 0.5;
+                                    mesh.material.opacity = this.isTeleportMode ? 0.95 : 0.8;
+                                } else {
+                                    const isJelly = this.maze.get(gridX, gridY, gridZ) === this.mazeGen.TYPES.JELLY_PORTAL;
+                                    const col = isJelly ? CONFIG.COLORS.THREE_JELLY_PORTAL : CONFIG.COLORS.THREE_TELEPORT;
+                                    mesh.material.color.setHex(col);
+                                    mesh.material.emissive.setHex(col);
+                                    mesh.material.emissiveIntensity = 2.5;
+                                    mesh.material.opacity = 0.95;
+                                }
                             }
                         }
                     }
@@ -2532,10 +2550,7 @@ export class Engine {
             const playerIdxZ = this.player.z;
             const isJellyPortal = this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.JELLY_PORTAL;
             const isOnTeleport = this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.TELEPORT || isJellyPortal;
-            const isInactive = this.inactiveTeleportPos && 
-                               this.inactiveTeleportPos.x === playerIdxX && 
-                               this.inactiveTeleportPos.y === playerIdxY && 
-                               this.inactiveTeleportPos.z === playerIdxZ;
+            const isInactive = this.teleportCooldownTicks > 0;
 
             if (playerIdxX >= 0 && playerIdxX < this.mazeGen.size && playerIdxY >= 0 && playerIdxY < this.mazeGen.size) {
                 if (this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.PATH) {
@@ -2617,7 +2632,7 @@ export class Engine {
                 this.staticMapCacheDirty = true;
             }
             const isPortrait = window.innerHeight > window.innerWidth;
-            this.ui.updateMobileMapButton(isOnTeleport, !!isInactive, isPortrait);
+            this.ui.updateMobileMapButton(isOnTeleport, !!isInactive, isPortrait, isJellyPortal);
             this.updateFloorUI();
             this.lastPlayerCell = { x: playerIdxX, y: playerIdxY, z: playerIdxZ };
         }
@@ -2931,14 +2946,19 @@ export class Engine {
                                                 y === Math.floor(this.mazeGen.startPos.y) &&
                                                 z === this.mazeGen.startPos.z;
 
+                        const isInactive = this.teleportCooldownTicks > 0;
+
                         if (isStartTeleport) {
-                            const emissiveInt = this.isTeleportMode ? 2.5 : 0.5;
+                            const emissiveInt = isInactive ? 0.0 : (this.isTeleportMode ? 2.5 : 0.5);
+                            const color = isInactive ? 0x444444 : CONFIG.COLORS.THREE_START;
+                            const opacity = isInactive ? 0.4 : (this.isTeleportMode ? 0.95 : (0.8 * opFactor));
+                            
                             const material = new THREE.MeshPhongMaterial({
-                                color: CONFIG.COLORS.THREE_START,
-                                emissive: CONFIG.COLORS.THREE_START,
+                                color: color,
+                                emissive: color,
                                 emissiveIntensity: emissiveInt * opFactor,
                                 transparent: true,
-                                opacity: this.isTeleportMode ? 0.95 : (0.8 * opFactor)
+                                opacity: opacity
                             });
                             const mesh = new THREE.Mesh(geometry, material);
                             mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
@@ -2954,10 +2974,6 @@ export class Engine {
                         }
 
                         const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
-                        const isInactive = this.inactiveTeleportPos && 
-                                           this.inactiveTeleportPos.x === x && 
-                                           this.inactiveTeleportPos.y === y && 
-                                           this.inactiveTeleportPos.z === z;
                         
                         // In teleport mode, spheres are larger (radius 0.9 instead of 0.45)
                         // and have stronger emissive glow (intensity 2.5 instead of 0.8)
@@ -4122,15 +4138,12 @@ export class Engine {
                         if (isTeleportDiscovered) {
                             const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
                             const key = `${x},${y},${z}`;
-                             if (isStartTeleport) {
+                            const isInactive = this.teleportCooldownTicks > 0;
+                            if (isStartTeleport) {
                                 const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
-                                const baseColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
-                                this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere, key);
+                                const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
+                                this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
                             } else {
-                                const isInactive = this.inactiveTeleportPos && 
-                                                   this.inactiveTeleportPos.x === x && 
-                                                   this.inactiveTeleportPos.y === y && 
-                                                   this.inactiveTeleportPos.z === z;
                                 const isJelly = val === this.mazeGen.TYPES.JELLY_PORTAL;
                                 const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isJelly ? CONFIG.COLORS.JELLY_PORTAL : CONFIG.COLORS.TELEPORT);
                                 const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
@@ -4194,15 +4207,12 @@ export class Engine {
                             if (isTeleportDiscovered) {
                                 const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
                                 const key = `${x},${y},${z}`;
+                                const isInactive = this.teleportCooldownTicks > 0;
                                 if (isStartTeleport) {
                                     const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
-                                    const baseColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
-                                    this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere, key);
+                                    const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
+                                    this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
                                 } else {
-                                    const isInactive = this.inactiveTeleportPos && 
-                                                       this.inactiveTeleportPos.x === x && 
-                                                       this.inactiveTeleportPos.y === y && 
-                                                       this.inactiveTeleportPos.z === z;
                                     const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
                                     const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
                                     this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
@@ -6609,19 +6619,17 @@ export class Engine {
                                 isVortex = true;
                             } else if (isTeleportDiscovered) {
                                 const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
+                                const isInactive = this.teleportCooldownTicks > 0;
                                 if (isStartTeleport) {
-                                    vortexColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
+                                    vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
                                 } else {
-                                    const isInactive = this.inactiveTeleportPos && 
-                                                       this.inactiveTeleportPos.x === x && 
-                                                       this.inactiveTeleportPos.y === y && 
-                                                       this.inactiveTeleportPos.z === z;
                                     vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isJelly ? CONFIG.COLORS.JELLY_PORTAL : CONFIG.COLORS.TELEPORT);
                                 }
                                 isVortex = true;
                             } else if (isVisited) {
                                 if (val === TYPES.START) {
-                                    vortexColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
+                                    const isInactive = this.teleportCooldownTicks > 0;
+                                    vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
                                     isVortex = true;
                                 } else {
                                     color = '#444444';
