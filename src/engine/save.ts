@@ -93,6 +93,8 @@ export function saveGame(engine: any): void {
             // Mana collection state
             manaCollected: engine.manaCollected,
             totalMana: engine.totalMana,
+            // Jelly portal state
+            jellyPortalCount: engine.jellyPortalCount,
             // Pathfinder state
             totalPathfinders: engine.totalPathfinders,
             pathfindersRemaining: engine.pathfindersRemaining,

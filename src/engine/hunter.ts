@@ -56,7 +56,7 @@ export class Hunter {
             this.lowCanvas = document.createElement('canvas');
             this.lowCanvas.width = 64;
             this.lowCanvas.height = 64;
-            this.lctx = this.lowCanvas.getContext('2d');
+            this.lctx = this.lowCanvas.getContext('2d', { willReadFrequently: true });
         }
     }
 
@@ -160,7 +160,7 @@ export class Hunter {
         // Transition to TRACKING if stepping on player's trail (VISITED, START, EXIT)
         const size = Math.round(Math.cbrt(matrix.length));
         const currentCellVal = (matrix as any).get ? (matrix as any).get(this.x, this.y, this.z) : (matrix[this.x * size * size + this.y * size + this.z] ?? 0);
-        if (currentCellVal === types.VISITED && this.state !== 'TELEPORT_TRACKING') {
+        if ((currentCellVal === types.VISITED || currentCellVal === types.JELLY_PORTAL) && this.state !== 'TELEPORT_TRACKING') {
             if (this.state !== 'TRACKING') {
                 this.state = 'TRACKING';
                 this.pathToTarget = [];
@@ -175,7 +175,7 @@ export class Hunter {
             const checkNext = this.pathToTarget[0];
             const checkVal = matrix[checkNext.x * size * size + checkNext.y * size + checkNext.z];
             const stillValid = this.state === 'TRACKING' ? 
-                (checkVal === types.VISITED || checkVal === types.START || checkVal === types.EXIT) :
+                (checkVal === types.VISITED || checkVal === types.START || checkVal === types.EXIT || checkVal === types.JELLY_PORTAL) :
                 (checkVal !== types.WALL);
             
             if (stillValid) {
@@ -283,6 +283,7 @@ export class Hunter {
                         const isVisited = cellVal === types.VISITED || 
                                           cellVal === types.START || 
                                           cellVal === types.EXIT ||
+                                          cellVal === types.JELLY_PORTAL ||
                                           (this.maze.visitedCells && this.maze.visitedCells.has(`${nx},${ny},${nz}`));
                         if (isVisited) {
                             neighbors.push({ x: nx, y: ny, z: nz });

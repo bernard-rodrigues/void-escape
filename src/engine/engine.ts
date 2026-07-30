@@ -339,11 +339,19 @@ export class Engine {
             }
         }
 
+        this.jellyPortalCount = this.totalMana < 10 ? 1 : (CONFIG.JELLY_PORTAL_COUNT || 0);
+        this.jellyPortalFreezeTimer = 0;
+        this.jellyPortalResetCells = new Set();
+        this.jellyPortalResetDuration = 1.5;
+        this.jellyPortalResetElapsed = 0;
+        this.dyingHunters = [];
+
         this.ui.initGameUI(this.isSafeMode);
         this.ui.onInfoBanner = (msg) => this.queueNotification(msg);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
         this.ui.updateManaHUD(this.manaCollected, this.totalMana);
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
+        this.ui.updateJellyPortalHUD(this.jellyPortalCount);
 
         this.isMap3DActive = false;
         this.isGameOver = false;
@@ -711,6 +719,215 @@ export class Engine {
         this.ui.showSavingIndicator();
     }
 
+    tryActivateJellyPortal() {
+        if (this.isGameOver || this.isPaused || this.isIntroPlaying || this.isStoryActive || this.jellyPortalFreezeTimer > 0) return;
+
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+        const val = this.maze.get(px, py, pz);
+
+        const hUp = pz < this.mazeGen.size - 1 && this.maze.get(px, py, pz + 1) !== this.mazeGen.TYPES.WALL;
+        const hDown = pz > 0 && this.maze.get(px, py, pz - 1) !== this.mazeGen.TYPES.WALL;
+        const isElevator = hUp || hDown;
+        
+        const isStartPos = px === Math.floor(this.mazeGen.startPos.x) && 
+                           py === Math.floor(this.mazeGen.startPos.y) && 
+                           pz === this.mazeGen.startPos.z;
+
+        const isConventionalTeleport = val === this.mazeGen.TYPES.TELEPORT;
+
+        if (isElevator || isConventionalTeleport || isStartPos || val !== this.mazeGen.TYPES.VISITED) {
+            this.ui.showInfoBanner(getTranslation('msgJellyPortalNotHere'));
+            return;
+        }
+
+        if (this.jellyPortalCount <= 0) {
+            this.ui.showInfoBanner(getTranslation('msgJellyPortalNoPortalCount'));
+            return;
+        }
+
+        this.jellyPortalCount--;
+        this.ui.updateJellyPortalHUD(this.jellyPortalCount);
+
+        this.maze.set(px, py, pz, this.mazeGen.TYPES.JELLY_PORTAL);
+        const key = `${px},${py},${pz}`;
+        this.discoveredTeleports.add(key);
+        this.allTeleports.push({ x: px, y: py, z: pz });
+        this.allTeleports.sort((a, b) => {
+            if (a.z !== b.z) return a.z - b.z;
+            if (a.x !== b.x) return a.x - b.x;
+            return a.y - b.y;
+        });
+        this.selectedTeleportIndex = this.allTeleports.findIndex(t => t.x === px && t.y === py && t.z === pz);
+        this.staticMapCacheDirty = true;
+
+        this.ui.showInfoBanner(getTranslation('msgJellyPortalActivated'));
+
+        // Salva imediatamente, definindo esta célula como o novo ponto de respawn
+        this.triggerSave();
+
+        this.jellyPortalFreezeTimer = 1.5;
+        this.jellyPortalResetElapsed = 0;
+        this.jellyPortalResetCells.clear();
+
+        const size = this.mazeGen.size;
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                const dist = Math.abs(x - px) + Math.abs(y - py);
+                if (dist <= 5) {
+                    const cVal = this.maze.get(x, y, pz);
+                    if (cVal !== this.mazeGen.TYPES.WALL) {
+                        this.jellyPortalResetCells.add(`${x},${y}`);
+                    }
+                }
+            }
+        }
+
+        this.dyingHunters = [];
+        for (const hunter of this.hunters) {
+            if (hunter.state !== 'SLEEP' && hunter.z === pz) {
+                const hDist = Math.abs(hunter.x - px) + Math.abs(hunter.y - py);
+                if (hDist <= 5) {
+                    hunter.state = 'DYING';
+                    this.dyingHunters.push(hunter);
+                }
+            }
+        }
+    }
+
+    executeJellyPortalReset(px: number, py: number, pz: number) {
+        const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+        const startX = Math.floor(this.mazeGen.startPos.x);
+        const startY = Math.floor(this.mazeGen.startPos.y);
+        const startZ = this.mazeGen.startPos.z;
+
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                const dist = Math.abs(x - px) + Math.abs(y - py);
+                if (dist <= 5) {
+                    const val = this.maze.get(x, y, pz);
+                    const cellKey = `${x},${y},${pz}`;
+
+                    if (val === TYPES.STATUE) continue;
+                    if (val === TYPES.WALL) {
+                        let adjacentToStatue = false;
+                        for (const [dx, dy] of [[1,0], [-1,0], [0,1], [0,-1]]) {
+                            const nx = x + dx, ny = y + dy;
+                            if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                                if (this.maze.get(nx, ny, pz) === TYPES.STATUE) {
+                                    adjacentToStatue = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (adjacentToStatue) continue;
+                    }
+
+                    if (x === startX && y === startY && pz === startZ) continue;
+                    if (x === px && y === py) continue;
+
+                    // Limpa estados de visita e cache
+                    this.visitedCells.delete(cellKey);
+                    this.fullyRevealedCells.delete(cellKey);
+                    this.revealedCellsAnimation.delete(cellKey);
+
+                    if (dist === 1) {
+                        if (val === TYPES.VISITED || val === TYPES.ELEVATOR_VISITED) {
+                            this.maze.set(x, y, pz, TYPES.PATH);
+                        }
+                        if (val === TYPES.TELEPORT) {
+                            this.discoveredTeleports.delete(cellKey);
+                        }
+                        continue;
+                    }
+
+                    if (val === TYPES.VISITED || val === TYPES.ELEVATOR_VISITED) {
+                        this.maze.set(x, y, pz, TYPES.PATH);
+                    } else if (val === TYPES.TELEPORT) {
+                        this.discoveredTeleports.delete(cellKey);
+                    }
+                }
+            }
+        }
+
+        if (this.dyingHunters.length > 0) {
+            this.respawnDyingHunters();
+            this.dyingHunters = [];
+        }
+
+        this.staticMapCacheDirty = true;
+        this.triggerSave();
+    }
+
+    respawnDyingHunters() {
+        const size = this.mazeGen.size;
+        const candidates = [];
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+
+        const startX = Math.floor(this.mazeGen.startPos.x);
+        const startY = Math.floor(this.mazeGen.startPos.y);
+        const startZ = this.mazeGen.startPos.z;
+
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const isStartPos = (x === startX && y === startY && z === startZ);
+                    const isExit = (this.maze.get(x, y, z) === this.mazeGen.TYPES.EXIT);
+                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH && z % 2 !== 0 && !isStartPos && !isExit) {
+                        if (z === pz && Math.abs(x - px) + Math.abs(y - py) <= 5) continue;
+                        candidates.push({ x, y, z });
+                    }
+                }
+            }
+        }
+
+        if (candidates.length === 0) {
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    for (let z = 0; z < size; z++) {
+                        const val = this.maze.get(x, y, z);
+                        const isStartPos = (x === startX && y === startY && z === startZ);
+                        const isExit = (val === this.mazeGen.TYPES.EXIT);
+                        if (val !== this.mazeGen.TYPES.WALL && !isExit && z % 2 !== 0 && !isStartPos && (x !== px || y !== py || z !== pz)) {
+                            if (z === pz && Math.abs(x - px) + Math.abs(y - py) <= 5) continue;
+                            candidates.push({ x, y, z });
+                        }
+                    }
+                }
+            }
+        }
+
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = candidates[i];
+            candidates[i] = candidates[j];
+            candidates[j] = temp;
+        }
+
+        let spawnIdx = 0;
+        for (const hunter of this.dyingHunters) {
+            if (spawnIdx < candidates.length) {
+                const pos = candidates[spawnIdx++];
+                hunter.x = pos.x;
+                hunter.y = pos.y;
+                hunter.z = pos.z;
+                hunter.visualX = pos.x;
+                hunter.visualY = pos.y;
+                hunter.visualZ = pos.z;
+                hunter.lastPos = { x: pos.x, y: pos.y, z: pos.z };
+                hunter.state = 'WANDERING';
+                hunter.visitedNodes.clear();
+                hunter.visitedNodes.add(`${pos.x},${pos.y},${pos.z}`);
+                hunter.history = [];
+                hunter.pathToTarget = [];
+            }
+        }
+    }
+
     triggerVictory() {
         this.isGameOver = true;
         clearSave(); // Victory clears the save so "Continue" is no longer offered
@@ -752,6 +969,14 @@ export class Engine {
         this.staticMapCacheDirty = true;
         this.ui.updateManaHUD(this.manaCollected, this.totalMana);
         this.ui.showInfoBanner(getTranslation('msgManaSecured', { collected: this.manaCollected, total: this.totalMana }));
+        
+        if (this.manaCollected % 10 === 0) {
+            this.jellyPortalCount++;
+            this.ui.updateJellyPortalHUD(this.jellyPortalCount);
+            setTimeout(() => {
+                this.ui.showInfoBanner(getTranslation('msgJellyPortalEarned'));
+            }, 1200); // Mostra o banner da personagem um pouco depois para não encavalar
+        }
     }
 
     triggerLockedExitWarning() {
@@ -799,6 +1024,8 @@ export class Engine {
         this.manaCollected = snapshot.manaCollected !== undefined ? snapshot.manaCollected : 0;
         this.totalMana = snapshot.totalMana !== undefined ? snapshot.totalMana : 0;
         this.ui.updateManaHUD(this.manaCollected, this.totalMana);
+        this.jellyPortalCount = snapshot.jellyPortalCount !== undefined ? snapshot.jellyPortalCount : (this.totalMana < 10 ? 1 : 0);
+        this.ui.updateJellyPortalHUD(this.jellyPortalCount);
 
         this.totalPathfinders = snapshot.totalPathfinders !== undefined ? snapshot.totalPathfinders : CONFIG.getPathfinderCount(this.degree);
         this.pathfindersRemaining = snapshot.pathfindersRemaining !== undefined ? snapshot.pathfindersRemaining : this.totalPathfinders;
@@ -1794,6 +2021,11 @@ export class Engine {
             }
         }
 
+        // Right Bumper (Button 5): Try activate Jelly Portal when not in teleport or map mode
+        if (justPressed(5) && !this.isTeleportMode && !this.isMap3DActive) {
+            this.tryActivateJellyPortal();
+        }
+
         // 4. Right Analog Stick (axes 2 & 3): Rotate 3D Camera / Triggers (LT/RT): Zoom 3D Camera
         if (this.isMap3DActive && this.controls) {
             const rotX = gp.axes[2];
@@ -1902,6 +2134,19 @@ export class Engine {
 
     update(dt: number) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        if (this.jellyPortalFreezeTimer > 0) {
+            this.jellyPortalFreezeTimer -= dt;
+            this.jellyPortalResetElapsed += dt;
+            if (this.jellyPortalFreezeTimer <= 0) {
+                this.jellyPortalFreezeTimer = 0;
+                this.executeJellyPortalReset(Math.floor(this.player.x), Math.floor(this.player.y), this.player.z);
+                this.jellyPortalResetCells.clear();
+            }
+            this.updateNotification(dt);
+            this.updateGamepad(dt);
+            return;
+        }
 
         if (!this.isPaused && !this.isIntroPlaying && !this.isStoryActive) {
             this.elapsedTime += dt;
@@ -2096,7 +2341,8 @@ export class Engine {
                                 mesh.material.emissive.setHex(0x00ffff);
                                 mesh.material.emissiveIntensity = 3.0;
                             } else {
-                                mesh.material.emissive.setHex(CONFIG.COLORS.THREE_TELEPORT);
+                                const isJelly = this.maze.get(gridX, gridY, gridZ) === this.mazeGen.TYPES.JELLY_PORTAL;
+                                mesh.material.emissive.setHex(isJelly ? CONFIG.COLORS.THREE_JELLY_PORTAL : CONFIG.COLORS.THREE_TELEPORT);
                                 mesh.material.emissiveIntensity = 2.5;
                             }
                         }
@@ -2284,7 +2530,8 @@ export class Engine {
 
             const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
             const playerIdxZ = this.player.z;
-            const isOnTeleport = this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.TELEPORT;
+            const isJellyPortal = this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.JELLY_PORTAL;
+            const isOnTeleport = this.maze.get(playerIdxX, playerIdxY, playerIdxZ) === this.mazeGen.TYPES.TELEPORT || isJellyPortal;
             const isInactive = this.inactiveTeleportPos && 
                                this.inactiveTeleportPos.x === playerIdxX && 
                                this.inactiveTeleportPos.y === playerIdxY && 
@@ -2305,9 +2552,13 @@ export class Engine {
                     if (!wasOnThisTeleport && !isInactive) {
                         this.discoveredTeleports.add(key);
                         this.staticMapCacheDirty = true;
-                        // Reentered or newly found teleport -> auto-save
-                        this.triggerSave();
-                        this.ui.showInfoBanner(getTranslation('msgSafePointTeleport'));
+                        if (isJellyPortal) {
+                            this.ui.showInfoBanner(getTranslation('msgJellyPortalNotSafe'));
+                        } else {
+                            // Reentered or newly found teleport -> auto-save
+                            this.triggerSave();
+                            this.ui.showInfoBanner(getTranslation('msgSafePointTeleport'));
+                        }
                     }
                 }
 
@@ -2352,6 +2603,11 @@ export class Engine {
             } else {
                 if (this.input.keys['e'] || this.input.keys['pageup']) this.changeFloor(2);
                 if (this.input.keys['q'] || this.input.keys['pagedown']) this.changeFloor(-2);
+            }
+
+            if (this.input.keys['r']) {
+                this.input.keys['r'] = false;
+                this.tryActivateJellyPortal();
             }
             const movedCell = !this.lastPlayerCell || 
                               this.lastPlayerCell.x !== playerIdxX || 
@@ -2664,7 +2920,8 @@ export class Engine {
                         continue;
                     }
 
-                    const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
+                    const isJelly = val === this.mazeGen.TYPES.JELLY_PORTAL;
+                    const isTeleport = val === this.mazeGen.TYPES.TELEPORT || isJelly;
                     const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                     const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
                     const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
@@ -2706,7 +2963,7 @@ export class Engine {
                         // and have stronger emissive glow (intensity 2.5 instead of 0.8)
                         let radius = this.isTeleportMode ? 0.9 : 0.45;
                         let emissiveInt = this.isTeleportMode ? 2.5 : 0.8;
-                        let color = CONFIG.COLORS.THREE_TELEPORT;
+                        let color = isJelly ? CONFIG.COLORS.THREE_JELLY_PORTAL : CONFIG.COLORS.THREE_TELEPORT;
                         let opacity = 0.95;
                         
                         if (isInactive) {
@@ -3044,12 +3301,42 @@ export class Engine {
                     
                     // --- TRANSITION RUNNING BEHIND BLACKOUT ---
                     
-                    // 1. Drop a key at the player's death position
+                    // 1. Drop a key at the player's death position (or relocate it if on a Jelly Portal)
                     const deathX = Math.floor(this.deathAnimation.playerPos.x);
                     const deathY = Math.floor(this.deathAnimation.playerPos.y);
                     const deathZ = this.deathAnimation.playerPos.z;
+                    const deathVal = this.maze.get(deathX, deathY, deathZ);
                     
-                    this.maze.set(deathX, deathY, deathZ, this.mazeGen.TYPES.KEY);
+                    if (deathVal === this.mazeGen.TYPES.JELLY_PORTAL) {
+                        const size = this.mazeGen.size;
+                        const candidates = [];
+                        const startX = Math.floor(this.mazeGen.startPos.x);
+                        const startY = Math.floor(this.mazeGen.startPos.y);
+                        const startZ = this.mazeGen.startPos.z;
+
+                        for (let x = 0; x < size; x++) {
+                            for (let y = 0; y < size; y++) {
+                                for (let z = 0; z < size; z++) {
+                                    const val = this.maze.get(x, y, z);
+                                    const isStart = (x === startX && y === startY && z === startZ);
+                                    const isDeathPos = (x === deathX && y === deathY && z === deathZ);
+                                    if ((val === this.mazeGen.TYPES.PATH || val === this.mazeGen.TYPES.VISITED) && z % 2 !== 0 && !isStart && !isDeathPos) {
+                                        candidates.push({ x, y, z });
+                                    }
+                                }
+                            }
+                        }
+
+                        if (candidates.length > 0) {
+                            const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+                            this.maze.set(chosen.x, chosen.y, chosen.z, this.mazeGen.TYPES.KEY);
+                        } else {
+                            this.maze.set(deathX, deathY, deathZ, this.mazeGen.TYPES.KEY);
+                        }
+                    } else {
+                        this.maze.set(deathX, deathY, deathZ, this.mazeGen.TYPES.KEY);
+                    }
+                    
                     this.totalKeys++;
                     this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
                     this.staticMapCacheDirty = true;
@@ -3205,7 +3492,8 @@ export class Engine {
         const expectedCacheHeight = useZoom ? size * cellSize : this.canvas.height;
         if (this.staticMapCacheDirty || 
             this.staticMapCacheCanvas.width !== expectedCacheWidth || 
-            this.staticMapCacheCanvas.height !== expectedCacheHeight) {
+            this.staticMapCacheCanvas.height !== expectedCacheHeight ||
+            this.jellyPortalFreezeTimer > 0) {
             this.updateStaticMapCache(z);
         }
         ctx.drawImage(this.staticMapCacheCanvas, 0, 0);
@@ -3283,8 +3571,7 @@ export class Engine {
                     
                     const radX = skewX * Math.PI / 180;
                     const radY = skewY * Math.PI / 180;
-
-                    // Desenha o rastro gelatinoso pixelado translúcido
+                      // Desenha o rastro gelatinoso pixelado translúcido
                     ctx.save();
                     ctx.globalAlpha = trail.opacityFactor;
                     ctx.translate(cx, cy);
@@ -3295,10 +3582,11 @@ export class Engine {
                     ctx.restore();
                 }
             });
+
             if (h.lowCanvas) {
                 const cx = hx * cellSize + cellSize / 2;
                 const cy = hy * cellSize + cellSize / 2;
-                const drawSize = cellSize * 0.95 * scaleFactor; // Contido dentro do limite da célula
+                const drawSize = cellSize * 0.95 * scaleFactor;
 
                 // MOVIMENTAÇÃO GELATINOSA LENTA (Baseada no tempo acumulado do Hunter)
                 const time = h.jellyTime;
@@ -3312,23 +3600,39 @@ export class Engine {
 
                 // 3.1 Desenha a Sombra Gelatinosa (Deslocada à esquerda e acima, luz vinda do canto inferior direito)
                 ctx.save();
+                let shadowOpacity = 0.35;
+                let currentDrawSize = drawSize;
+                if (h.state === 'DYING') {
+                    const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
+                    currentDrawSize = drawSize * (1.0 - progress);
+                    shadowOpacity = 0.35 * (1.0 - progress);
+                }
                 const shadowOffsetX = -cellSize * 0.12 * scaleFactor;
                 const shadowOffsetY = -cellSize * 0.12 * scaleFactor;
                 ctx.translate(cx + shadowOffsetX, cy + shadowOffsetY);
                 ctx.transform(scaleX, Math.tan(radY), Math.tan(radX), scaleY, 0, 0);
                 
-                // Filtro para escurecer, aplicar blur e atenuar a opacidade
-                ctx.filter = 'brightness(0) blur(1px) opacity(0.35)';
+                ctx.filter = `brightness(0) blur(1px) opacity(${shadowOpacity})`;
                 ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(h.lowCanvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+                ctx.drawImage(h.lowCanvas, -currentDrawSize / 2, -currentDrawSize / 2, currentDrawSize, currentDrawSize);
                 ctx.restore();
 
-                // 3.2 Desenha o Núcleo Gelatinoso Real (Sem deslocamento)
+                // 3.2 Desenha o Núcleo Gelatinoso Real (Sem deslocamento, com glitch e escala dinâmica se estiver morrendo)
                 ctx.save();
+                let currentOpacity = 1.0;
+                if (h.state === 'DYING') {
+                    const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
+                    currentDrawSize = drawSize * (1.0 - progress);
+                    currentOpacity = 1.0 - progress;
+                    const glitchX = (Math.random() - 0.5) * cellSize * 0.15;
+                    const glitchY = (Math.random() - 0.5) * cellSize * 0.15;
+                    ctx.translate(glitchX, glitchY);
+                }
+                ctx.globalAlpha = currentOpacity;
                 ctx.translate(cx, cy);
                 ctx.transform(scaleX, Math.tan(radY), Math.tan(radX), scaleY, 0, 0);
                 ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(h.lowCanvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+                ctx.drawImage(h.lowCanvas, -currentDrawSize / 2, -currentDrawSize / 2, currentDrawSize, currentDrawSize);
                 ctx.restore();
             }
         }
@@ -3702,6 +4006,18 @@ export class Engine {
 
         const drawCellWithFade = (x: number, y: number, drawFn: () => void) => {
             const key = `${x},${y},${z}`;
+            
+            if (this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`)) {
+                const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
+                ctx.save();
+                ctx.filter = 'invert(100%)';
+                ctx.globalAlpha = 1.0 - progress;
+                drawFn();
+                ctx.restore();
+                hasActiveAnimations = true;
+                return;
+            }
+
             if (this.skipCellAnimations || this.fullyRevealedCells.has(key)) {
                 drawFn();
                 if (this.skipCellAnimations) {
@@ -3815,7 +4131,8 @@ export class Engine {
                                                    this.inactiveTeleportPos.x === x && 
                                                    this.inactiveTeleportPos.y === y && 
                                                    this.inactiveTeleportPos.z === z;
-                                const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                const isJelly = val === this.mazeGen.TYPES.JELLY_PORTAL;
+                                const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isJelly ? CONFIG.COLORS.JELLY_PORTAL : CONFIG.COLORS.TELEPORT);
                                 const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.player.z;
                                 this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
                             }
@@ -4019,7 +4336,7 @@ export class Engine {
                     const v = this.maze.get(nx, ny, z);
                     // ELEVATOR_VISITED (5) and EXIT (4) cells do not automatically reveal adjacent
                     // paths by proximity.
-                    if (v === 2 || v === 3) return true;
+                    if (v === 2 || v === 3 || v === this.mazeGen.TYPES.JELLY_PORTAL) return true;
                     if (v === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${nx},${ny},${z}`)) return true;
                 }
             }
@@ -6211,7 +6528,8 @@ export class Engine {
                     const val = this.maze.get(x, y, z);
                     const coords = getIsoCoords(x, y, z);
 
-                    const isTeleport = val === TYPES.TELEPORT;
+                    const isJelly = val === TYPES.JELLY_PORTAL;
+                    const isTeleport = val === TYPES.TELEPORT || isJelly;
                     const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
                     const isVisited = val === TYPES.VISITED || val === TYPES.START || val === TYPES.ELEVATOR_VISITED || isTeleportDiscovered;
                     const isKnown = (val === TYPES.PATH || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
@@ -6298,7 +6616,7 @@ export class Engine {
                                                        this.inactiveTeleportPos.x === x && 
                                                        this.inactiveTeleportPos.y === y && 
                                                        this.inactiveTeleportPos.z === z;
-                                    vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : CONFIG.COLORS.TELEPORT;
+                                    vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isJelly ? CONFIG.COLORS.JELLY_PORTAL : CONFIG.COLORS.TELEPORT);
                                 }
                                 isVortex = true;
                             } else if (isVisited) {
