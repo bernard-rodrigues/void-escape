@@ -776,10 +776,7 @@ export class Engine {
             for (let y = 0; y < size; y++) {
                 const dist = Math.abs(x - px) + Math.abs(y - py);
                 if (dist <= 5) {
-                    const cVal = this.maze.get(x, y, pz);
-                    if (cVal !== this.mazeGen.TYPES.WALL) {
-                        this.jellyPortalResetCells.add(`${x},${y}`);
-                    }
+                    this.jellyPortalResetCells.add(`${x},${y}`);
                 }
             }
         }
@@ -4147,17 +4144,6 @@ export class Engine {
 
         const drawCellWithFade = (x: number, y: number, drawFn: () => void) => {
             const key = `${x},${y},${z}`;
-            
-            if (this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`)) {
-                const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
-                ctx.save();
-                ctx.filter = 'invert(100%)';
-                ctx.globalAlpha = 1.0 - progress;
-                drawFn();
-                ctx.restore();
-                hasActiveAnimations = true;
-                return;
-            }
 
             if (this.skipCellAnimations || this.fullyRevealedCells.has(key)) {
                 drawFn();
@@ -4192,6 +4178,108 @@ export class Engine {
             for (let y = 0; y < size; y++) {
                 const val = this.maze.get(x, y, z);
                 
+                // Jelly Portal Animation Inversion Effect
+                if (this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`)) {
+                    const elapsed = 1.5 - this.jellyPortalFreezeTimer;
+                    const holdTime = 0.6;
+                    let animProgress = 0;
+                    if (elapsed > holdTime) {
+                        animProgress = Math.min(1.0, (elapsed - holdTime) / 0.9);
+                    }
+                    
+                    ctx.save();
+                    const invertPercent = Math.round(100 * (1.0 - animProgress));
+                    ctx.filter = `invert(${invertPercent}%)`;
+                    
+                    const isCenter = x === Math.floor(px) && y === Math.floor(py);
+                    const isStatue = val === this.mazeGen.TYPES.STATUE;
+                    const shouldFadeOut = !isCenter && !isStatue;
+                    
+                    if (shouldFadeOut) {
+                        ctx.globalAlpha = 1.0 - animProgress;
+                    }
+                    
+                    // Draw appropriate background & visual representations
+                    if (val === this.mazeGen.TYPES.WALL) {
+                        if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.wallImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.WALL;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                    } else if (isStatue) {
+                        if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                        ctx.beginPath();
+                        ctx.ellipse(x * cellSize + cellSize / 2, (y + 1) * cellSize - cellSize * 0.15, cellSize * 0.35, cellSize * 0.12, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        if (this.statueImage.complete && this.statueImage.naturalWidth !== 0) {
+                            const aspect = this.statueImage.width / this.statueImage.height;
+                            const targetWidth = cellSize * 0.85;
+                            const targetHeight = targetWidth / aspect;
+                            const bottomY = (y + 1) * cellSize - cellSize * 0.05;
+                            ctx.drawImage(this.statueImage, x * cellSize + cellSize / 2 - targetWidth / 2, bottomY - targetHeight, targetWidth, targetHeight);
+                        } else {
+                            ctx.fillStyle = '#555555';
+                            ctx.fillRect(x * cellSize + cellSize * 0.3, y * cellSize + cellSize * 0.1, cellSize * 0.4, cellSize * 0.8);
+                        }
+                    } else {
+                        if (this.floorImage.complete && this.floorImage.naturalWidth !== 0) {
+                            ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                        } else {
+                            ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        }
+                        
+                        if (isCenter) {
+                            this.drawVortex2D(ctx, x, y, cellSize, CONFIG.COLORS.JELLY_PORTAL, false, `${x},${y},${z}`);
+                        } else if (val === this.mazeGen.TYPES.TELEPORT) {
+                            this.drawVortex2D(ctx, x, y, cellSize, CONFIG.COLORS.TELEPORT_INACTIVE, false, `${x},${y},${z}`);
+                        } else if (val === this.mazeGen.TYPES.EXIT) {
+                            this.drawVortex2D(ctx, x, y, cellSize, CONFIG.COLORS.EXIT, false, `${x},${y},${z}`);
+                        } else if (val === this.mazeGen.TYPES.KEY) {
+                            const bobbingOffset = cellSize * 0.05 * Math.sin(Date.now() / 300);
+                            if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
+                                const img = this.keyImage;
+                                const aspect = img.naturalWidth / img.naturalHeight;
+                                const maxDim = cellSize * 0.7;
+                                let dw = maxDim;
+                                let dh = maxDim;
+                                if (aspect > 1) {
+                                    dh = maxDim / aspect;
+                                } else {
+                                    dw = maxDim * aspect;
+                                }
+                                ctx.drawImage(img, x * cellSize + (cellSize - dw) / 2, y * cellSize + (cellSize - dh) / 2 + bobbingOffset, dw, dh);
+                            }
+                        } else if (val === this.mazeGen.TYPES.MANA) {
+                            const bobbingOffset = cellSize * 0.05 * Math.sin(Date.now() / 250);
+                            if (this.manaImage.complete && this.manaImage.naturalWidth !== 0) {
+                                const img = this.manaImage;
+                                const aspect = img.naturalWidth / img.naturalHeight;
+                                const maxDim = cellSize * 0.7;
+                                let dw = maxDim;
+                                let dh = maxDim;
+                                if (aspect > 1) {
+                                    dh = maxDim / aspect;
+                                } else {
+                                    dw = maxDim * aspect;
+                                }
+                                ctx.drawImage(img, x * cellSize + (cellSize - dw) / 2, y * cellSize + (cellSize - dh) / 2 + bobbingOffset, dw, dh);
+                            }
+                        }
+                    }
+                    
+                    ctx.restore();
+                    hasActiveAnimations = true;
+                    continue;
+                }
+
                 if (val === this.mazeGen.TYPES.STATUE) {
                     drawCellWithFade(x, y, () => {
                         // 1. Draw floor tile first
@@ -6663,6 +6751,83 @@ export class Engine {
                 for (let x = 0; x < size; x++) {
                     const val = this.maze.get(x, y, z);
                     const coords = getIsoCoords(x, y, z);
+
+                    // Jelly Portal Animation Inversion Effect (Isometric)
+                    const isUnderJellyPortal = this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`) && z === this.player.z;
+                    if (isUnderJellyPortal) {
+                        const elapsed = 1.5 - this.jellyPortalFreezeTimer;
+                        const holdTime = 0.6;
+                        let animProgress = 0;
+                        if (elapsed > holdTime) {
+                            animProgress = Math.min(1.0, (elapsed - holdTime) / 0.9);
+                        }
+                        
+                        ctx.save();
+                        const invertPercent = Math.round(100 * (1.0 - animProgress));
+                        ctx.filter = `invert(${invertPercent}%)`;
+                        
+                        const isCenter = x === Math.floor(this.player.x) && y === Math.floor(this.player.y);
+                        const isStatue = val === TYPES.STATUE;
+                        const shouldFadeOut = !isCenter && !isStatue;
+                        
+                        if (shouldFadeOut) {
+                            ctx.globalAlpha = (1.0 - animProgress) * opacity;
+                        } else {
+                            ctx.globalAlpha = opacity;
+                        }
+                        
+                        if (val === TYPES.WALL || isStatue) {
+                            const H = 1.5;
+                            if (isStatue) {
+                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, '#444444', opacity);
+                                drawStatue(coords.x, coords.y, opacity);
+                            } else {
+                                const subW = tileWidthHalf * 0.45;
+                                const subH = tileHeightHalf * 0.45;
+                                const boxH = tileHeight * 0.25;
+                                const color = 'rgba(90, 20, 160, 0.8)';
+                                const offsets = [
+                                    { dx: -0.23, dy: -0.23 },
+                                    { dx: 0.23, dy: -0.23 },
+                                    { dx: -0.23, dy: 0.23 },
+                                    { dx: 0.23, dy: 0.23 }
+                                ];
+                                for (const offset of offsets) {
+                                    const subCoords = getIsoCoords(x + offset.dx, y + offset.dy, z);
+                                    drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, opacity);
+                                }
+                            }
+                        } else {
+                            let color = '#444444';
+                            let isVortex = false;
+                            let vortexColor = '';
+                            if (isCenter) {
+                                vortexColor = CONFIG.COLORS.JELLY_PORTAL;
+                                isVortex = true;
+                            } else if (val === TYPES.TELEPORT) {
+                                vortexColor = CONFIG.COLORS.TELEPORT_INACTIVE;
+                                isVortex = true;
+                            } else if (val === TYPES.EXIT) {
+                                vortexColor = CONFIG.COLORS.EXIT;
+                                isVortex = true;
+                            }
+                            
+                            if (isVortex) {
+                                drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, vortexColor, false, `${x},${y},${z}`, opacity);
+                            } else {
+                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, color, opacity);
+                            }
+                            
+                            if (val === TYPES.KEY) {
+                                drawKey(coords.x, coords.y - 1.5, opacity);
+                            } else if (val === TYPES.MANA) {
+                                drawMana(coords.x, coords.y - 1.5, opacity);
+                            }
+                        }
+                        
+                        ctx.restore();
+                        continue;
+                    }
 
                     const isJelly = val === TYPES.JELLY_PORTAL;
                     const isTeleport = val === TYPES.TELEPORT || isJelly;
