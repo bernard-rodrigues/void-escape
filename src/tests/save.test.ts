@@ -13,6 +13,7 @@ globalThis.localStorage = {
 
 // Import save manager functions
 import { saveGame, loadSave, clearSave, hasSave, restoreMatrix, SAVE_KEY } from '../engine/save';
+import { Engine } from '../engine/engine';
 
 test('SaveManager - Base64 Matrix serialization and deserialization', () => {
     // Save manager uses encodeMatrix/decodeMatrix inside.
@@ -90,4 +91,60 @@ test('SaveManager - Clear save storage', () => {
     
     clearSave();
     assert.strictEqual(hasSave(), false);
+});
+
+test('SaveManager - Restore from save rebuilds allTeleports containing Jelly Portals', () => {
+    // Mock DOM elements required by Engine
+    const canvas = document.createElement('canvas');
+    canvas.id = 'main-2d-canvas';
+    document.body.appendChild(canvas);
+
+    const mapContainer = document.createElement('div');
+    mapContainer.id = 'map3d-container';
+    document.body.appendChild(mapContainer);
+
+    const originalInitThree = Engine.prototype.initThree;
+    const originalLoop = Engine.prototype.loop;
+    Engine.prototype.initThree = function() {
+        this.scene = { children: [], remove: () => {}, add: () => {} } as any;
+        this.camera = { aspect: 1, updateProjectionMatrix: () => {} } as any;
+        this.renderer = { domElement: document.createElement('div'), setSize: () => {} } as any;
+        this.controls = { update: () => {} } as any;
+    };
+    Engine.prototype.loop = function() {};
+
+    try {
+        const engine = new Engine(4, 0.2);
+        
+        // Put a JELLY_PORTAL in the maze matrix at a specific location
+        const targetX = 1;
+        const targetY = 1;
+        const targetZ = 1;
+        engine.maze.set(targetX, targetY, targetZ, engine.mazeGen.TYPES.JELLY_PORTAL);
+
+        // Save state snapshot
+        saveGame(engine);
+
+        // Create a new engine instance simulating Continue / restore
+        const restoreEngine = new Engine(4, 0.2);
+        
+        // Before restore, restoreEngine.allTeleports should NOT contain the Jelly Portal
+        const containsJellyBefore = restoreEngine.allTeleports.some(t => t.x === targetX && t.y === targetY && t.z === targetZ);
+        assert.strictEqual(containsJellyBefore, false, 'Jelly Portal should not be in allTeleports initially');
+
+        // Restore state
+        const snapshot = loadSave();
+        restoreEngine.restoreFromSave(snapshot);
+
+        // After restore, restoreEngine.allTeleports MUST contain the Jelly Portal
+        const containsJellyAfter = restoreEngine.allTeleports.some(t => t.x === targetX && t.y === targetY && t.z === targetZ);
+        assert.ok(containsJellyAfter, 'Jelly Portal must be successfully reconstructed in allTeleports on continue');
+    } finally {
+        Engine.prototype.initThree = originalInitThree;
+        Engine.prototype.loop = originalLoop;
+        
+        // Cleanup DOM
+        canvas.remove();
+        mapContainer.remove();
+    }
 });

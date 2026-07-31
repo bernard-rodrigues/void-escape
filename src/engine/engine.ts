@@ -1017,6 +1017,36 @@ export class Engine {
         this.discoveredTeleports = new Set(snapshot.discoveredTeleports);
         this.inactiveTeleportPos = snapshot.inactiveTeleportPos;
         this.teleportCooldownTicks = snapshot.teleportCooldownTicks;
+
+        // Rebuild allTeleports since JELLY_PORTALs might now exist in the restored matrix
+        this.allTeleports = [];
+        const mazeSize = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+        for (let z = 1; z < mazeSize; z += 2) {
+            for (let y = 0; y < mazeSize; y++) {
+                for (let x = 0; x < mazeSize; x++) {
+                    const cellVal = this.maze.get(x, y, z);
+                    if (cellVal === TYPES.TELEPORT || cellVal === TYPES.JELLY_PORTAL) {
+                        this.allTeleports.push({ x, y, z });
+                    }
+                }
+            }
+        }
+        this.allTeleports.sort((a, b) => {
+            if (a.z !== b.z) return a.z - b.z;
+            if (a.y !== b.y) return a.y - b.y;
+            return a.x - b.x;
+        });
+
+        // Restore selectedTeleportIndex
+        const startGridX = Math.floor(this.player.x);
+        const startGridY = Math.floor(this.player.y);
+        const startGridZ = this.player.z;
+        this.selectedTeleportIndex = this.allTeleports.findIndex(
+            t => t.x === startGridX && t.y === startGridY && t.z === startGridZ
+        );
+        if (this.selectedTeleportIndex === -1) this.selectedTeleportIndex = 0;
+
         this.keysCollected = snapshot.keysCollected !== undefined ? snapshot.keysCollected : 0;
         this.totalKeys = snapshot.totalKeys !== undefined ? snapshot.totalKeys : (CONFIG.getHunterCount(this.degree) * 2);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
