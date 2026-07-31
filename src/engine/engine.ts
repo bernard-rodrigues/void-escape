@@ -3807,8 +3807,17 @@ export class Engine {
                 
                 if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
                     ctx.save();
-                    const keySize = cellSize * 0.55;
-                    ctx.drawImage(this.keyImage, cx - keySize / 2, cy + keyYOffset - keySize / 2, keySize, keySize);
+                    const img = this.keyImage;
+                    const aspect = img.naturalWidth / img.naturalHeight;
+                    const maxDim = cellSize * 0.55;
+                    let dw = maxDim;
+                    let dh = maxDim;
+                    if (aspect > 1) {
+                        dh = maxDim / aspect;
+                    } else {
+                        dw = maxDim * aspect;
+                    }
+                    ctx.drawImage(img, cx - dw / 2, cy + keyYOffset - dh / 2, dw, dh);
                     ctx.restore();
                 } else {
                     // Fallback gold dot
@@ -6998,8 +7007,17 @@ export class Engine {
                 
                 if (this.keyImage.complete && this.keyImage.naturalWidth !== 0) {
                     ctx.save();
-                    const keySize = tileWidth * 0.55;
-                    ctx.drawImage(this.keyImage, cx - keySize / 2, cy - keySize / 2 + keyYOffset, keySize, keySize);
+                    const img = this.keyImage;
+                    const aspect = img.naturalWidth / img.naturalHeight;
+                    const maxDim = tileWidth * 0.55;
+                    let dw = maxDim;
+                    let dh = maxDim;
+                    if (aspect > 1) {
+                        dh = maxDim / aspect;
+                    } else {
+                        dw = maxDim * aspect;
+                    }
+                    ctx.drawImage(img, cx - dw / 2, cy - dh / 2 + keyYOffset, dw, dh);
                     ctx.restore();
                 } else {
                     // Fallback gold dot
