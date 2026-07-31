@@ -94,7 +94,7 @@ test('SaveManager - Clear save storage', () => {
     assert.strictEqual(hasSave(), false);
 });
 
-test('SaveManager - Jelly Portal stepping triggers save point with warning banner', () => {
+test('SaveManager - Restore from save rebuilds allTeleports containing Jelly Portals', () => {
     // Mock DOM elements required by Engine
     const canvas = document.createElement('canvas');
     canvas.id = 'main-2d-canvas';
