@@ -425,16 +425,16 @@ export class Maze3D {
             }
         }
         
-        // Has an elevator in the center (vertical path below or above)
-        let hasElevator = false;
+        // Has exactly one vertical neighbor (not a vertical corridor)
+        let verticalCount = 0;
         if (z - 1 >= 0 && this.matrix[this._idx(x, y, z - 1)] !== this.TYPES.WALL) {
-            hasElevator = true;
+            verticalCount++;
         }
         if (z + 1 < size && this.matrix[this._idx(x, y, z + 1)] !== this.TYPES.WALL) {
-            hasElevator = true;
+            verticalCount++;
         }
         
-        return hasElevator;
+        return verticalCount === 1;
     }
 
     isSolvable(): boolean {
@@ -554,40 +554,80 @@ export class Maze3D {
             }
         }
         
-        let placedCount = 0;
-        for (const cand of candidates) {
-            const originalVal = this.matrix[this._idx(cand.x, cand.y, cand.z)];
+        let totalPlaced = 0;
+        
+        interface CellChange {
+            x: number;
+            y: number;
+            z: number;
+            oldVal: number;
+        }
+
+        const applyChange = (x: number, y: number, z: number, newVal: number, changes: CellChange[]) => {
+            const idx = this._idx(x, y, z);
+            const oldVal = this.matrix[idx];
+            if (oldVal !== newVal) {
+                this.matrix[idx] = newVal;
+                changes.push({ x, y, z, oldVal });
+            }
+        };
+
+        const revertChanges = (changes: CellChange[]) => {
+            for (let i = changes.length - 1; i >= 0; i--) {
+                const c = changes[i];
+                this.matrix[this._idx(c.x, c.y, c.z)] = c.oldVal;
+            }
+        };
+
+        // Algoritmo recursivo para propagar as estátuas
+        const tryPlaceRecursive = (x: number, y: number, z: number, changes: CellChange[]) => {
+            applyChange(x, y, z, this.TYPES.STATUE, changes);
             
-            // Save shafts states
-            const belowShaftZ = cand.z - 1;
-            const aboveShaftZ = cand.z + 1;
-            const originalBelowVal = belowShaftZ >= 0 ? this.matrix[this._idx(cand.x, cand.y, belowShaftZ)] : null;
-            const originalAboveVal = aboveShaftZ < size ? this.matrix[this._idx(cand.x, cand.y, aboveShaftZ)] : null;
-            
-            // Place statue and turn its vertical shafts into walls
-            this.matrix[this._idx(cand.x, cand.y, cand.z)] = this.TYPES.STATUE;
+            const belowShaftZ = z - 1;
+            const aboveShaftZ = z + 1;
             if (belowShaftZ >= 0) {
-                this.matrix[this._idx(cand.x, cand.y, belowShaftZ)] = this.TYPES.WALL;
+                applyChange(x, y, belowShaftZ, this.TYPES.WALL, changes);
             }
             if (aboveShaftZ < size) {
-                this.matrix[this._idx(cand.x, cand.y, aboveShaftZ)] = this.TYPES.WALL;
+                applyChange(x, y, aboveShaftZ, this.TYPES.WALL, changes);
             }
+
+            // Verifica recursivamente vizinhos verticais (z-2 e z+2)
+            const checkZOffsets = [-2, 2];
+            for (const dz of checkZOffsets) {
+                const nz = z + dz;
+                if (nz >= 0 && nz < size) {
+                    if (this.isDeadEndZ(x, y, nz)) {
+                        tryPlaceRecursive(x, y, nz, changes);
+                    }
+                }
+            }
+        };
+
+        for (const cand of candidates) {
+            // Se já foi transformado em estátua em uma recursão anterior, pula
+            if (this.matrix[this._idx(cand.x, cand.y, cand.z)] === this.TYPES.STATUE) {
+                continue;
+            }
+            if (!this.isDeadEndZ(cand.x, cand.y, cand.z)) {
+                continue;
+            }
+
+            const currentChanges: CellChange[] = [];
             
-            // Validate solvability
+            // Executa a colocação recursiva
+            tryPlaceRecursive(cand.x, cand.y, cand.z, currentChanges);
+
+            // Valida solvabilidade de forma atômica no término da cadeia
             if (this.isSolvable()) {
-                placedCount++;
+                const count = currentChanges.filter(c => c.oldVal !== this.TYPES.STATUE && this.matrix[this._idx(c.x, c.y, c.z)] === this.TYPES.STATUE).length;
+                totalPlaced += count;
             } else {
-                // Revert all
-                this.matrix[this._idx(cand.x, cand.y, cand.z)] = originalVal;
-                if (belowShaftZ >= 0) {
-                    this.matrix[this._idx(cand.x, cand.y, belowShaftZ)] = originalBelowVal;
-                }
-                if (aboveShaftZ < size) {
-                    this.matrix[this._idx(cand.x, cand.y, aboveShaftZ)] = originalAboveVal;
-                }
+                revertChanges(currentChanges);
             }
         }
-        return placedCount;
+        
+        return totalPlaced;
     }
 
     placeManas(): void {
