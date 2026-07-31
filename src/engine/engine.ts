@@ -2598,6 +2598,7 @@ export class Engine {
                         this.discoveredTeleports.add(key);
                         this.staticMapCacheDirty = true;
                         if (isJellyPortal) {
+                            this.triggerSave();
                             this.ui.showInfoBanner(getTranslation('msgJellyPortalNotSafe'));
                         } else {
                             // Reentered or newly found teleport -> auto-save

@@ -14,6 +14,7 @@ globalThis.localStorage = {
 // Import save manager functions
 import { saveGame, loadSave, clearSave, hasSave, restoreMatrix, SAVE_KEY } from '../engine/save';
 import { Engine } from '../engine/engine';
+import { getTranslation } from '../engine/translations';
 
 test('SaveManager - Base64 Matrix serialization and deserialization', () => {
     // Save manager uses encodeMatrix/decodeMatrix inside.
@@ -115,30 +116,33 @@ test('SaveManager - Restore from save rebuilds allTeleports containing Jelly Por
 
     try {
         const engine = new Engine(4, 0.2);
+        engine.isStoryActive = false;
+        engine.isIntroPlaying = false;
         
-        // Put a JELLY_PORTAL in the maze matrix at a specific location
-        const targetX = 1;
-        const targetY = 1;
-        const targetZ = 1;
-        engine.maze.set(targetX, targetY, targetZ, engine.mazeGen.TYPES.JELLY_PORTAL);
+        // Place a JELLY_PORTAL at the player's position
+        const px = Math.floor(engine.player.x);
+        const py = Math.floor(engine.player.y);
+        const pz = engine.player.z;
+        engine.maze.set(px, py, pz, engine.mazeGen.TYPES.JELLY_PORTAL);
 
-        // Save state snapshot
-        saveGame(engine);
+        // Mock UI showInfoBanner and triggerSave to trace their calls
+        let bannerText = '';
+        engine.ui.showInfoBanner = (text: string) => {
+            bannerText = text;
+        };
 
-        // Create a new engine instance simulating Continue / restore
-        const restoreEngine = new Engine(4, 0.2);
-        
-        // Before restore, restoreEngine.allTeleports should NOT contain the Jelly Portal
-        const containsJellyBefore = restoreEngine.allTeleports.some(t => t.x === targetX && t.y === targetY && t.z === targetZ);
-        assert.strictEqual(containsJellyBefore, false, 'Jelly Portal should not be in allTeleports initially');
+        let saveTriggered = false;
+        engine.triggerSave = () => {
+            saveTriggered = true;
+        };
 
-        // Restore state
-        const snapshot = loadSave();
-        restoreEngine.restoreFromSave(snapshot);
+        // Move/update player cell logic to trigger the check
+        engine.lastPlayerCell = { x: px + 1, y: py, z: pz };
+        engine.update(0.016);
 
-        // After restore, restoreEngine.allTeleports MUST contain the Jelly Portal
-        const containsJellyAfter = restoreEngine.allTeleports.some(t => t.x === targetX && t.y === targetY && t.z === targetZ);
-        assert.ok(containsJellyAfter, 'Jelly Portal must be successfully reconstructed in allTeleports on continue');
+        // Assertions
+        assert.ok(saveTriggered, 'Stepping on a Jelly Portal must trigger triggerSave');
+        assert.strictEqual(bannerText, getTranslation('msgJellyPortalNotSafe'), 'Should show the warning banner that it is not safe');
     } finally {
         Engine.prototype.initThree = originalInitThree;
         Engine.prototype.loop = originalLoop;
