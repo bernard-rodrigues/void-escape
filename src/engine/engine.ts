@@ -293,7 +293,7 @@ export class Engine {
         this.keyMeshes = [];
         this.exitMesh = null;
         this.keysCollected = 0;
-        this.totalKeys = CONFIG.getHunterCount(degree) * 2;
+        this.totalKeys = CONFIG.getKeyCount(degree);
 
         this.totalPathfinders = CONFIG.getPathfinderCount(degree);
         this.pathfindersRemaining = this.totalPathfinders;
@@ -784,13 +784,22 @@ export class Engine {
             }
         }
 
+        const activationPercentage = this.getMapVisitedPercentage();
         this.dyingHunters = [];
         for (const hunter of this.hunters) {
-            if (hunter.state !== 'SLEEP' && hunter.z === pz) {
+            if (hunter.state !== 'SLEEP' && hunter.state !== 'DEAD_BY_JELLY' && hunter.z === pz) {
                 const hDist = Math.abs(hunter.x - px) + Math.abs(hunter.y - py);
                 if (hDist <= 5) {
-                    hunter.state = 'DYING';
-                    this.dyingHunters.push(hunter);
+                    hunter.state = 'DEAD_BY_JELLY';
+                    hunter.respawnThresholdPercentage = activationPercentage;
+                    hunter.x = null;
+                    hunter.y = null;
+                    hunter.z = null;
+                    hunter.visualX = null;
+                    hunter.visualY = null;
+                    hunter.visualZ = null;
+                    hunter.pathToTarget = [];
+                    hunter.history = [];
                 }
             }
         }
@@ -859,6 +868,65 @@ export class Engine {
 
         this.staticMapCacheDirty = true;
         this.triggerSave();
+    }
+
+    respawnSingleHunter(hunter: any) {
+        const size = this.mazeGen.size;
+        const candidates = [];
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+
+        const startX = Math.floor(this.mazeGen.startPos.x);
+        const startY = Math.floor(this.mazeGen.startPos.y);
+        const startZ = this.mazeGen.startPos.z;
+
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const isStartPos = (x === startX && y === startY && z === startZ);
+                    const isExit = (this.maze.get(x, y, z) === this.mazeGen.TYPES.EXIT);
+                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH && z % 2 !== 0 && !isStartPos && !isExit) {
+                        if (z === pz && Math.abs(x - px) + Math.abs(y - py) <= 5) continue;
+                        candidates.push({ x, y, z });
+                    }
+                }
+            }
+        }
+
+        if (candidates.length === 0) {
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    for (let z = 0; z < size; z++) {
+                        const val = this.maze.get(x, y, z);
+                        const isStartPos = (x === startX && y === startY && z === startZ);
+                        const isExit = (val === this.mazeGen.TYPES.EXIT);
+                        if (val !== this.mazeGen.TYPES.WALL && !isExit && z % 2 !== 0 && !isStartPos && (x !== px || y !== py || z !== pz)) {
+                            if (z === pz && Math.abs(x - px) + Math.abs(y - py) <= 5) continue;
+                            candidates.push({ x, y, z });
+                        }
+                    }
+                }
+            }
+        }
+
+        if (candidates.length > 0) {
+            const pos = candidates[Math.floor(Math.random() * candidates.length)];
+            hunter.x = pos.x;
+            hunter.y = pos.y;
+            hunter.z = pos.z;
+            hunter.visualX = pos.x;
+            hunter.visualY = pos.y;
+            hunter.visualZ = pos.z;
+            hunter.lastPos = { x: pos.x, y: pos.y, z: pos.z };
+            hunter.state = 'WANDERING';
+            hunter.visitedNodes.clear();
+            hunter.visitedNodes.add(`${pos.x},${pos.y},${pos.z}`);
+            hunter.history = [];
+            hunter.respawnThresholdPercentage = null;
+            this.staticMapCacheDirty = true;
+            this.triggerSave();
+        }
     }
 
     respawnDyingHunters() {
@@ -1048,7 +1116,7 @@ export class Engine {
         if (this.selectedTeleportIndex === -1) this.selectedTeleportIndex = 0;
 
         this.keysCollected = snapshot.keysCollected !== undefined ? snapshot.keysCollected : 0;
-        this.totalKeys = snapshot.totalKeys !== undefined ? snapshot.totalKeys : (CONFIG.getHunterCount(this.degree) * 2);
+        this.totalKeys = snapshot.totalKeys !== undefined ? snapshot.totalKeys : CONFIG.getKeyCount(this.degree);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
 
         this.manaCollected = snapshot.manaCollected !== undefined ? snapshot.manaCollected : 0;
@@ -1119,7 +1187,7 @@ export class Engine {
         }
 
         for (const hunter of this.hunters) {
-            if (hunter.state === 'SLEEP') continue;
+            if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY') continue;
             if (hunter.x === px && hunter.y === py && hunter.z === pz) {
                 // Trava o caçador na posição atual
                 hunter.visualX = hunter.x;
@@ -2225,6 +2293,17 @@ export class Engine {
             }
         }
 
+        // Check if any dead-by-jelly hunters can respawn now
+        const currentPercent = this.getMapVisitedPercentage();
+        for (const hunter of this.hunters) {
+            if (hunter.state === 'DEAD_BY_JELLY' && hunter.respawnThresholdPercentage !== null) {
+                if (currentPercent >= hunter.respawnThresholdPercentage) {
+                    this.respawnSingleHunter(hunter);
+                    this.ui.showInfoBanner(getTranslation('msgHunterReturned'));
+                }
+            }
+        }
+
         // Update hunter visual positions toward their target grid positions
         const speed = 1000 / CONFIG.HUNTER_SPEED;
         const maxDelta = speed * dt;
@@ -2232,7 +2311,7 @@ export class Engine {
             if (hunter.visualX === null) hunter.visualX = hunter.x;
             if (hunter.visualY === null) hunter.visualY = hunter.y;
             if (hunter.visualZ === null) hunter.visualZ = hunter.z;
-            if (hunter.x === null || hunter.y === null || hunter.z === null) continue;
+            if (hunter.state === 'DEAD_BY_JELLY' || hunter.x === null || hunter.y === null || hunter.z === null) continue;
             hunter.visualX = moveTowards(hunter.visualX!, hunter.x, maxDelta);
             hunter.visualY = moveTowards(hunter.visualY!, hunter.y, maxDelta);
             hunter.visualZ = moveTowards(hunter.visualZ!, hunter.z, maxDelta * 2);
@@ -2246,6 +2325,11 @@ export class Engine {
             for (const hm of this.hunterMeshes) {
                  const h = hm.hunter;
                  const mesh = hm.mesh;
+                 if (h.state === 'DEAD_BY_JELLY') {
+                     mesh.visible = false;
+                     continue;
+                 }
+                 mesh.visible = true;
                  if (h.visualX === null || h.visualZ === null || h.visualY === null) continue;
                  mesh.position.set(h.visualX - size/2, (h.visualZ - size/2) * this.vScale, h.visualY - size/2);
 
@@ -2679,6 +2763,7 @@ export class Engine {
                     this.inactiveTeleportPos = null;
                     
                     for (const hunter of this.hunters) {
+                        if (hunter.state === 'DEAD_BY_JELLY') continue;
                         const cellVal = this.maze.get(hunter.x, hunter.y, hunter.z);
                         if (cellVal === this.mazeGen.TYPES.VISITED || cellVal === this.mazeGen.TYPES.START || cellVal === this.mazeGen.TYPES.EXIT) {
                             const oldState = hunter.state;
@@ -2702,7 +2787,7 @@ export class Engine {
             const isSleeping = this.hunters.some(h => h.state === 'SLEEP');
 
             for (const hunter of this.hunters) {
-                if (hunter.state === 'SLEEP') continue;
+                if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY') continue;
                 const oldState = hunter.state;
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
                 if (hunter.state === 'TRACKING' && oldState !== 'TRACKING' && !this.dialogueDetectedTriggered) {
@@ -5625,6 +5710,7 @@ export class Engine {
             this.ui.showInfoBanner(getTranslation('msgOopsNoisyShit'));
 
             for (const hunter of this.hunters) {
+                if (hunter.state === 'DEAD_BY_JELLY') continue;
                 hunter.state = 'TELEPORT_TRACKING';
                 const path = hunter.findPathToTarget({ x, y, z }, this.maze, this.mazeGen.TYPES);
                 if (path) {
@@ -6613,7 +6699,7 @@ export class Engine {
 
                     // Draw hunters in real-time even on unvisited corridors
                     for (const h of this.hunters) {
-                        if (h.state === 'SLEEP') continue;
+                        if (h.state === 'SLEEP' || h.state === 'DEAD_BY_JELLY') continue;
                         const hz = h.visualZ !== null ? h.visualZ : h.z;
                         const hx = h.visualX !== null ? h.visualX : h.x;
                         const hy = h.visualY !== null ? h.visualY : h.y;

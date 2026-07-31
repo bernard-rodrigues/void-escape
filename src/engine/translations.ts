@@ -122,7 +122,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgJellyPortalNotHere: "I can't do this here...",
         msgJellyPortalActivated: "Portal of the Jelly God!",
         msgJellyPortalNoPortalCount: "I need mana...",
-        msgJellyPortalNotSafe: "Not safe, but teleport-able..."
+        msgJellyPortalNotSafe: "Not safe, but teleport-able...",
+        msgHunterReturned: "These things... they resurrect..."
     },
     ptBr: {
         // Main Menu / Start Menu
@@ -246,7 +247,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgJellyPortalNotHere: "Aqui eu não posso...",
         msgJellyPortalActivated: "Portal do Deus Geléia!",
         msgJellyPortalNoPortalCount: "Preciso de mana...",
-        msgJellyPortalNotSafe: "Não seguro, mas teleportável..."
+        msgJellyPortalNotSafe: "Não seguro, mas teleportável...",
+        msgHunterReturned: "Essas coisas ressuscitam..."
     },
     ja: {
         // Main Menu / Start Menu
@@ -370,7 +372,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgJellyPortalNotHere: "ここでは使えないわ...",
         msgJellyPortalActivated: "ゼリー神のポータル！",
         msgJellyPortalNoPortalCount: "マナが必要よ...",
-        msgJellyPortalNotSafe: "安全ではないけれど、テレポートはできるわ..."
+        msgJellyPortalNotSafe: "安全ではないけれど、テレポートはできるわ...",
+        msgHunterReturned: "あいつら、蘇るの…？"
     },
 
 es: {
@@ -495,7 +498,8 @@ es: {
         msgJellyPortalNotHere: "No puedo hacer esto aquí...",
         msgJellyPortalActivated: "¡Portal del Dios Gelatina!",
         msgJellyPortalNoPortalCount: "Necesito maná...",
-        msgJellyPortalNotSafe: "No es seguro, pero se puede teletransportar..."
+        msgJellyPortalNotSafe: "No es seguro, pero se puede teletransportar...",
+        msgHunterReturned: "Esas cosas resucitan..."
     }
 };
 

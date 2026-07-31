@@ -19,6 +19,7 @@ export class Hunter {
     state: string;
     lastPos: Point3D | null;
     jellyTime: number;
+    respawnThresholdPercentage: number | null;
     lowCanvas!: HTMLCanvasElement;
     lctx!: CanvasRenderingContext2D | null;
 
@@ -52,6 +53,7 @@ export class Hunter {
 
         // Jelly Glitch Monster Animation State
         this.jellyTime = 0;
+        this.respawnThresholdPercentage = null;
         if (typeof document !== 'undefined') {
             this.lowCanvas = document.createElement('canvas');
             this.lowCanvas.width = 64;
@@ -153,7 +155,7 @@ export class Hunter {
     }
 
     move(playerPos: Point3D, matrix: Int8Array, types: any) {
-        if (this.state === 'SLEEP' || this.x === null || this.y === null || this.z === null) return;
+        if (this.state === 'SLEEP' || this.state === 'DEAD_BY_JELLY' || this.x === null || this.y === null || this.z === null) return;
         const neighbors = this.getValidNeighbors(matrix, types);
         if (neighbors.length === 0) return;
 

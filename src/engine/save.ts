@@ -54,6 +54,7 @@ function serialiseHunter(h: any): any {
         history: h.history.map((p: any) => ({ ...p })),
         visitedNodes: Array.from(h.visitedNodes),
         pathToTarget: h.pathToTarget.map((p: any) => ({ ...p })),
+        respawnThresholdPercentage: h.respawnThresholdPercentage !== undefined ? h.respawnThresholdPercentage : null,
     };
 }
 
@@ -166,6 +167,7 @@ export function restoreHunter(hunter: any, data: any): void {
     hunter.history = data.history.map((p: any) => ({ ...p }));
     hunter.visitedNodes = new Set(data.visitedNodes);
     hunter.pathToTarget = data.pathToTarget.map((p: any) => ({ ...p }));
+    hunter.respawnThresholdPercentage = data.respawnThresholdPercentage !== undefined ? data.respawnThresholdPercentage : null;
 }
 
 /**

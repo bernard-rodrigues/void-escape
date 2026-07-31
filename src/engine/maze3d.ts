@@ -229,7 +229,7 @@ export class Maze3D {
     }
 
     placeKeys(): void {
-        const count = CONFIG.getHunterCount(this.n) * 2;
+        const count = CONFIG.getKeyCount(this.n);
         const { deadEnds, normalPaths } = this._collectDeadEndsAndPaths();
         const keys: Point3D[] = [];
         this._greedyFill(keys, deadEnds, count, [this.TYPES.TELEPORT], true);

@@ -29,6 +29,7 @@ export interface Config {
   getHunterCount: (degree: number) => number;
   getTeleportCount: (degree: number) => number;
   getPathfinderCount: (degree: number) => number;
+  getKeyCount: (degree: number) => number;
   COLORS: Record<string, any>;
 }
 
@@ -54,23 +55,30 @@ export const CONFIG: Config = {
     SHOW_COLLISION_DEBUG: false, // Set to true to draw the player's red collision boundary on the 2D map
     MOVE_SPEED_FACTOR: 2, // player is 2x faster than hunter speed
     ROT_SPEED: 3.0, // radians per second
-    HUNTER_SPEED: 800, // ms per move
+    HUNTER_SPEED: 600, // ms per move
     VORTEX_SPEED_NORMAL: 1.5, // Default slow rotation speed for the vortex (rad/s)
     VORTEX_SPEED_FAST: 6.0,   // Fast rotation speed when player is on the vortex tile (rad/s)
     JELLY_PORTAL_COUNT: 0,
     getHunterCount(degree: number) {
-        if (degree >= 16) return 3;
+        if (degree >= 16) return 4;
+        if (degree >= 12) return 3;
         if (degree >= 8) return 2;
         return 1;
     },
+    getKeyCount(degree: number) {
+        return this.getHunterCount(degree) * 2;
+    },
     getTeleportCount(degree: number) {
-        if (degree <= 8) {
-            return Math.max(2, Math.floor(degree / 2));
+        if (degree < 8) {
+            return Math.ceil(degree / 2);
         }
         const diff = degree - 8;
-        return Math.floor(0.125 * diff * diff + 0.5 * diff + 4);
+        return Math.floor(0.125 * diff * diff + 1.5 * diff + 4);
     },
     getPathfinderCount(degree: number) {
+        if (degree >= 11) {
+            return Math.floor(9 + (degree - 11) * 1.4);
+        }
         return this.getTeleportCount(degree);
     },
     COLORS: {
