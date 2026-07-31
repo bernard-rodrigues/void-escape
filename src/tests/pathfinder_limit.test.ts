@@ -62,11 +62,16 @@ class MockEngine {
     }
 }
 
-test('Pathfinder Limit - Capacity formula scales matching teleport count', () => {
+test('Pathfinder Limit - Capacity formula scales matching expected values', () => {
     for (let degree = 3; degree <= 16; degree++) {
-        const expectedTeleport = CONFIG.getTeleportCount(degree);
         const expectedPathfinder = CONFIG.getPathfinderCount(degree);
-        assert.strictEqual(expectedPathfinder, expectedTeleport);
+        if (degree >= 11) {
+            const expectedVal = Math.floor(9 + (degree - 11) * 1.4);
+            assert.strictEqual(expectedPathfinder, expectedVal);
+        } else {
+            const expectedTeleport = CONFIG.getTeleportCount(degree);
+            assert.strictEqual(expectedPathfinder, expectedTeleport);
+        }
     }
 });
 

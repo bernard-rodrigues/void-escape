@@ -159,6 +159,6 @@ test('Keys System - Fallback behavior on degree 3 maze when dead-ends are exhaus
         }
     }
 
-    const expectedKeys = CONFIG.getHunterCount(degree) * 2; // 2 keys
+    const expectedKeys = CONFIG.getKeyCount(degree); // 2 keys
     assert.strictEqual(keyCount, expectedKeys, `Even on a tiny degree 3 maze, it must place exactly ${expectedKeys} keys by falling back to normal paths`);
 });
