@@ -13,6 +13,8 @@ globalThis.localStorage = {
 
 // Import save manager functions
 import { saveGame, loadSave, clearSave, hasSave, restoreMatrix, SAVE_KEY } from '../engine/save';
+import { Engine } from '../engine/engine';
+import { getTranslation } from '../engine/translations';
 
 test('SaveManager - Base64 Matrix serialization and deserialization', () => {
     // Save manager uses encodeMatrix/decodeMatrix inside.
@@ -90,4 +92,63 @@ test('SaveManager - Clear save storage', () => {
     
     clearSave();
     assert.strictEqual(hasSave(), false);
+});
+
+test('SaveManager - Jelly Portal stepping triggers save point with warning banner', () => {
+    // Mock DOM elements required by Engine
+    const canvas = document.createElement('canvas');
+    canvas.id = 'main-2d-canvas';
+    document.body.appendChild(canvas);
+
+    const mapContainer = document.createElement('div');
+    mapContainer.id = 'map3d-container';
+    document.body.appendChild(mapContainer);
+
+    const originalInitThree = Engine.prototype.initThree;
+    const originalLoop = Engine.prototype.loop;
+    Engine.prototype.initThree = function() {
+        this.scene = { children: [], remove: () => {}, add: () => {} } as any;
+        this.camera = { aspect: 1, updateProjectionMatrix: () => {} } as any;
+        this.renderer = { domElement: document.createElement('div'), setSize: () => {} } as any;
+        this.controls = { update: () => {} } as any;
+    };
+    Engine.prototype.loop = function() {};
+
+    try {
+        const engine = new Engine(4, 0.2);
+        engine.isStoryActive = false;
+        engine.isIntroPlaying = false;
+        
+        // Place a JELLY_PORTAL at the player's position
+        const px = Math.floor(engine.player.x);
+        const py = Math.floor(engine.player.y);
+        const pz = engine.player.z;
+        engine.maze.set(px, py, pz, engine.mazeGen.TYPES.JELLY_PORTAL);
+
+        // Mock UI showInfoBanner and triggerSave to trace their calls
+        let bannerText = '';
+        engine.ui.showInfoBanner = (text: string) => {
+            bannerText = text;
+        };
+
+        let saveTriggered = false;
+        engine.triggerSave = () => {
+            saveTriggered = true;
+        };
+
+        // Move/update player cell logic to trigger the check
+        engine.lastPlayerCell = { x: px + 1, y: py, z: pz };
+        engine.update(0.016);
+
+        // Assertions
+        assert.ok(saveTriggered, 'Stepping on a Jelly Portal must trigger triggerSave');
+        assert.strictEqual(bannerText, getTranslation('msgJellyPortalNotSafe'), 'Should show the warning banner that it is not safe');
+    } finally {
+        Engine.prototype.initThree = originalInitThree;
+        Engine.prototype.loop = originalLoop;
+        
+        // Cleanup DOM
+        canvas.remove();
+        mapContainer.remove();
+    }
 });
