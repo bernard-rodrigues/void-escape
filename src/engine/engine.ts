@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from './config.js';
 import { getTranslation } from './translations.js';
 import { Hunter } from './hunter.js';
+import { TUTORIALS } from './tutorials.js';
 
 export interface Player {
     x: number;
@@ -106,6 +107,9 @@ export class Engine {
     isMap3DActive: boolean;
     isGameOver: boolean;
     deathAnimation: any;
+    isTutorialMode!: boolean;
+    currentTutorialId!: string | null;
+    currentTutorialStage!: any;
     notificationQueue: string[];
     activeNotification: any;
     isPaused: boolean;
@@ -194,7 +198,7 @@ export class Engine {
     deathsCount!: number;
     elapsedTime!: number;
 
-    constructor(degree: number, branchingFactor: number, savedState: any = null) {
+    constructor(degree: number, branchingFactor: number, savedState: any = null, tutorialStage: any = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
         this.branchingFactor = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
         
@@ -217,8 +221,17 @@ export class Engine {
         this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
         
         this.seed = savedState ? savedState.seed : (CONFIG.SEED !== null && CONFIG.SEED !== undefined ? CONFIG.SEED : Date.now());
-        this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
-        this.maze = this.mazeGen.generate();
+        this.isTutorialMode = !!tutorialStage;
+        this.currentTutorialId = tutorialStage ? tutorialStage.id : null;
+        this.currentTutorialStage = tutorialStage;
+
+        if (this.isTutorialMode) {
+            this.mazeGen = new Maze3D();
+            this.maze = this.mazeGen.generateFromLayout(tutorialStage);
+        } else {
+            this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
+            this.maze = this.mazeGen.generate();
+        }
         this.isResumedFromSave = !!savedState;
         this.deathsCount = savedState ? (savedState.deathsCount || 0) : 0;
         this.elapsedTime = savedState ? (savedState.elapsedTime || 0) : 0;
@@ -288,17 +301,54 @@ export class Engine {
         };
 
         this.hunters = [];
-        this.initHunters(degree);
+        if (this.isTutorialMode) {
+            if (tutorialStage.hunters && !this.isSafeMode) {
+                for (const hPos of tutorialStage.hunters) {
+                    const hunter = new Hunter(hPos.x, hPos.y, hPos.z);
+                    hunter.state = 'SLEEP';
+                    this.hunters.push(hunter);
+                }
+            }
+        } else {
+            this.initHunters(degree);
+        }
 
         this.keyMeshes = [];
         this.exitMesh = null;
         this.keysCollected = 0;
-        this.totalKeys = CONFIG.getKeyCount(degree);
+        
+        if (this.isTutorialMode) {
+            let keysCount = 0;
+            const size = this.mazeGen.size;
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    for (let z = 0; z < size; z++) {
+                        if (this.maze.get(x, y, z) === this.mazeGen.TYPES.KEY) {
+                            keysCount++;
+                        }
+                    }
+                }
+            }
+            this.totalKeys = keysCount;
+        } else {
+            this.totalKeys = CONFIG.getKeyCount(degree);
+        }
 
-        this.totalPathfinders = CONFIG.getPathfinderCount(degree);
-        this.pathfindersRemaining = this.totalPathfinders;
-        this.activeMapFloor = 1;
-        this.visualActiveFloor = 1;
+        if (this.isTutorialMode) {
+            this.totalPathfinders = tutorialStage.pathfinders !== undefined ? tutorialStage.pathfinders : 0;
+            this.pathfindersRemaining = this.totalPathfinders;
+            this.manaCharges = tutorialStage.mana !== undefined ? tutorialStage.mana : 0;
+            this.activeMapFloor = this.mazeGen.startPos.z;
+            this.visualActiveFloor = this.mazeGen.startPos.z;
+            this.player.x = this.mazeGen.startPos.x;
+            this.player.y = this.mazeGen.startPos.y;
+            this.player.z = this.mazeGen.startPos.z;
+        } else {
+            this.totalPathfinders = CONFIG.getPathfinderCount(degree);
+            this.pathfindersRemaining = this.totalPathfinders;
+            this.activeMapFloor = 1;
+            this.visualActiveFloor = 1;
+        }
         this.mapCursor = { x: 0, y: 0, z: 1 };
         this.pathfinderRewardsGranted = 0;
         this.isometricCanvas = null;
@@ -444,12 +494,21 @@ export class Engine {
     populateVisitedCells() {
         this.visitedCells.clear();
         const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+        const revealAll = this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed;
+
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
                     const val = this.maze.get(x, y, z);
-                    if (val === 2 || val === 3 || val === 5) {
-                        this.visitedCells.add(`${x},${y},${z}`);
+                    if (revealAll) {
+                        if (val !== TYPES.WALL) {
+                            this.visitedCells.add(`${x},${y},${z}`);
+                        }
+                    } else {
+                        if (val === 2 || val === 3 || val === 5) {
+                            this.visitedCells.add(`${x},${y},${z}`);
+                        }
                     }
                 }
             }
@@ -713,6 +772,7 @@ export class Engine {
      * Persist the current game state and briefly show a "SAVING..." indicator.
      */
     triggerSave() {
+        if (this.isTutorialMode) return;
         saveGame(this);
         this.hasSavePoint = true;
         this.lastSavePos = { x: this.player.x, y: this.player.y, z: this.player.z };
@@ -995,9 +1055,27 @@ export class Engine {
 
     triggerVictory() {
         this.isGameOver = true;
-        clearSave(); // Victory clears the save so "Continue" is no longer offered
+        if (!this.isTutorialMode) {
+            clearSave(); // Victory clears the save so "Continue" is no longer offered
+        }
+        
+        let hasNext = false;
+        if (this.isTutorialMode && this.currentTutorialId) {
+            const currentIndex = TUTORIALS.findIndex(t => t.id === this.currentTutorialId);
+            hasNext = (currentIndex !== -1 && currentIndex + 1 < TUTORIALS.length);
+        }
+
         const percent = this.getMapVisitedPercentage();
-        this.ui.showVictory(percent, this.deathsCount, this.degree, this.elapsedTime, this.manaCollected, this.totalMana);
+        this.ui.showVictory(
+            percent, 
+            this.deathsCount, 
+            this.degree, 
+            this.elapsedTime, 
+            this.manaCollected, 
+            this.totalMana, 
+            this.isTutorialMode, 
+            hasNext
+        );
     }
 
     triggerDeath() {
@@ -1458,6 +1536,24 @@ export class Engine {
         if (savedState) {
             this.restoreFromSave(savedState);
             this.playContinueAnimation();
+        } else if (this.isTutorialMode) {
+            this.isStoryActive = false;
+            this.isIntroPlaying = false;
+            
+            const mapArea = document.getElementById('map-area-container');
+            const leftHud = document.getElementById('left-hud-panel');
+            const rightHud = document.getElementById('right-hud-panel');
+            const bottomHud = document.getElementById('bottom-hud-container');
+            if (mapArea) mapArea.classList.remove('hidden', 'intro-hidden');
+            if (leftHud) leftHud.classList.remove('hidden', 'intro-hidden');
+            if (rightHud) rightHud.classList.remove('hidden', 'intro-hidden');
+            if (bottomHud) bottomHud.classList.remove('hidden', 'intro-hidden');
+            
+            this.ui.setMap3DVisible(false);
+            this.isMap3DActive = false;
+            this.staticMapCacheDirty = true;
+            this.isZoomTransitionActive = true;
+            this.zoomTransitionTimer = 2.0;
         } else {
             this.startStorytelling();
         }
@@ -3490,11 +3586,23 @@ export class Engine {
                     
                     // 3. Re-initialize / Reset Hunters to sleep mode & suppress wake banner
                     this.hunters = [];
-                    this.initHunters(this.degree);
+                    if (this.isTutorialMode) {
+                        if (this.currentTutorialStage && this.currentTutorialStage.hunters && !this.isSafeMode) {
+                            for (const hPos of this.currentTutorialStage.hunters) {
+                                const hunter = new Hunter(hPos.x, hPos.y, hPos.z);
+                                hunter.state = 'SLEEP';
+                                this.hunters.push(hunter);
+                            }
+                        }
+                    } else {
+                        this.initHunters(this.degree);
+                    }
                     this.suppressWakeHuntersBanner = true;
                     
                     // 4. Update the saved state in localStorage automatically
-                    saveGame(this);
+                    if (!this.isTutorialMode) {
+                        saveGame(this);
+                    }
                     
                     // 5. Start reversing the animation
                     this.deathAnimation.reversing = true;

@@ -2,10 +2,12 @@
     import { onMount } from 'svelte';
     import { Engine } from './engine/engine';
     import { loadSave, hasSave, clearSave } from './engine/save';
-    import { localizeDOM } from './engine/translations';
+    import { localizeDOM, getCurrentLanguage } from './engine/translations';
     import { CONFIG } from './engine/config';
+    import { TUTORIALS } from './engine/tutorials';
 
     let currentGame: any = null;
+    let currentLang: string = 'en';
 
     function startNewGame(degree: number) {
         if (currentGame) currentGame.destroy();
@@ -23,6 +25,43 @@
         setTimeout(() => {
             try {
                 currentGame = new Engine(degree, CONFIG.BRANCHING_FACTOR);
+            } finally {
+                if (loader) loader.classList.add('hidden');
+            }
+        }, 50);
+    }
+
+    let selectedTutorialStage: any = null;
+
+    function selectTutorial(stage: any) {
+        selectedTutorialStage = stage;
+        const lang = getCurrentLanguage();
+        
+        const titleEl = document.getElementById('tut-modal-title');
+        const descEl = document.getElementById('tut-modal-description');
+        if (titleEl) titleEl.innerText = stage.title[lang] || stage.title['en'];
+        if (descEl) descEl.innerText = stage.description[lang] || stage.description['en'];
+        
+        document.getElementById('tutorial-instructions-modal')?.classList.remove('hidden');
+    }
+
+    function runTutorial(stage: any) {
+        if (currentGame) currentGame.destroy();
+        
+        document.getElementById('tutorial-instructions-modal')?.classList.add('hidden');
+        document.getElementById('tutorials-menu')?.classList.add('hidden');
+        document.getElementById('victory-screen')?.classList.add('hidden');
+        document.getElementById('game-over-screen')?.classList.add('hidden');
+        
+        const loader = document.getElementById('loading-screen');
+        if (loader) {
+            loader.classList.remove('hidden');
+            localizeDOM();
+        }
+        
+        setTimeout(() => {
+            try {
+                currentGame = new Engine(stage.degree || 3, CONFIG.BRANCHING_FACTOR, null, stage);
             } finally {
                 if (loader) loader.classList.add('hidden');
             }
@@ -180,6 +219,18 @@
             };
         }
 
+        // Victory screen actions (handles Tutorial restart)
+        const restartBtnVictory = document.getElementById('restart-btn-victory');
+        if (restartBtnVictory && degreeSlider) {
+            restartBtnVictory.onclick = () => {
+                if (currentGame && currentGame.isTutorialMode && currentGame.currentTutorialStage) {
+                    runTutorial(currentGame.currentTutorialStage);
+                } else {
+                    startNewGame(parseInt(degreeSlider.value));
+                }
+            };
+        }
+
         const continueBtn = document.getElementById('continue-btn-menu');
         if (continueBtn) {
             continueBtn.onclick = () => {
@@ -187,18 +238,28 @@
             };
         }
 
-        // Victory screen actions
-        const restartBtnVictory = document.getElementById('restart-btn-victory');
-        if (restartBtnVictory && degreeSlider) {
-            restartBtnVictory.onclick = () => {
-                startNewGame(parseInt(degreeSlider.value));
-            };
-        }
-
         const menuBtnVictory = document.getElementById('menu-btn-victory');
         if (menuBtnVictory) {
             menuBtnVictory.onclick = () => {
-                returnToMenu();
+                if (currentGame && currentGame.isTutorialMode) {
+                    document.getElementById('victory-screen')?.classList.add('hidden');
+                    document.getElementById('tutorials-menu')?.classList.remove('hidden');
+                } else {
+                    returnToMenu();
+                }
+            };
+        }
+
+        const nextTutBtnVictory = document.getElementById('next-tut-btn-victory');
+        if (nextTutBtnVictory) {
+            nextTutBtnVictory.onclick = () => {
+                if (currentGame && currentGame.isTutorialMode && currentGame.currentTutorialId) {
+                    const currentIndex = TUTORIALS.findIndex(t => t.id === currentGame.currentTutorialId);
+                    if (currentIndex !== -1 && currentIndex + 1 < TUTORIALS.length) {
+                        const nextStage = TUTORIALS[currentIndex + 1];
+                        runTutorial(nextStage);
+                    }
+                }
             };
         }
 
@@ -213,7 +274,11 @@
         const retryBtnDeath = document.getElementById('retry-btn-death');
         if (retryBtnDeath && degreeSlider) {
             retryBtnDeath.onclick = () => {
-                startNewGame(parseInt(degreeSlider.value));
+                if (currentGame && currentGame.isTutorialMode && currentGame.currentTutorialStage) {
+                    runTutorial(currentGame.currentTutorialStage);
+                } else {
+                    startNewGame(parseInt(degreeSlider.value));
+                }
             };
         }
 
@@ -238,6 +303,47 @@
                 returnToMenu();
             };
         }
+
+        // Tutorials menu bindings
+        const tutorialsBtnMenu = document.getElementById('tutorials-btn-menu');
+        const tutorialsMenu = document.getElementById('tutorials-menu');
+        const startMenu = document.getElementById('start-menu');
+        const backToMenuBtn = document.getElementById('back-to-menu-btn');
+        
+        if (tutorialsBtnMenu) {
+            tutorialsBtnMenu.onclick = () => {
+                currentLang = getCurrentLanguage();
+                startMenu?.classList.add('hidden');
+                tutorialsMenu?.classList.remove('hidden');
+            };
+        }
+        
+        if (backToMenuBtn) {
+            backToMenuBtn.onclick = () => {
+                tutorialsMenu?.classList.add('hidden');
+                startMenu?.classList.remove('hidden');
+            };
+        }
+        
+        // Modal button actions
+        const modalStartBtn = document.getElementById('tut-modal-start-btn');
+        const modalCancelBtn = document.getElementById('tut-modal-cancel-btn');
+        
+        if (modalStartBtn) {
+            modalStartBtn.onclick = () => {
+                if (selectedTutorialStage) {
+                    runTutorial(selectedTutorialStage);
+                }
+            };
+        }
+        
+        if (modalCancelBtn) {
+            modalCancelBtn.onclick = () => {
+                document.getElementById('tutorial-instructions-modal')?.classList.add('hidden');
+                selectedTutorialStage = null;
+            };
+        }
+        
     });
 </script>
 
@@ -288,6 +394,9 @@
             <p class="hint" data-i18n="safeModeHint">When active, no hunters will spawn in the maze.</p>
         </div>
 
+        <div class="menu-tutorials-row">
+            <button id="tutorials-btn-menu" class="tutorials-btn" data-i18n="tutorialsMenu">TUTORIALS</button>
+        </div>
         <div class="menu-action-btns">
             <button id="start-btn" data-i18n="generateMaze">NEW GAME</button>
             <button id="continue-btn-menu" class="continue-btn" style="display:none" data-i18n="continue">CONTINUE</button>
@@ -296,6 +405,41 @@
         <p class="game-credits" data-i18n="gameCredits">a game by Bernard Rodrigues</p>
     </div>
 </section>
+
+<!-- Seção de Seleção de Tutoriais -->
+<section id="tutorials-menu" class="hidden">
+    <div class="menu-content">
+        <header>
+            <h1 class="game-title" data-i18n="tutorialsTitle">TUTORIALS</h1>
+        </header>
+        
+        <div class="tutorials-list">
+            {#each TUTORIALS as stage, index}
+                <button class="tutorial-item-btn" data-stage-id={stage.id} on:click={() => selectTutorial(stage)}>
+                    <span class="tut-num">{index + 1}.</span>
+                    <span class="tut-title">{stage.title[currentLang] || stage.title['en']}</span>
+                </button>
+            {/each}
+        </div>
+        
+        <div class="menu-action-btns">
+            <button id="back-to-menu-btn" data-i18n="back">BACK</button>
+        </div>
+    </div>
+</section>
+
+<!-- Modal de Instruções do Tutorial -->
+<div id="tutorial-instructions-modal" class="hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-container">
+        <h2 id="tut-modal-title">-</h2>
+        <p id="tut-modal-description">-</p>
+        <div class="modal-buttons">
+            <button id="tut-modal-start-btn" class="modal-confirm-btn" data-i18n="start">START</button>
+            <button id="tut-modal-cancel-btn" class="modal-cancel-btn" data-i18n="cancel">CANCEL</button>
+        </div>
+    </div>
+</div>
 
 <section id="story-screen" class="hidden">
     <div class="story-container">
@@ -326,6 +470,7 @@
         <p class="victory-stats"><span data-i18n="victoryTime">COMPLETION TIME</span>: <span id="victory-completion-time">00:00</span></p>
         <p class="victory-stats"><span data-i18n="victoryMana">MANA COLLECTED</span>: <span id="victory-mana-count">0/0</span></p>
         <div class="end-game-btns">
+            <button id="next-tut-btn-victory" class="end-btn hidden" data-i18n="nextTutorial">NEXT TUTORIAL</button>
             <button id="restart-btn-victory" class="end-btn" data-i18n="playAgain">PLAY AGAIN</button>
             <button id="menu-btn-victory" class="end-btn" data-i18n="mainMenu">MAIN MENU</button>
         </div>

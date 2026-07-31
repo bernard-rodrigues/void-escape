@@ -651,4 +651,66 @@ export class Maze3D {
             }
         }
     }
+
+    generateFromLayout(layout: { layers: string[][] }): Int8Array {
+        const layoutDepth = layout.layers.length;
+        const layoutHeight = layout.layers[0].length;
+        const layoutWidth = layout.layers[0][0].length;
+
+        const maxDim = Math.max(layoutWidth, layoutHeight, layoutDepth);
+        const finalSize = maxDim % 2 !== 0 ? maxDim : maxDim + 1;
+        
+        this.size = finalSize;
+        this.n = (finalSize - 1) / 2;
+        this.matrix = this.initMatrix();
+
+        for (let z = 0; z < layoutDepth; z++) {
+            const layer = layout.layers[z];
+            for (let y = 0; y < layoutHeight; y++) {
+                const row = layer[y];
+                for (let x = 0; x < layoutWidth; x++) {
+                    const char = row[x];
+                    const idx = this._idx(x, y, z);
+
+                    switch (char) {
+                        case '#':
+                            this.matrix[idx] = this.TYPES.WALL;
+                            break;
+                        case '.':
+                            this.matrix[idx] = this.TYPES.PATH;
+                            break;
+                        case 'S':
+                            this.matrix[idx] = this.TYPES.START;
+                            this.startPos = { x: x + 0.5, y: y + 0.5, z: z };
+                            break;
+                        case 'E':
+                            this.matrix[idx] = this.TYPES.EXIT;
+                            break;
+                        case 'T':
+                            this.matrix[idx] = this.TYPES.TELEPORT;
+                            break;
+                        case 'K':
+                            this.matrix[idx] = this.TYPES.KEY;
+                            break;
+                        case 'M':
+                            this.matrix[idx] = this.TYPES.MANA;
+                            break;
+                        case 'A':
+                            this.matrix[idx] = this.TYPES.STATUE;
+                            break;
+                        default:
+                            this.matrix[idx] = this.TYPES.WALL;
+                    }
+                }
+            }
+        }
+
+        const size = this.size;
+        const matrix = this.matrix;
+        matrix.size = size;
+        matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+        matrix.set = (x: number, y: number, z: number, val: number) => { matrix[(x * size * size) + (y * size) + z] = val; };
+
+        return matrix;
+    }
 }
