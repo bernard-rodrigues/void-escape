@@ -866,21 +866,12 @@ export class Engine {
         }
 
         const activationPercentage = this.getMapVisitedPercentage();
-        this.dyingHunters = [];
         for (const hunter of this.hunters) {
-            if (hunter.state !== 'SLEEP' && hunter.state !== 'DEAD_BY_JELLY' && hunter.z === pz) {
+            if (hunter.state !== 'SLEEP' && hunter.state !== 'DEAD_BY_JELLY' && hunter.state !== 'DYING' && hunter.z === pz) {
                 const hDist = Math.abs(hunter.x - px) + Math.abs(hunter.y - py);
                 if (hDist <= 5) {
-                    hunter.state = 'DEAD_BY_JELLY';
+                    hunter.state = 'DYING';
                     hunter.respawnThresholdPercentage = activationPercentage;
-                    hunter.x = null;
-                    hunter.y = null;
-                    hunter.z = null;
-                    hunter.visualX = null;
-                    hunter.visualY = null;
-                    hunter.visualZ = null;
-                    hunter.pathToTarget = [];
-                    hunter.history = [];
                 }
             }
         }
@@ -939,6 +930,20 @@ export class Engine {
                         this.discoveredTeleports.delete(cellKey);
                     }
                 }
+            }
+        }
+
+        for (const hunter of this.hunters) {
+            if (hunter.state === 'DYING') {
+                hunter.state = 'DEAD_BY_JELLY';
+                hunter.x = null;
+                hunter.y = null;
+                hunter.z = null;
+                hunter.visualX = null;
+                hunter.visualY = null;
+                hunter.visualZ = null;
+                hunter.pathToTarget = [];
+                hunter.history = [];
             }
         }
 
@@ -2480,18 +2485,40 @@ export class Engine {
                  }
                  mesh.visible = true;
                  if (h.visualX === null || h.visualZ === null || h.visualY === null) continue;
+                 
+                 // Base positioning
                  mesh.position.set(h.visualX - size/2, (h.visualZ - size/2) * this.vScale, h.visualY - size/2);
 
                  // Jelly shape deformation (slow skew / stretch scale) - contido
                  const time = h.jellyTime;
-                 const scaleX = 1 + Math.sin(time * 1.2) * 0.07;
-                 const scaleY = 1 + Math.cos(time * 0.8) * 0.07;
-                 const scaleZ = 1 + Math.sin(time * 1.5) * 0.07;
+                 let scaleX = 1 + Math.sin(time * 1.2) * 0.07;
+                 let scaleY = 1 + Math.cos(time * 0.8) * 0.07;
+                 let scaleZ = 1 + Math.sin(time * 1.5) * 0.07;
+                 
+                 if (h.state === 'DYING') {
+                     const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
+                     const shrink = 1.0 - progress;
+                     scaleX *= shrink;
+                     scaleY *= shrink;
+                     scaleZ *= shrink;
+                     
+                     // Glitch tremor shake in 3D
+                     const shakeX = (Math.random() - 0.5) * 0.15;
+                     const shakeY = (Math.random() - 0.5) * 0.15;
+                     const shakeZ = (Math.random() - 0.5) * 0.15;
+                     mesh.position.add({ x: shakeX, y: shakeY, z: shakeZ } as any);
+                 }
+
                  if (hm.coreMesh) {
                      hm.coreMesh.scale.set(scaleX, scaleY, scaleZ);
                      // Flashing/pulsing emissive light intensity
                      if (hm.coreMesh.material) {
-                         hm.coreMesh.material.emissiveIntensity = (0.8 + 0.2 * Math.sin(time * 3) + (Math.random() < 0.1 ? (Math.random() - 0.5) * 0.4 : 0)) * opFactor;
+                         let finalIntensity = (0.8 + 0.2 * Math.sin(time * 3) + (Math.random() < 0.1 ? (Math.random() - 0.5) * 0.4 : 0)) * opFactor;
+                         if (h.state === 'DYING') {
+                             const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
+                             finalIntensity *= (1.0 - progress);
+                         }
+                         hm.coreMesh.material.emissiveIntensity = finalIntensity;
                      }
                  }
 
@@ -2936,7 +2963,7 @@ export class Engine {
             const isSleeping = this.hunters.some(h => h.state === 'SLEEP');
 
             for (const hunter of this.hunters) {
-                if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY') continue;
+                if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY' || hunter.state === 'DYING') continue;
 
                 // Support static hunter behavior in tutorials
                 const isStatic = this.isTutorialMode && 

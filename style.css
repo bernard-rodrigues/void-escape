@@ -2099,6 +2099,25 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     box-sizing: border-box;
 }
 
+/* Custom Scrollbar for Tutorials List */
+.tutorials-list::-webkit-scrollbar {
+    width: calc(var(--h-unit) * 0.8);
+}
+
+.tutorials-list::-webkit-scrollbar-track {
+    background: rgba(18, 24, 36, 0.4);
+    border-radius: 0;
+}
+
+.tutorials-list::-webkit-scrollbar-thumb {
+    background: var(--clr-neon);
+    border-radius: 0;
+}
+
+.tutorials-list::-webkit-scrollbar-thumb:hover {
+    background: #fff;
+}
+
 .tutorial-item-btn {
     background: rgba(18, 24, 36, 0.6);
     border: calc(var(--h-unit) * 0.25) solid var(--clr-neon);
