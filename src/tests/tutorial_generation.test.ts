@@ -66,7 +66,7 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             layers: [
                 [
                     "###",
-                    "#S#",
+                    "#S.",
                     "###"
                 ],
                 [
@@ -105,9 +105,32 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
         try {
             const engine = new Engine(3, 0.2, null, dummyStage);
 
-            expect(engine.visitedCells.has('1,1,0')).toBe(true);
-            expect(engine.visitedCells.has('1,1,1')).toBe(true);
+            expect(engine.visitedCells.has('1,1,0')).toBe(true); // START cell
+            expect(engine.visitedCells.has('2,1,0')).toBe(true); // PATH cell (revealed as visited)
+            expect(engine.visitedCells.has('1,1,1')).toBe(true); // KEY cell
             expect(engine.visitedCells.has('0,0,0')).toBe(false);
+
+            // Verify that normal path cells are converted to TYPES.VISITED in the maze matrix
+            const mazeSize = engine.mazeGen.size;
+            const TYPES = engine.mazeGen.TYPES;
+            let pathCellsCount = 0;
+            let visitedPathCellsCount = 0;
+
+            for (let x = 0; x < mazeSize; x++) {
+                for (let y = 0; y < mazeSize; y++) {
+                    for (let z = 0; z < mazeSize; z++) {
+                        const val = engine.maze.get(x, y, z);
+                        if (val === TYPES.PATH) {
+                            pathCellsCount++;
+                        } else if (val === TYPES.VISITED) {
+                            visitedPathCellsCount++;
+                        }
+                    }
+                }
+            }
+
+            expect(pathCellsCount).toBe(0); // All path cells should be converted
+            expect(visitedPathCellsCount).toBeGreaterThan(0); // There should be visited path cells
         } finally {
             Engine.prototype.initThree = originalInitThree;
             Engine.prototype.loop = originalLoop;

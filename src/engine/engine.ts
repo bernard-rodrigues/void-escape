@@ -504,6 +504,21 @@ export class Engine {
                     if (revealAll) {
                         if (val !== TYPES.WALL) {
                             this.visitedCells.add(`${x},${y},${z}`);
+                            
+                            // Check if this cell connects vertically to other paths (elevator shaft)
+                            const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== TYPES.WALL;
+                            const hDown = z > 0 && this.maze.get(x, y, z - 1) !== TYPES.WALL;
+                            const isElevator = hUp || hDown;
+
+                            if (val === TYPES.PATH) {
+                                if (isElevator) {
+                                    this.maze.set(x, y, z, TYPES.ELEVATOR_VISITED);
+                                } else {
+                                    this.maze.set(x, y, z, TYPES.VISITED);
+                                }
+                            } else if (val === TYPES.TELEPORT) {
+                                this.discoveredTeleports.add(`${x},${y},${z}`);
+                            }
                         }
                     } else {
                         if (val === 2 || val === 3 || val === 5) {
