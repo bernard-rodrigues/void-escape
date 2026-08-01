@@ -259,4 +259,129 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             document.body.removeChild(safeModeInput);
         }
     });
+
+    it('should reset tutorial hunters correctly when player dies', () => {
+        const deathStage = {
+            id: 'death_tut',
+            title: { en: 'Death', ptBr: 'Death', ja: 'Death', es: 'Death' },
+            description: { en: 'Death', ptBr: 'Death', ja: 'Death', es: 'Death' },
+            layers: [
+                [
+                    "###",
+                    "#S.",
+                    "###"
+                ],
+                [
+                    "###",
+                    "#K#",
+                    "#H#"
+                ],
+                [
+                    "###",
+                    "###",
+                    "###"
+                ]
+            ],
+            revealed: true,
+            hunterBehavior: {
+                static: false,
+                respawn: true,
+                fixed: true // Fixed to spawn at original position upon player death respawn
+            }
+        };
+
+        const originalGetContext = HTMLCanvasElement.prototype.getContext;
+        const mockGradient = { addColorStop: () => {} };
+        HTMLCanvasElement.prototype.getContext = function(type: string) {
+            if (type === '2d') {
+                return {
+                    canvas: this,
+                    clearRect: () => {},
+                    fillRect: () => {},
+                    drawImage: () => {},
+                    save: () => {},
+                    restore: () => {},
+                    translate: () => {},
+                    scale: () => {},
+                    beginPath: () => {},
+                    arc: () => {},
+                    fill: () => {},
+                    stroke: () => {},
+                    createRadialGradient: () => mockGradient,
+                    createLinearGradient: () => mockGradient,
+                    rotate: () => {},
+                    moveTo: () => {},
+                    lineTo: () => {},
+                    clip: () => {},
+                    rect: () => {},
+                    closePath: () => {},
+                    strokeRect: () => {},
+                    fillText: () => {},
+                    measureText: () => ({ width: 10 })
+                } as any;
+            }
+            return originalGetContext.apply(this, arguments as any);
+        };
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'main-2d-canvas';
+        document.body.appendChild(canvas);
+
+        const safeModeInput = document.createElement('input');
+        safeModeInput.id = 'safe-mode';
+        safeModeInput.type = 'checkbox';
+        document.body.appendChild(safeModeInput);
+
+        const originalInitThree = Engine.prototype.initThree;
+        const originalLoop = Engine.prototype.loop;
+        Engine.prototype.initThree = function() {
+            this.scene = { children: [], remove: () => {}, add: () => {} } as any;
+            this.camera = { aspect: 1, updateProjectionMatrix: () => {} } as any;
+            this.renderer = { domElement: document.createElement('div'), setSize: () => {} } as any;
+            this.controls = { update: () => {} } as any;
+        };
+        Engine.prototype.loop = function() {};
+
+        try {
+            const engine = new Engine(3, 0.2, null, deathStage);
+            const hunter = engine.hunters[0];
+            const initialX = hunter.x;
+            const initialY = hunter.y;
+            const initialZ = hunter.z;
+
+            // Trigger player death by manually setting a deathAnimation and simulating its completion
+            engine.deathAnimation = {
+                active: true,
+                hunter: hunter,
+                playerPos: { x: engine.player.x, y: engine.player.y, z: engine.player.z },
+                elapsed: 1.8,
+                duration: 1.8,
+                screenFilled: false,
+                reversing: false,
+                delayElapsed: 1.5,
+                delayDuration: 1.5,
+                glitchElapsed: 0,
+                glitchDuration: 1.5,
+                uiFade: 0,
+                uiTriggered: false
+            };
+
+            // Call draw2DMap to trigger death resolution
+            engine.draw2DMap(0.1);
+
+            // The hunters array should be re-initialized and NOT empty
+            expect(engine.hunters.length).toBe(1);
+            expect(engine.hunters[0].x).toBe(initialX);
+            expect(engine.hunters[0].y).toBe(initialY);
+            expect(engine.hunters[0].z).toBe(initialZ);
+            expect(engine.hunters[0].state).toBe('WANDERING');
+
+        } finally {
+            HTMLCanvasElement.prototype.getContext = originalGetContext;
+            Engine.prototype.initThree = originalInitThree;
+            Engine.prototype.loop = originalLoop;
+            document.body.removeChild(canvas);
+            document.body.removeChild(safeModeInput);
+        }
+    });
 });

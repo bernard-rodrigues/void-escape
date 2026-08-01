@@ -44,10 +44,10 @@ export const TUTORIALS: TutorialStage[] = [
     {
         id: "tutorial_keys",
         title: {
-            en: "Tutorial 1: Key Collection",
-            ptBr: "Tutorial 1: Coleta de Chaves",
-            ja: "チュートリアル1：鍵の収集",
-            es: "Tutorial 1: Recolección de Llaves"
+            en: "Key Collection",
+            ptBr: "Coleta de Chaves",
+            ja: "鍵の収集",
+            es: "Recolección de Llaves"
         },
         description: {
             en: "Collect all available keys to unlock the exit portal.",
@@ -69,7 +69,7 @@ export const TUTORIALS: TutorialStage[] = [
                 "#######",
                 "S....K#",
                 "###.###",
-                "#K...HE",
+                "#K....E",
                 "#######"
             ],
             // z = 2 (Andar de transição superior - paredes sólidas)
@@ -82,20 +82,15 @@ export const TUTORIALS: TutorialStage[] = [
             ]
         ],
         pathfinders: 0,
-        mana: 0,
-        hunterBehavior: {
-            static: true,
-            respawn: true,
-            fixed: true
-        }
+        mana: 0
     },
     {
         id: "tutorial_elevators",
         title: {
-            en: "Tutorial 2: Elevators",
-            ptBr: "Tutorial 2: Elevadores",
-            ja: "チュートリアル2：エレベーター",
-            es: "Tutorial 2: Ascensores"
+            en: "Elevators",
+            ptBr: "Elevadores",
+            ja: "エレベーター",
+            es: "Ascensores"
         },
         description: {
             en: "Use the elevators to visit the adjacent floors.",
@@ -153,10 +148,10 @@ export const TUTORIALS: TutorialStage[] = [
     {
         id: "tutorial_teleport",
         title: {
-            en: "Tutorial 3: Teleportation",
-            ptBr: "Tutorial 3: Teletransporte",
-            ja: "チュートリアル3：テレポート",
-            es: "Tutorial 3: Teletransporte"
+            en: "Teleportation",
+            ptBr: "Teletransporte",
+            ja: "テレポート",
+            es: "Teletransporte"
         },
         description: {
             en: "Use the teleporters to move between different areas of the level.",
@@ -190,5 +185,51 @@ export const TUTORIALS: TutorialStage[] = [
         pathfinders: 0,
         mana: 0,
         revealed: true
+    },
+    {
+        id: "tutorial_hunters",
+        title: {
+            en: "Hunters",
+            ptBr: "Caçadores",
+            ja: "ハンター",
+            es: "Cazadores"
+        },
+        description: {
+            en: "Avoid the hunters or use the environment to your advantage. The entrance and teleporters are safe points.",
+            ptBr: "Evite os caçadores ou use o ambiente a seu favor. A entrada e teleportes são pontos seguros.",
+            ja: "ハンターを避けたり、環境を有利に利用したりします。入り口とテレポーターは安全なポイントです。",
+            es: "Evita a los cazadores o utiliza el entorno a tu favor. La entrada y los teletransportadores son puntos seguros."
+        },
+        layers: [
+            [
+                "#######",
+                "#######",
+                "#######",
+                "#######",
+                "#######"
+            ],
+            [
+                "#######",
+                "S..H..E",
+                "###.###",
+                "#K...T#",
+                "#######"
+            ],
+            [
+                "#######",
+                "#######",
+                "#######",
+                "#######",
+                "#######"
+            ]
+        ],
+        pathfinders: 0,
+        mana: 0,
+        revealed: true,
+        hunterBehavior: {
+            static: false,
+            respawn: true,
+            fixed: true
+        }
     }
 ];

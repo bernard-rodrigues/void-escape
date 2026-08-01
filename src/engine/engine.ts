@@ -3646,13 +3646,51 @@ export class Engine {
                     this.visualActiveFloor = targetZ;
                     this.lastPlayerCell = { x: Math.floor(targetX), y: Math.floor(targetY), z: targetZ };
                     
-                    // 3. Re-initialize / Reset Hunters to sleep mode & suppress wake banner
+                    // 3. Re-initialize / Reset Hunters
                     this.hunters = [];
                     if (this.isTutorialMode) {
-                        if (this.currentTutorialStage && this.currentTutorialStage.hunters && !this.isSafeMode) {
-                            for (const hPos of this.currentTutorialStage.hunters) {
-                                const hunter = new Hunter(hPos.x, hPos.y, hPos.z);
-                                hunter.state = 'SLEEP';
+                        const useFixed = this.currentTutorialStage &&
+                                         this.currentTutorialStage.hunterBehavior &&
+                                         this.currentTutorialStage.hunterBehavior.fixed;
+                        
+                        if (this.mazeGen.tutorialHunterSpawns && !this.isSafeMode) {
+                            let hunterId = 1;
+                            for (const hPos of this.mazeGen.tutorialHunterSpawns) {
+                                const hunter = new Hunter(this.mazeGen, { x: hPos.x, y: hPos.y, z: hPos.z }, hunterId++);
+                                if (!useFixed) {
+                                    // Relocate to a random valid path cell since fixed is false
+                                    const candidates = [];
+                                    const size = this.mazeGen.size;
+                                    const startX = Math.floor(this.mazeGen.startPos.x);
+                                    const startY = Math.floor(this.mazeGen.startPos.y);
+                                    const startZ = this.mazeGen.startPos.z;
+                                    
+                                    for (let x = 0; x < size; x++) {
+                                        for (let y = 0; y < size; y++) {
+                                            for (let z = 0; z < size; z++) {
+                                                const val = this.maze.get(x, y, z);
+                                                const isStart = (x === startX && y === startY && z === startZ);
+                                                const isExit = (val === this.mazeGen.TYPES.EXIT);
+                                                if (val !== this.mazeGen.TYPES.WALL && !isExit && !isStart && (x !== Math.floor(targetX) || y !== Math.floor(targetY) || z !== targetZ)) {
+                                                    candidates.push({ x, y, z });
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (candidates.length > 0) {
+                                        const pos = candidates[Math.floor(Math.random() * candidates.length)];
+                                        hunter.x = pos.x;
+                                        hunter.y = pos.y;
+                                        hunter.z = pos.z;
+                                        hunter.visualX = pos.x;
+                                        hunter.visualY = pos.y;
+                                        hunter.visualZ = pos.z;
+                                        hunter.lastPos = { x: pos.x, y: pos.y, z: pos.z };
+                                        hunter.visitedNodes.clear();
+                                        hunter.visitedNodes.add(`${pos.x},${pos.y},${pos.z}`);
+                                    }
+                                }
                                 this.hunters.push(hunter);
                             }
                         }
