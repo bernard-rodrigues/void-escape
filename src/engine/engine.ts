@@ -309,6 +309,7 @@ export class Engine {
                     this.hunters.push(hunter);
                 }
             }
+            this.lastHunterMove = performance.now();
         } else {
             this.initHunters(degree);
         }
@@ -1168,8 +1169,31 @@ export class Engine {
         this.player.dir = snapshot.player.dir;
 
         // Restore hunters
+        const useFixedHunters = this.isTutorialMode &&
+                                this.currentTutorialStage &&
+                                this.currentTutorialStage.hunterBehavior &&
+                                this.currentTutorialStage.hunterBehavior.fixed;
+
         for (let i = 0; i < this.hunters.length && i < snapshot.hunters.length; i++) {
-            restoreHunter(this.hunters[i], snapshot.hunters[i]);
+            if (useFixedHunters && this.mazeGen.tutorialHunterSpawns && this.mazeGen.tutorialHunterSpawns[i]) {
+                const initPos = this.mazeGen.tutorialHunterSpawns[i];
+                const hunter = this.hunters[i];
+                hunter.x = initPos.x;
+                hunter.y = initPos.y;
+                hunter.z = initPos.z;
+                hunter.visualX = initPos.x;
+                hunter.visualY = initPos.y;
+                hunter.visualZ = initPos.z;
+                hunter.state = 'WANDERING';
+                hunter.lastPos = { x: initPos.x, y: initPos.y, z: initPos.z };
+                hunter.visitedNodes.clear();
+                hunter.visitedNodes.add(`${initPos.x},${initPos.y},${initPos.z}`);
+                hunter.history = [];
+                hunter.pathToTarget = [];
+                hunter.respawnThresholdPercentage = null;
+            } else {
+                restoreHunter(this.hunters[i], snapshot.hunters[i]);
+            }
         }
 
         // Restore teleport state
@@ -2408,9 +2432,14 @@ export class Engine {
 
         // Check if any dead-by-jelly hunters can respawn now
         const currentPercent = this.getMapVisitedPercentage();
+        const disableRespawn = this.isTutorialMode && 
+                               this.currentTutorialStage && 
+                               this.currentTutorialStage.hunterBehavior && 
+                               this.currentTutorialStage.hunterBehavior.respawn === false;
+
         for (const hunter of this.hunters) {
             if (hunter.state === 'DEAD_BY_JELLY' && hunter.respawnThresholdPercentage !== null) {
-                if (currentPercent >= hunter.respawnThresholdPercentage) {
+                if (!disableRespawn && currentPercent >= hunter.respawnThresholdPercentage) {
                     this.respawnSingleHunter(hunter);
                     this.ui.showInfoBanner(getTranslation('msgHunterReturned'));
                 }
@@ -2901,6 +2930,19 @@ export class Engine {
 
             for (const hunter of this.hunters) {
                 if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY') continue;
+
+                // Support static hunter behavior in tutorials
+                const isStatic = this.isTutorialMode && 
+                                 this.currentTutorialStage && 
+                                 this.currentTutorialStage.hunterBehavior && 
+                                 this.currentTutorialStage.hunterBehavior.static;
+
+                if (isStatic) {
+                    this.checkHunterCollision();
+                    if (this.isGameOver) return;
+                    continue;
+                }
+
                 const oldState = hunter.state;
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
                 if (hunter.state === 'TRACKING' && oldState !== 'TRACKING' && !this.dialogueDetectedTriggered) {

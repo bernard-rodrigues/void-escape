@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Maze3D } from '../engine/maze3d.js';
 import { TUTORIALS } from '../engine/tutorials.js';
 import { Engine } from '../engine/engine.js';
+import { saveGame, loadSave } from '../engine/save.js';
 
 describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
     it('should generate a 3D maze from a custom tutorial layout with correct dimensions', () => {
@@ -140,6 +141,117 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
 
             expect(pathCellsCount).toBe(0); // All path cells should be converted
             expect(visitedPathCellsCount).toBeGreaterThan(0); // There should be visited path cells
+        } finally {
+            Engine.prototype.initThree = originalInitThree;
+            Engine.prototype.loop = originalLoop;
+            document.body.removeChild(canvas);
+            document.body.removeChild(safeModeInput);
+        }
+    });
+
+    it('should apply custom hunter behavior (static, respawn, fixed) in tutorial mode', () => {
+        const behaviorStage = {
+            id: 'behavior_tut',
+            title: { en: 'Behavior', ptBr: 'Behavior', ja: 'Behavior', es: 'Behavior' },
+            description: { en: 'Behavior', ptBr: 'Behavior', ja: 'Behavior', es: 'Behavior' },
+            layers: [
+                [
+                    "###",
+                    "#S.",
+                    "###"
+                ],
+                [
+                    "###",
+                    "#K#",
+                    "#H#"
+                ],
+                [
+                    "###",
+                    "###",
+                    "###"
+                ]
+            ],
+            revealed: true,
+            hunterBehavior: {
+                static: true,
+                respawn: false,
+                fixed: true
+            }
+        };
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'main-2d-canvas';
+        document.body.appendChild(canvas);
+
+        const safeModeInput = document.createElement('input');
+        safeModeInput.id = 'safe-mode';
+        safeModeInput.type = 'checkbox';
+        document.body.appendChild(safeModeInput);
+
+        const originalInitThree = Engine.prototype.initThree;
+        const originalLoop = Engine.prototype.loop;
+        Engine.prototype.initThree = function() {
+            this.scene = { children: [], remove: () => {}, add: () => {} } as any;
+            this.camera = { aspect: 1, updateProjectionMatrix: () => {} } as any;
+            this.renderer = { domElement: document.createElement('div'), setSize: () => {} } as any;
+            this.controls = { update: () => {} } as any;
+        };
+        Engine.prototype.loop = function() {};
+
+        try {
+            const engine = new Engine(3, 0.2, null, behaviorStage);
+
+            // Test 1: Hunter starts in WANDERING (active) state
+            const hunter = engine.hunters[0];
+            expect(hunter.state).toBe('WANDERING');
+            const initialX = hunter.x;
+            const initialY = hunter.y;
+            const initialZ = hunter.z;
+
+            // Test 2: static = true, hunter does not move when engine updates
+            const initialMoveTime = engine.lastHunterMove;
+            // Advance time to trigger hunter movement
+            engine.lastHunterMove = initialMoveTime - 5000;
+            const oldMove = hunter.move;
+            let moveCalled = false;
+            hunter.move = function() {
+                moveCalled = true;
+            };
+
+            // Call update to trigger hunter logic
+            engine.update(0.1);
+            expect(moveCalled).toBe(false); // Move should not be called since static is true
+            expect(hunter.x).toBe(initialX);
+            expect(hunter.y).toBe(initialY);
+            expect(hunter.z).toBe(initialZ);
+
+            // Test 3: respawn = false, hunter killed by jelly portal does not respawn
+            hunter.state = 'DEAD_BY_JELLY';
+            hunter.respawnThresholdPercentage = 10;
+            // Trigger respawn check
+            engine.update(0.1);
+            expect(hunter.state).toBe('DEAD_BY_JELLY'); // Should remain dead
+
+            // Test 4: fixed = true, restoreFromSave resets hunter to initial layout coordinates
+            // Modify coordinates to simulate wandering / different save state
+            hunter.x = 2;
+            hunter.y = 2;
+            hunter.z = 2;
+            hunter.state = 'TRACKING';
+
+            // Simulate save/restore using saveGame/loadSave to get a valid matrix snapshot
+            saveGame(engine);
+            const snapshot = loadSave();
+            
+            // Modify coordinates in snapshot to simulate wandering / different save state
+            snapshot.hunters[0] = { id: 1, x: 2, y: 2, z: 2, state: 'TRACKING' };
+            
+            engine.restoreFromSave(snapshot);
+            expect(hunter.x).toBe(initialX);
+            expect(hunter.y).toBe(initialY);
+            expect(hunter.z).toBe(initialZ);
+            expect(hunter.state).toBe('WANDERING'); // Reset to initial layout state
+
         } finally {
             Engine.prototype.initThree = originalInitThree;
             Engine.prototype.loop = originalLoop;

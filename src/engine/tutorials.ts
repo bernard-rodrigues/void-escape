@@ -10,9 +10,15 @@
  * 'K' - Chave (KEY). Item essencial para abrir a saída.
  * 'M' - Mana (MANA). Carga que permite criar portais de gelatina.
  * 'A' - Estátua (STATUE). Obstáculo que bloqueia a visão dos caçadores.
- * 'H' - Caçador (HUNTER). Spawn de um caçador inimigo estático em estado de sono ('SLEEP').
+ * 'H' - Caçador (HUNTER). Spawn de um caçador inimigo ativo em estado de patrulha ('WANDERING').
  *       Internamente gera um caminho normal ('.') e inicia um caçador sobre ele.
  */
+export interface HunterBehavior {
+    static?: boolean;   // Se true, o hunter ficará imóvel no mapa
+    respawn?: boolean;  // Se true, o hunter será respawnado depois que for abatido (default true)
+    fixed?: boolean;    // Se true, ao morrer para este hunter, ele irá aparecer na mesma posição inicial
+}
+
 export interface TutorialStage {
     id: string;
     title: {
@@ -31,6 +37,7 @@ export interface TutorialStage {
     pathfinders?: number; // Cargas de localizadores disponíveis no tutorial (padrão 0)
     mana?: number; // Mana inicial disponível no tutorial (padrão 0)
     revealed?: boolean; // Se true, o mapa e caminhos já vêm visíveis
+    hunterBehavior?: HunterBehavior; // Comportamento customizado dos caçadores no tutorial
 }
 
 export const TUTORIALS: TutorialStage[] = [
@@ -75,7 +82,12 @@ export const TUTORIALS: TutorialStage[] = [
             ]
         ],
         pathfinders: 0,
-        mana: 0
+        mana: 0,
+        hunterBehavior: {
+            static: true,
+            respawn: true,
+            fixed: true
+        }
     },
     {
         id: "tutorial_elevators",
