@@ -480,9 +480,11 @@ body {
 
 .end-game-btns {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    gap: calc(var(--h-unit) * 2);
+    gap: calc(var(--h-unit) * 1.5);
     margin-top: calc(var(--h-unit) * 2);
+    width: 100%;
 }
 
 .end-btn {
@@ -496,6 +498,9 @@ body {
     text-transform: uppercase;
     cursor: pointer;
     transition: all 0.3s ease;
+    flex: 1 1 auto;
+    max-width: calc(var(--h-unit) * 22);
+    box-sizing: border-box;
 }
 
 .end-btn:hover {
