@@ -257,7 +257,8 @@
                     const currentIndex = TUTORIALS.findIndex(t => t.id === currentGame.currentTutorialId);
                     if (currentIndex !== -1 && currentIndex + 1 < TUTORIALS.length) {
                         const nextStage = TUTORIALS[currentIndex + 1];
-                        runTutorial(nextStage);
+                        document.getElementById('victory-screen')?.classList.add('hidden');
+                        selectTutorial(nextStage);
                     }
                 }
             };
