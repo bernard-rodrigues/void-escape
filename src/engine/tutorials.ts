@@ -352,5 +352,51 @@ export const TUTORIALS: TutorialStage[] = [
         pathfinders: 0,
         mana: 0,
         jellyPortals: 0
+    },
+    {
+        id: "tutorial_mana_and_jelly_portals",
+        title: {
+            en: "Mana and Jelly Portals",
+            ptBr: "Mana e Portais de Geleia",
+            ja: "マナとジェリーのポータル",
+            es: "Mana y Portales de Gelatina"
+        },
+        description: {
+            en: "Collect mana to unlock your secret ability and activate jelly portals to traverse the level.",
+            ptBr: "Colete mana para obter sua habilidade secreta e destrave os portais de geléia para atravessar o nível.",
+            ja: "マナを収集して秘密の能力をアンロックし、ジェリーのポータルをアクティブにしてレベルを移動します。",
+            es: "Recoge mana para desbloquear tu habilidad secreta y activa los portales de gelatina para atravesar el nivel."
+        },
+        layers: [
+            [
+                "#######",
+                "#######",
+                "#######",
+                "#######",
+                "#######"
+            ],
+            [
+                "#######",
+                "S....M#",
+                "###.###",
+                "#M...HE",
+                "#######"
+            ],
+            [
+                "#######",
+                "#######",
+                "#######",
+                "#######",
+                "#######"
+            ]
+        ],
+        pathfinders: 0,
+        mana: 8,
+        jellyPortals: 0,
+        hunterBehavior: {
+            static: true,
+            respawn: false,
+            fixed: true
+        }
     }
 ];

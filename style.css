@@ -451,7 +451,7 @@ body {
     box-sizing: border-box;
 }
 
-#start-btn, .continue-btn, .tutorials-btn {
+#start-btn, .continue-btn, .tutorials-btn, #back-to-menu-btn {
     background: transparent;
     border: calc(var(--h-unit) * 0.2) solid var(--clr-neon);
     border: calc(var(--d-h-unit) * 0.2) solid var(--clr-neon);
@@ -473,7 +473,7 @@ body {
     box-sizing: border-box;
 }
  
-#start-btn:hover, .continue-btn:hover, .tutorials-btn:hover {
+#start-btn:hover, .continue-btn:hover, .tutorials-btn:hover, #back-to-menu-btn:hover {
     background: var(--clr-neon);
     color: #000;
 }

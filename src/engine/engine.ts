@@ -376,7 +376,7 @@ export class Engine {
         this.pathRevealInterval = null;
         this.pathfinderBlockedUntil = 0;
 
-        this.manaCollected = 0;
+        this.manaCollected = this.isTutorialMode && tutorialStage && tutorialStage.mana !== undefined ? tutorialStage.mana : 0;
         this.totalMana = 0;
         this.manaMeshes = [];
         const mazeSizeForMana = this.mazeGen.size;
@@ -388,6 +388,9 @@ export class Engine {
                     }
                 }
             }
+        }
+        if (this.isTutorialMode && tutorialStage && tutorialStage.mana !== undefined) {
+            this.totalMana += tutorialStage.mana;
         }
 
         if (this.isTutorialMode) {

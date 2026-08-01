@@ -439,4 +439,60 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             document.body.removeChild(safeModeInput);
         }
     });
+
+    it('should initialize manaCollected and totalMana correctly based on starting mana', () => {
+        const manaStage = {
+            id: 'mana_tut',
+            title: { en: 'Mana', ptBr: 'Mana', ja: 'Mana', es: 'Mana' },
+            description: { en: 'Mana', ptBr: 'Mana', ja: 'Mana', es: 'Mana' },
+            layers: [
+                [
+                    "###",
+                    "#S.",
+                    "###"
+                ],
+                [
+                    "###",
+                    "#M#",
+                    "###"
+                ],
+                [
+                    "###",
+                    "###",
+                    "###"
+                ]
+            ],
+            mana: 8
+        };
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'main-2d-canvas';
+        document.body.appendChild(canvas);
+
+        const safeModeInput = document.createElement('input');
+        safeModeInput.id = 'safe-mode';
+        safeModeInput.type = 'checkbox';
+        document.body.appendChild(safeModeInput);
+
+        const originalInitThree = Engine.prototype.initThree;
+        const originalLoop = Engine.prototype.loop;
+        Engine.prototype.initThree = function() {
+            this.scene = { children: [], remove: () => {}, add: () => {} } as any;
+            this.camera = { aspect: 1, updateProjectionMatrix: () => {} } as any;
+            this.renderer = { domElement: document.createElement('div'), setSize: () => {} } as any;
+            this.controls = { update: () => {} } as any;
+        };
+        Engine.prototype.loop = function() {};
+
+        try {
+            const engine = new Engine(3, 0.2, null, manaStage);
+            expect(engine.manaCollected).toBe(8);
+            expect(engine.totalMana).toBe(9); // 8 starting + 1 in map
+        } finally {
+            Engine.prototype.initThree = originalInitThree;
+            Engine.prototype.loop = originalLoop;
+            document.body.removeChild(canvas);
+            document.body.removeChild(safeModeInput);
+        }
+    });
 });
