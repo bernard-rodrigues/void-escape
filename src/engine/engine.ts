@@ -302,9 +302,10 @@ export class Engine {
 
         this.hunters = [];
         if (this.isTutorialMode) {
-            if (tutorialStage.hunters && !this.isSafeMode) {
-                for (const hPos of tutorialStage.hunters) {
-                    const hunter = new Hunter(hPos.x, hPos.y, hPos.z);
+            if (this.mazeGen.tutorialHunterSpawns && this.mazeGen.tutorialHunterSpawns.length > 0 && !this.isSafeMode) {
+                let hunterId = 1;
+                for (const hPos of this.mazeGen.tutorialHunterSpawns) {
+                    const hunter = new Hunter(this.mazeGen, { x: hPos.x, y: hPos.y, z: hPos.z }, hunterId++);
                     hunter.state = 'SLEEP';
                     this.hunters.push(hunter);
                 }

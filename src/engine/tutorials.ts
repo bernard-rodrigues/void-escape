@@ -1,3 +1,18 @@
+/**
+ * Documentação dos Caracteres suportados nos layouts de Tutoriais (layers):
+ * 
+ * '#' - Parede (WALL). Bloqueia a passagem do jogador e dos caçadores.
+ * '.' - Caminho normal (PATH). Espaço vazio por onde o jogador e inimigos transitam.
+ * 'S' - Portal de Entrada / Ponto de Início (START/TELEPORT). Posição onde o jogador surge.
+ *       Funciona também como portal de teletransporte.
+ * 'E' - Portal de Saída (EXIT). O objetivo final do jogador após coletar as chaves.
+ * 'T' - Portal de Teletransporte (TELEPORT). Permite transição para outros portais descobertos.
+ * 'K' - Chave (KEY). Item essencial para abrir a saída.
+ * 'M' - Mana (MANA). Carga que permite criar portais de gelatina.
+ * 'A' - Estátua (STATUE). Obstáculo que bloqueia a visão dos caçadores.
+ * 'H' - Caçador (HUNTER). Spawn de um caçador inimigo estático em estado de sono ('SLEEP').
+ *       Internamente gera um caminho normal ('.') e inicia um caçador sobre ele.
+ */
 export interface TutorialStage {
     id: string;
     title: {
@@ -13,7 +28,6 @@ export interface TutorialStage {
         es: string;
     };
     layers: string[][]; // layers[z][y] contendo caracteres do eixo X (qualquer dimensão)
-    hunters?: { x: number; y: number; z: number }[]; // Caçadores fixos específicos do tutorial (opcional)
     pathfinders?: number; // Cargas de localizadores disponíveis no tutorial (padrão 0)
     mana?: number; // Mana inicial disponível no tutorial (padrão 0)
     revealed?: boolean; // Se true, o mapa e caminhos já vêm visíveis

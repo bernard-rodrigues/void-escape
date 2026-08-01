@@ -13,6 +13,7 @@ export class Maze3D {
     matrix!: any;
     TYPES!: Record<string, number>;
     startPos!: Point3D;
+    tutorialHunterSpawns: Point3D[] = [];
 
     constructor(degree?: number, branchingFactor?: number, seed: string | number | null = null) {
         const d = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
@@ -663,6 +664,7 @@ export class Maze3D {
         this.size = finalSize;
         this.n = (finalSize - 1) / 2;
         this.matrix = this.initMatrix();
+        this.tutorialHunterSpawns = [];
 
         for (let z = 0; z < layoutDepth; z++) {
             const layer = layout.layers[z];
@@ -697,6 +699,10 @@ export class Maze3D {
                             break;
                         case 'A':
                             this.matrix[idx] = this.TYPES.STATUE;
+                            break;
+                        case 'H':
+                            this.matrix[idx] = this.TYPES.PATH;
+                            this.tutorialHunterSpawns.push({ x, y, z });
                             break;
                         default:
                             this.matrix[idx] = this.TYPES.WALL;

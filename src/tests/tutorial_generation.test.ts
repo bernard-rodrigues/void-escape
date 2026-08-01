@@ -76,7 +76,7 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
                 ],
                 [
                     "###",
-                    "###",
+                    "#H#",
                     "###"
                 ]
             ],
@@ -111,6 +111,12 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             expect(engine.visitedCells.has('1,2,1')).toBe(true); // TELEPORT cell (revealed as visited)
             expect(engine.discoveredTeleports.has('1,2,1')).toBe(true); // TELEPORT cell marked as discovered
             expect(engine.allTeleports.some(t => t.x === 1 && t.y === 2 && t.z === 1)).toBe(true); // TELEPORT in allTeleports
+            expect(engine.visitedCells.has('1,1,2')).toBe(true); // HUNTER cell (revealed as visited path)
+            expect(engine.hunters.length).toBe(1); // One hunter spawned from layout 'H'
+            expect(engine.hunters[0].x).toBe(1);
+            expect(engine.hunters[0].y).toBe(1);
+            expect(engine.hunters[0].z).toBe(2);
+            expect(engine.hunters[0].state).toBe('SLEEP');
             expect(engine.visitedCells.has('0,0,0')).toBe(false);
 
             // Verify that normal path cells are converted to TYPES.VISITED in the maze matrix
