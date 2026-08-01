@@ -20,7 +20,7 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
         // z=1, y=1, x=5 -> "K"
         // z=1, y=3, x=1 -> "K"
         // z=1, y=3, x=6 -> "E"
-        expect(matrix.get(0, 1, 1)).toBe(maze.TYPES.START);
+        expect(matrix.get(0, 1, 1)).toBe(maze.TYPES.TELEPORT);
         expect(maze.startPos).toEqual({ x: 0.5, y: 1.5, z: 1 });
 
         expect(matrix.get(5, 1, 1)).toBe(maze.TYPES.KEY);
@@ -72,7 +72,7 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
                 [
                     "###",
                     "#K#",
-                    "###"
+                    "#T#"
                 ],
                 [
                     "###",
@@ -108,6 +108,9 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             expect(engine.visitedCells.has('1,1,0')).toBe(true); // START cell
             expect(engine.visitedCells.has('2,1,0')).toBe(true); // PATH cell (revealed as visited)
             expect(engine.visitedCells.has('1,1,1')).toBe(true); // KEY cell
+            expect(engine.visitedCells.has('1,2,1')).toBe(true); // TELEPORT cell (revealed as visited)
+            expect(engine.discoveredTeleports.has('1,2,1')).toBe(true); // TELEPORT cell marked as discovered
+            expect(engine.allTeleports.some(t => t.x === 1 && t.y === 2 && t.z === 1)).toBe(true); // TELEPORT in allTeleports
             expect(engine.visitedCells.has('0,0,0')).toBe(false);
 
             // Verify that normal path cells are converted to TYPES.VISITED in the maze matrix

@@ -680,7 +680,7 @@ export class Maze3D {
                             this.matrix[idx] = this.TYPES.PATH;
                             break;
                         case 'S':
-                            this.matrix[idx] = this.TYPES.START;
+                            this.matrix[idx] = this.TYPES.TELEPORT;
                             this.startPos = { x: x + 0.5, y: y + 0.5, z: z };
                             break;
                         case 'E':

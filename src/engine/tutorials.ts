@@ -61,8 +61,7 @@ export const TUTORIALS: TutorialStage[] = [
             ]
         ],
         pathfinders: 0,
-        mana: 0,
-        revealed: true
+        mana: 0
     },
     {
         id: "tutorial_elevators",
@@ -119,6 +118,46 @@ export const TUTORIALS: TutorialStage[] = [
                 "###.###",
                 "###.###",
                 "###K###",
+                "#######"
+            ]
+        ],
+        pathfinders: 0,
+        mana: 0
+    },
+    {
+        id: "tutorial_teleport",
+        title: {
+            en: "Tutorial 3: Teleportation",
+            ptBr: "Tutorial 3: Teletransporte",
+            ja: "チュートリアル3：テレポート",
+            es: "Tutorial 3: Teletransporte"
+        },
+        description: {
+            en: "Use the teleporters to move between different areas of the level.",
+            ptBr: "Utilize os teletransportadores para se mover entre diferentes áreas do nível.",
+            ja: "テレポートを使用して、レベルの異なるエリア間を移動します。",
+            es: "Utiliza los teletransportadores para moverte entre diferentes áreas del nivel."
+        },
+        layers: [
+            [
+                "#######",
+                "#######",
+                "#######",
+                "#######",
+                "#######"
+            ],
+            [
+                "#######",
+                "S..#.T#",
+                "##.#.##",
+                "#K.#..E",
+                "#######"
+            ],
+            [
+                "#######",
+                "###.###",
+                "#######",
+                "#######",
                 "#######"
             ]
         ],

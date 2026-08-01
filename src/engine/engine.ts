@@ -427,7 +427,7 @@ export class Engine {
         this.allTeleports = [];
         const mazeSize = this.mazeGen.size;
         const TYPES = this.mazeGen.TYPES;
-        for (let z = 1; z < mazeSize; z += 2) {
+        for (let z = 0; z < mazeSize; z++) {
             for (let y = 0; y < mazeSize; y++) {
                 for (let x = 0; x < mazeSize; x++) {
                     if (this.maze.get(x, y, z) === TYPES.TELEPORT) {
@@ -521,7 +521,8 @@ export class Engine {
                             }
                         }
                     } else {
-                        if (val === 2 || val === 3 || val === 5) {
+                        const isTeleportDiscovered = val === TYPES.TELEPORT && this.discoveredTeleports.has(`${x},${y},${z}`);
+                        if (val === TYPES.VISITED || val === TYPES.START || val === TYPES.ELEVATOR_VISITED || isTeleportDiscovered) {
                             this.visitedCells.add(`${x},${y},${z}`);
                         }
                     }
@@ -1180,7 +1181,7 @@ export class Engine {
         this.allTeleports = [];
         const mazeSize = this.mazeGen.size;
         const TYPES = this.mazeGen.TYPES;
-        for (let z = 1; z < mazeSize; z += 2) {
+        for (let z = 0; z < mazeSize; z++) {
             for (let y = 0; y < mazeSize; y++) {
                 for (let x = 0; x < mazeSize; x++) {
                     const cellVal = this.maze.get(x, y, z);
