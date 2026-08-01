@@ -306,7 +306,6 @@ export class Engine {
                 let hunterId = 1;
                 for (const hPos of this.mazeGen.tutorialHunterSpawns) {
                     const hunter = new Hunter(this.mazeGen, { x: hPos.x, y: hPos.y, z: hPos.z }, hunterId++);
-                    hunter.state = 'SLEEP';
                     this.hunters.push(hunter);
                 }
             }

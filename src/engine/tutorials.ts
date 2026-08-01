@@ -62,7 +62,7 @@ export const TUTORIALS: TutorialStage[] = [
                 "#######",
                 "S....K#",
                 "###.###",
-                "#K....E",
+                "#K...HE",
                 "#######"
             ],
             // z = 2 (Andar de transição superior - paredes sólidas)

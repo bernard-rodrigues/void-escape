@@ -116,7 +116,7 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             expect(engine.hunters[0].x).toBe(1);
             expect(engine.hunters[0].y).toBe(1);
             expect(engine.hunters[0].z).toBe(2);
-            expect(engine.hunters[0].state).toBe('SLEEP');
+            expect(engine.hunters[0].state).toBe('WANDERING');
             expect(engine.visitedCells.has('0,0,0')).toBe(false);
 
             // Verify that normal path cells are converted to TYPES.VISITED in the maze matrix
