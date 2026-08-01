@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from './config.js';
 import { getTranslation } from './translations.js';
 import { Hunter } from './hunter.js';
+import { TUTORIALS } from './tutorials.js';
 
 export interface Player {
     x: number;
@@ -106,6 +107,9 @@ export class Engine {
     isMap3DActive: boolean;
     isGameOver: boolean;
     deathAnimation: any;
+    isTutorialMode!: boolean;
+    currentTutorialId!: string | null;
+    currentTutorialStage!: any;
     notificationQueue: string[];
     activeNotification: any;
     isPaused: boolean;
@@ -194,7 +198,7 @@ export class Engine {
     deathsCount!: number;
     elapsedTime!: number;
 
-    constructor(degree: number, branchingFactor: number, savedState: any = null) {
+    constructor(degree: number, branchingFactor: number, savedState: any = null, tutorialStage: any = null) {
         this.degree = degree !== undefined ? degree : (CONFIG.MAZE_DEGREE !== undefined ? CONFIG.MAZE_DEGREE : 8);
         this.branchingFactor = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
         
@@ -217,8 +221,17 @@ export class Engine {
         this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
         
         this.seed = savedState ? savedState.seed : (CONFIG.SEED !== null && CONFIG.SEED !== undefined ? CONFIG.SEED : Date.now());
-        this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
-        this.maze = this.mazeGen.generate();
+        this.isTutorialMode = !!tutorialStage;
+        this.currentTutorialId = tutorialStage ? tutorialStage.id : null;
+        this.currentTutorialStage = tutorialStage;
+
+        if (this.isTutorialMode) {
+            this.mazeGen = new Maze3D();
+            this.maze = this.mazeGen.generateFromLayout(tutorialStage);
+        } else {
+            this.mazeGen = new Maze3D(degree, branchingFactor, this.seed);
+            this.maze = this.mazeGen.generate();
+        }
         this.isResumedFromSave = !!savedState;
         this.deathsCount = savedState ? (savedState.deathsCount || 0) : 0;
         this.elapsedTime = savedState ? (savedState.elapsedTime || 0) : 0;
@@ -288,17 +301,55 @@ export class Engine {
         };
 
         this.hunters = [];
-        this.initHunters(degree);
+        if (this.isTutorialMode) {
+            if (this.mazeGen.tutorialHunterSpawns && this.mazeGen.tutorialHunterSpawns.length > 0 && !this.isSafeMode) {
+                let hunterId = 1;
+                for (const hPos of this.mazeGen.tutorialHunterSpawns) {
+                    const hunter = new Hunter(this.mazeGen, { x: hPos.x, y: hPos.y, z: hPos.z }, hunterId++);
+                    this.hunters.push(hunter);
+                }
+            }
+            this.lastHunterMove = performance.now();
+        } else {
+            this.initHunters(degree);
+        }
 
         this.keyMeshes = [];
         this.exitMesh = null;
         this.keysCollected = 0;
-        this.totalKeys = CONFIG.getKeyCount(degree);
+        
+        if (this.isTutorialMode) {
+            let keysCount = 0;
+            const size = this.mazeGen.size;
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    for (let z = 0; z < size; z++) {
+                        if (this.maze.get(x, y, z) === this.mazeGen.TYPES.KEY) {
+                            keysCount++;
+                        }
+                    }
+                }
+            }
+            this.totalKeys = keysCount;
+        } else {
+            this.totalKeys = CONFIG.getKeyCount(degree);
+        }
 
-        this.totalPathfinders = CONFIG.getPathfinderCount(degree);
-        this.pathfindersRemaining = this.totalPathfinders;
-        this.activeMapFloor = 1;
-        this.visualActiveFloor = 1;
+        if (this.isTutorialMode) {
+            this.totalPathfinders = tutorialStage.pathfinders !== undefined ? tutorialStage.pathfinders : 0;
+            this.pathfindersRemaining = this.totalPathfinders;
+            this.manaCharges = tutorialStage.mana !== undefined ? tutorialStage.mana : 0;
+            this.activeMapFloor = this.mazeGen.startPos.z;
+            this.visualActiveFloor = this.mazeGen.startPos.z;
+            this.player.x = this.mazeGen.startPos.x;
+            this.player.y = this.mazeGen.startPos.y;
+            this.player.z = this.mazeGen.startPos.z;
+        } else {
+            this.totalPathfinders = CONFIG.getPathfinderCount(degree);
+            this.pathfindersRemaining = this.totalPathfinders;
+            this.activeMapFloor = 1;
+            this.visualActiveFloor = 1;
+        }
         this.mapCursor = { x: 0, y: 0, z: 1 };
         this.pathfinderRewardsGranted = 0;
         this.isometricCanvas = null;
@@ -325,7 +376,7 @@ export class Engine {
         this.pathRevealInterval = null;
         this.pathfinderBlockedUntil = 0;
 
-        this.manaCollected = 0;
+        this.manaCollected = this.isTutorialMode && tutorialStage && tutorialStage.mana !== undefined ? tutorialStage.mana : 0;
         this.totalMana = 0;
         this.manaMeshes = [];
         const mazeSizeForMana = this.mazeGen.size;
@@ -338,8 +389,15 @@ export class Engine {
                 }
             }
         }
+        if (this.isTutorialMode && tutorialStage && tutorialStage.mana !== undefined) {
+            this.totalMana += tutorialStage.mana;
+        }
 
-        this.jellyPortalCount = this.totalMana < 10 ? 1 : (CONFIG.JELLY_PORTAL_COUNT || 0);
+        if (this.isTutorialMode) {
+            this.jellyPortalCount = tutorialStage && tutorialStage.jellyPortals !== undefined ? tutorialStage.jellyPortals : 0;
+        } else {
+            this.jellyPortalCount = this.totalMana < 10 ? 1 : (CONFIG.JELLY_PORTAL_COUNT || 0);
+        }
         this.jellyPortalFreezeTimer = 0;
         this.jellyPortalResetCells = new Set();
         this.jellyPortalResetDuration = 1.5;
@@ -377,7 +435,7 @@ export class Engine {
         this.allTeleports = [];
         const mazeSize = this.mazeGen.size;
         const TYPES = this.mazeGen.TYPES;
-        for (let z = 1; z < mazeSize; z += 2) {
+        for (let z = 0; z < mazeSize; z++) {
             for (let y = 0; y < mazeSize; y++) {
                 for (let x = 0; x < mazeSize; x++) {
                     if (this.maze.get(x, y, z) === TYPES.TELEPORT) {
@@ -444,12 +502,37 @@ export class Engine {
     populateVisitedCells() {
         this.visitedCells.clear();
         const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+        const revealAll = this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed;
+
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
                     const val = this.maze.get(x, y, z);
-                    if (val === 2 || val === 3 || val === 5) {
-                        this.visitedCells.add(`${x},${y},${z}`);
+                    if (revealAll) {
+                        if (val !== TYPES.WALL) {
+                            this.visitedCells.add(`${x},${y},${z}`);
+                            
+                            // Check if this cell connects vertically to other paths (elevator shaft)
+                            const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== TYPES.WALL;
+                            const hDown = z > 0 && this.maze.get(x, y, z - 1) !== TYPES.WALL;
+                            const isElevator = hUp || hDown;
+
+                            if (val === TYPES.PATH) {
+                                if (isElevator) {
+                                    this.maze.set(x, y, z, TYPES.ELEVATOR_VISITED);
+                                } else {
+                                    this.maze.set(x, y, z, TYPES.VISITED);
+                                }
+                            } else if (val === TYPES.TELEPORT) {
+                                this.discoveredTeleports.add(`${x},${y},${z}`);
+                            }
+                        }
+                    } else {
+                        const isTeleportDiscovered = val === TYPES.TELEPORT && this.discoveredTeleports.has(`${x},${y},${z}`);
+                        if (val === TYPES.VISITED || val === TYPES.START || val === TYPES.ELEVATOR_VISITED || isTeleportDiscovered) {
+                            this.visitedCells.add(`${x},${y},${z}`);
+                        }
                     }
                 }
             }
@@ -713,6 +796,7 @@ export class Engine {
      * Persist the current game state and briefly show a "SAVING..." indicator.
      */
     triggerSave() {
+        if (this.isTutorialMode) return;
         saveGame(this);
         this.hasSavePoint = true;
         this.lastSavePos = { x: this.player.x, y: this.player.y, z: this.player.z };
@@ -782,21 +866,12 @@ export class Engine {
         }
 
         const activationPercentage = this.getMapVisitedPercentage();
-        this.dyingHunters = [];
         for (const hunter of this.hunters) {
-            if (hunter.state !== 'SLEEP' && hunter.state !== 'DEAD_BY_JELLY' && hunter.z === pz) {
+            if (hunter.state !== 'SLEEP' && hunter.state !== 'DEAD_BY_JELLY' && hunter.state !== 'DYING' && hunter.z === pz) {
                 const hDist = Math.abs(hunter.x - px) + Math.abs(hunter.y - py);
                 if (hDist <= 5) {
-                    hunter.state = 'DEAD_BY_JELLY';
+                    hunter.state = 'DYING';
                     hunter.respawnThresholdPercentage = activationPercentage;
-                    hunter.x = null;
-                    hunter.y = null;
-                    hunter.z = null;
-                    hunter.visualX = null;
-                    hunter.visualY = null;
-                    hunter.visualZ = null;
-                    hunter.pathToTarget = [];
-                    hunter.history = [];
                 }
             }
         }
@@ -855,6 +930,20 @@ export class Engine {
                         this.discoveredTeleports.delete(cellKey);
                     }
                 }
+            }
+        }
+
+        for (const hunter of this.hunters) {
+            if (hunter.state === 'DYING') {
+                hunter.state = 'DEAD_BY_JELLY';
+                hunter.x = null;
+                hunter.y = null;
+                hunter.z = null;
+                hunter.visualX = null;
+                hunter.visualY = null;
+                hunter.visualZ = null;
+                hunter.pathToTarget = [];
+                hunter.history = [];
             }
         }
 
@@ -995,9 +1084,27 @@ export class Engine {
 
     triggerVictory() {
         this.isGameOver = true;
-        clearSave(); // Victory clears the save so "Continue" is no longer offered
+        if (!this.isTutorialMode) {
+            clearSave(); // Victory clears the save so "Continue" is no longer offered
+        }
+        
+        let hasNext = false;
+        if (this.isTutorialMode && this.currentTutorialId) {
+            const currentIndex = TUTORIALS.findIndex(t => t.id === this.currentTutorialId);
+            hasNext = (currentIndex !== -1 && currentIndex + 1 < TUTORIALS.length);
+        }
+
         const percent = this.getMapVisitedPercentage();
-        this.ui.showVictory(percent, this.deathsCount, this.degree, this.elapsedTime, this.manaCollected, this.totalMana);
+        this.ui.showVictory(
+            percent, 
+            this.deathsCount, 
+            this.degree, 
+            this.elapsedTime, 
+            this.manaCollected, 
+            this.totalMana, 
+            this.isTutorialMode, 
+            hasNext
+        );
     }
 
     triggerDeath() {
@@ -1074,8 +1181,31 @@ export class Engine {
         this.player.dir = snapshot.player.dir;
 
         // Restore hunters
+        const useFixedHunters = this.isTutorialMode &&
+                                this.currentTutorialStage &&
+                                this.currentTutorialStage.hunterBehavior &&
+                                this.currentTutorialStage.hunterBehavior.fixed;
+
         for (let i = 0; i < this.hunters.length && i < snapshot.hunters.length; i++) {
-            restoreHunter(this.hunters[i], snapshot.hunters[i]);
+            if (useFixedHunters && this.mazeGen.tutorialHunterSpawns && this.mazeGen.tutorialHunterSpawns[i]) {
+                const initPos = this.mazeGen.tutorialHunterSpawns[i];
+                const hunter = this.hunters[i];
+                hunter.x = initPos.x;
+                hunter.y = initPos.y;
+                hunter.z = initPos.z;
+                hunter.visualX = initPos.x;
+                hunter.visualY = initPos.y;
+                hunter.visualZ = initPos.z;
+                hunter.state = 'WANDERING';
+                hunter.lastPos = { x: initPos.x, y: initPos.y, z: initPos.z };
+                hunter.visitedNodes.clear();
+                hunter.visitedNodes.add(`${initPos.x},${initPos.y},${initPos.z}`);
+                hunter.history = [];
+                hunter.pathToTarget = [];
+                hunter.respawnThresholdPercentage = null;
+            } else {
+                restoreHunter(this.hunters[i], snapshot.hunters[i]);
+            }
         }
 
         // Restore teleport state
@@ -1087,7 +1217,7 @@ export class Engine {
         this.allTeleports = [];
         const mazeSize = this.mazeGen.size;
         const TYPES = this.mazeGen.TYPES;
-        for (let z = 1; z < mazeSize; z += 2) {
+        for (let z = 0; z < mazeSize; z++) {
             for (let y = 0; y < mazeSize; y++) {
                 for (let x = 0; x < mazeSize; x++) {
                     const cellVal = this.maze.get(x, y, z);
@@ -1458,6 +1588,28 @@ export class Engine {
         if (savedState) {
             this.restoreFromSave(savedState);
             this.playContinueAnimation();
+        } else if (this.isTutorialMode) {
+            this.isStoryActive = false;
+            this.isIntroPlaying = false;
+            
+            const mapArea = document.getElementById('map-area-container');
+            const leftHud = document.getElementById('left-hud-panel');
+            const rightHud = document.getElementById('right-hud-panel');
+            const bottomHud = document.getElementById('bottom-hud-container');
+            if (mapArea) mapArea.classList.remove('hidden', 'intro-hidden');
+            if (leftHud) leftHud.classList.remove('hidden', 'intro-hidden');
+            if (rightHud) rightHud.classList.remove('hidden', 'intro-hidden');
+            if (bottomHud) bottomHud.classList.remove('hidden', 'intro-hidden');
+            
+            if (this.ui.uiMobileMap) {
+                this.ui.uiMobileMap.disabled = false;
+            }
+            
+            this.ui.setMap3DVisible(false);
+            this.isMap3DActive = false;
+            this.staticMapCacheDirty = true;
+            this.isZoomTransitionActive = true;
+            this.zoomTransitionTimer = 2.0;
         } else {
             this.startStorytelling();
         }
@@ -2292,9 +2444,14 @@ export class Engine {
 
         // Check if any dead-by-jelly hunters can respawn now
         const currentPercent = this.getMapVisitedPercentage();
+        const disableRespawn = this.isTutorialMode && 
+                               this.currentTutorialStage && 
+                               this.currentTutorialStage.hunterBehavior && 
+                               this.currentTutorialStage.hunterBehavior.respawn === false;
+
         for (const hunter of this.hunters) {
             if (hunter.state === 'DEAD_BY_JELLY' && hunter.respawnThresholdPercentage !== null) {
-                if (currentPercent >= hunter.respawnThresholdPercentage) {
+                if (!disableRespawn && currentPercent >= hunter.respawnThresholdPercentage) {
                     this.respawnSingleHunter(hunter);
                     this.ui.showInfoBanner(getTranslation('msgHunterReturned'));
                 }
@@ -2328,18 +2485,40 @@ export class Engine {
                  }
                  mesh.visible = true;
                  if (h.visualX === null || h.visualZ === null || h.visualY === null) continue;
+                 
+                 // Base positioning
                  mesh.position.set(h.visualX - size/2, (h.visualZ - size/2) * this.vScale, h.visualY - size/2);
 
                  // Jelly shape deformation (slow skew / stretch scale) - contido
                  const time = h.jellyTime;
-                 const scaleX = 1 + Math.sin(time * 1.2) * 0.07;
-                 const scaleY = 1 + Math.cos(time * 0.8) * 0.07;
-                 const scaleZ = 1 + Math.sin(time * 1.5) * 0.07;
+                 let scaleX = 1 + Math.sin(time * 1.2) * 0.07;
+                 let scaleY = 1 + Math.cos(time * 0.8) * 0.07;
+                 let scaleZ = 1 + Math.sin(time * 1.5) * 0.07;
+                 
+                 if (h.state === 'DYING') {
+                     const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
+                     const shrink = 1.0 - progress;
+                     scaleX *= shrink;
+                     scaleY *= shrink;
+                     scaleZ *= shrink;
+                     
+                     // Glitch tremor shake in 3D
+                     const shakeX = (Math.random() - 0.5) * 0.15;
+                     const shakeY = (Math.random() - 0.5) * 0.15;
+                     const shakeZ = (Math.random() - 0.5) * 0.15;
+                     mesh.position.add({ x: shakeX, y: shakeY, z: shakeZ } as any);
+                 }
+
                  if (hm.coreMesh) {
                      hm.coreMesh.scale.set(scaleX, scaleY, scaleZ);
                      // Flashing/pulsing emissive light intensity
                      if (hm.coreMesh.material) {
-                         hm.coreMesh.material.emissiveIntensity = (0.8 + 0.2 * Math.sin(time * 3) + (Math.random() < 0.1 ? (Math.random() - 0.5) * 0.4 : 0)) * opFactor;
+                         let finalIntensity = (0.8 + 0.2 * Math.sin(time * 3) + (Math.random() < 0.1 ? (Math.random() - 0.5) * 0.4 : 0)) * opFactor;
+                         if (h.state === 'DYING') {
+                             const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
+                             finalIntensity *= (1.0 - progress);
+                         }
+                         hm.coreMesh.material.emissiveIntensity = finalIntensity;
                      }
                  }
 
@@ -2784,7 +2963,20 @@ export class Engine {
             const isSleeping = this.hunters.some(h => h.state === 'SLEEP');
 
             for (const hunter of this.hunters) {
-                if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY') continue;
+                if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY' || hunter.state === 'DYING') continue;
+
+                // Support static hunter behavior in tutorials
+                const isStatic = this.isTutorialMode && 
+                                 this.currentTutorialStage && 
+                                 this.currentTutorialStage.hunterBehavior && 
+                                 this.currentTutorialStage.hunterBehavior.static;
+
+                if (isStatic) {
+                    this.checkHunterCollision();
+                    if (this.isGameOver) return;
+                    continue;
+                }
+
                 const oldState = hunter.state;
                 hunter.move(this.player, this.maze, this.mazeGen.TYPES);
                 if (hunter.state === 'TRACKING' && oldState !== 'TRACKING' && !this.dialogueDetectedTriggered) {
@@ -3488,13 +3680,63 @@ export class Engine {
                     this.visualActiveFloor = targetZ;
                     this.lastPlayerCell = { x: Math.floor(targetX), y: Math.floor(targetY), z: targetZ };
                     
-                    // 3. Re-initialize / Reset Hunters to sleep mode & suppress wake banner
+                    // 3. Re-initialize / Reset Hunters
                     this.hunters = [];
-                    this.initHunters(this.degree);
+                    if (this.isTutorialMode) {
+                        const useFixed = this.currentTutorialStage &&
+                                         this.currentTutorialStage.hunterBehavior &&
+                                         this.currentTutorialStage.hunterBehavior.fixed;
+                        
+                        if (this.mazeGen.tutorialHunterSpawns && !this.isSafeMode) {
+                            let hunterId = 1;
+                            for (const hPos of this.mazeGen.tutorialHunterSpawns) {
+                                const hunter = new Hunter(this.mazeGen, { x: hPos.x, y: hPos.y, z: hPos.z }, hunterId++);
+                                if (!useFixed) {
+                                    // Relocate to a random valid path cell since fixed is false
+                                    const candidates = [];
+                                    const size = this.mazeGen.size;
+                                    const startX = Math.floor(this.mazeGen.startPos.x);
+                                    const startY = Math.floor(this.mazeGen.startPos.y);
+                                    const startZ = this.mazeGen.startPos.z;
+                                    
+                                    for (let x = 0; x < size; x++) {
+                                        for (let y = 0; y < size; y++) {
+                                            for (let z = 0; z < size; z++) {
+                                                const val = this.maze.get(x, y, z);
+                                                const isStart = (x === startX && y === startY && z === startZ);
+                                                const isExit = (val === this.mazeGen.TYPES.EXIT);
+                                                if (val !== this.mazeGen.TYPES.WALL && !isExit && !isStart && (x !== Math.floor(targetX) || y !== Math.floor(targetY) || z !== targetZ)) {
+                                                    candidates.push({ x, y, z });
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (candidates.length > 0) {
+                                        const pos = candidates[Math.floor(Math.random() * candidates.length)];
+                                        hunter.x = pos.x;
+                                        hunter.y = pos.y;
+                                        hunter.z = pos.z;
+                                        hunter.visualX = pos.x;
+                                        hunter.visualY = pos.y;
+                                        hunter.visualZ = pos.z;
+                                        hunter.lastPos = { x: pos.x, y: pos.y, z: pos.z };
+                                        hunter.visitedNodes.clear();
+                                        hunter.visitedNodes.add(`${pos.x},${pos.y},${pos.z}`);
+                                    }
+                                }
+                                this.hunters.push(hunter);
+                            }
+                        }
+                    } else {
+                        this.initHunters(this.degree);
+                    }
                     this.suppressWakeHuntersBanner = true;
                     
                     // 4. Update the saved state in localStorage automatically
-                    saveGame(this);
+                    if (!this.isTutorialMode) {
+                        saveGame(this);
+                    }
                     
                     // 5. Start reversing the animation
                     this.deathAnimation.reversing = true;

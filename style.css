@@ -41,7 +41,7 @@ body {
     display: none !important;
 }
 
-#start-menu {
+#start-menu, #tutorials-menu {
     position: fixed;
     top: 0;
     left: 0;
@@ -122,7 +122,7 @@ body {
     font-family: 'Roboto', sans-serif;
 }
 
-#start-menu .menu-content {
+#start-menu .menu-content, #tutorials-menu .menu-content {
     opacity: 0;
     clip-path: inset(0 50% 0 50%);
     border-color: transparent;
@@ -142,7 +142,7 @@ body {
     margin: 0;
 }
 
-#start-menu .game-title {
+#start-menu .game-title, #tutorials-menu .game-title {
     opacity: 0;
     transform: translateY(38dvh);
     animation: title-intro 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -162,7 +162,7 @@ body {
     text-align: center;
 }
 
-#start-menu .game-credits {
+#start-menu .game-credits, #tutorials-menu .game-credits {
     opacity: 0;
     transform: translateY(-16dvh);
     animation: credits-intro 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -173,7 +173,10 @@ body {
 
 #start-menu .menu-stats-grid,
 #start-menu .control-group,
-#start-menu .menu-action-btns {
+#start-menu .menu-action-btns,
+#start-menu .menu-tutorials-row,
+#tutorials-menu .tutorials-list,
+#tutorials-menu .menu-action-btns {
     opacity: 0;
     animation: elements-fade-in 0.8s ease-out forwards;
     animation-delay: 4.0s;
@@ -448,7 +451,7 @@ body {
     box-sizing: border-box;
 }
 
-#start-btn, .continue-btn {
+#start-btn, .continue-btn, .tutorials-btn, #back-to-menu-btn {
     background: transparent;
     border: calc(var(--h-unit) * 0.2) solid var(--clr-neon);
     border: calc(var(--d-h-unit) * 0.2) solid var(--clr-neon);
@@ -470,16 +473,18 @@ body {
     box-sizing: border-box;
 }
  
-#start-btn:hover, .continue-btn:hover {
+#start-btn:hover, .continue-btn:hover, .tutorials-btn:hover, #back-to-menu-btn:hover {
     background: var(--clr-neon);
     color: #000;
 }
 
 .end-game-btns {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    gap: calc(var(--h-unit) * 2);
+    gap: calc(var(--h-unit) * 1.5);
     margin-top: calc(var(--h-unit) * 2);
+    width: 100%;
 }
 
 .end-btn {
@@ -493,6 +498,9 @@ body {
     text-transform: uppercase;
     cursor: pointer;
     transition: all 0.3s ease;
+    flex: 1 1 auto;
+    max-width: calc(var(--h-unit) * 22);
+    box-sizing: border-box;
 }
 
 .end-btn:hover {
@@ -2074,5 +2082,200 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
 
 #loading-screen.hidden {
     display: none !important;
+}
+
+/* Tutorials List Styles */
+.tutorials-list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--h-unit) * 1.5);
+    gap: calc(var(--d-h-unit) * 1.5);
+    width: 100%;
+    margin-top: calc(var(--h-unit) * 2);
+    margin-bottom: calc(var(--h-unit) * 2);
+    max-height: 45vh;
+    overflow-y: auto;
+    padding: calc(var(--h-unit) * 0.5);
+    box-sizing: border-box;
+}
+
+/* Custom Scrollbar for Tutorials List */
+.tutorials-list::-webkit-scrollbar {
+    width: calc(var(--h-unit) * 0.8);
+}
+
+.tutorials-list::-webkit-scrollbar-track {
+    background: rgba(18, 24, 36, 0.4);
+    border-radius: 0;
+}
+
+.tutorials-list::-webkit-scrollbar-thumb {
+    background: var(--clr-neon);
+    border-radius: 0;
+}
+
+.tutorials-list::-webkit-scrollbar-thumb:hover {
+    background: #fff;
+}
+
+.tutorial-item-btn {
+    background: rgba(18, 24, 36, 0.6);
+    border: calc(var(--h-unit) * 0.25) solid var(--clr-neon);
+    color: var(--clr-text);
+    padding: calc(var(--h-unit) * 1.8) calc(var(--h-unit) * 2);
+    font-size: calc(var(--h-unit) * 1.8);
+    font-family: inherit;
+    font-weight: bold;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--h-unit) * 1.5);
+}
+
+.tutorial-item-btn:hover {
+    background: var(--clr-neon);
+    color: #000;
+    box-shadow: 0 0 calc(var(--h-unit) * 1.5) rgba(136, 204, 255, 0.4);
+    transform: scale(1.02);
+}
+
+.tutorial-item-btn .tut-num {
+    color: var(--clr-neon);
+    font-family: 'Orbitron', sans-serif;
+}
+.tutorial-item-btn:hover .tut-num {
+    color: #000;
+}
+
+/* Tutorial Instructions Modal Styles (Premium Glassmorphism & Neon Glow) */
+#tutorial-instructions-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+#tutorial-instructions-modal .modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+}
+
+#tutorial-instructions-modal .modal-container {
+    position: relative;
+    background: #121824;
+    border: calc(var(--h-unit) * 0.3) solid var(--clr-neon);
+    box-shadow: 0 0 calc(var(--h-unit) * 3) rgba(136, 204, 255, 0.3);
+    width: 90%;
+    max-width: calc(var(--h-unit) * 50);
+    padding: calc(var(--h-unit) * 4);
+    box-sizing: border-box;
+    text-align: center;
+    z-index: 2001;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--h-unit) * 3);
+}
+
+#tutorial-instructions-modal h2 {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--clr-neon);
+    font-size: calc(var(--h-unit) * 2.8);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: calc(var(--h-unit) * 0.15);
+}
+
+#tutorial-instructions-modal p {
+    color: var(--clr-text);
+    font-size: calc(var(--h-unit) * 1.8);
+    line-height: 1.6;
+    margin: 0;
+    font-family: 'Roboto', sans-serif;
+}
+
+#tutorial-instructions-modal .modal-buttons {
+    display: flex;
+    gap: calc(var(--h-unit) * 2);
+    justify-content: center;
+}
+
+#tutorial-instructions-modal .modal-confirm-btn,
+#tutorial-instructions-modal .modal-cancel-btn {
+    background: transparent;
+    border: calc(var(--h-unit) * 0.25) solid currentColor;
+    font-family: inherit;
+    font-size: calc(var(--h-unit) * 1.8);
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: calc(var(--h-unit) * 1.2) calc(var(--h-unit) * 2.5);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex: 1;
+    max-width: calc(var(--h-unit) * 18);
+}
+
+#tutorial-instructions-modal .modal-confirm-btn {
+    color: var(--clr-neon);
+}
+#tutorial-instructions-modal .modal-confirm-btn:hover {
+    background: var(--clr-neon);
+    color: #000;
+}
+
+#tutorial-instructions-modal .modal-cancel-btn {
+    color: #ff3333;
+}
+#tutorial-instructions-modal .modal-cancel-btn:hover {
+    background: #ff3333;
+    color: #000;
+}
+
+/* Tutorials Menu Row (Top of start menu btns) */
+.menu-tutorials-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: calc(var(--h-unit) * 1);
+    margin-top: calc(var(--d-h-unit) * 1);
+    box-sizing: border-box;
+}
+
+.menu-tutorials-row .tutorials-btn {
+    flex: none;
+    width: 100%;
+    max-width: calc(var(--h-unit) * 26);
+    max-width: calc(var(--d-h-unit) * 26);
+}
+
+/* Fast/Instant transitions for Tutorials Menu */
+#tutorials-menu .menu-content {
+    animation: none !important;
+    opacity: 1 !important;
+    clip-path: none !important;
+    border-color: var(--clr-neon) !important;
+}
+
+#tutorials-menu .game-title {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+#tutorials-menu .tutorials-list,
+#tutorials-menu .menu-action-btns {
+    animation: none !important;
+    opacity: 1 !important;
 }
 

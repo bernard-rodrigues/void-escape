@@ -12,6 +12,15 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         safeMode: "Safe Mode",
         generateMaze: "NEW GAME",
         continue: "CONTINUE",
+        tutorialsMenu: "TUTORIALS",
+        tutorialsTitle: "TUTORIALS",
+        back: "BACK",
+        tutorialSuccess: "Success!",
+        nextTutorial: "Next Tutorial",
+        tutKeysTitle: "Key Collection",
+        tutHuntersTitle: "Hunters",
+        start: "START",
+        cancel: "CANCEL",
         degreeHint: "Controls the grid size. Higher values create larger, more complex mazes.",
         safeModeHint: "When active, no hunters will spawn in the maze.",
         storyMsg1: "The mystical church of chaos worship!",
@@ -137,6 +146,15 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         safeMode: "Modo Seguro",
         generateMaze: "NOVO JOGO",
         continue: "CONTINUAR",
+        tutorialsMenu: "TUTORIAIS",
+        tutorialsTitle: "TUTORIAIS",
+        back: "VOLTAR",
+        tutorialSuccess: "Sucesso!",
+        nextTutorial: "Próximo Tutorial",
+        tutKeysTitle: "Coleta de Chaves",
+        tutHuntersTitle: "Caçadores",
+        start: "INICIAR",
+        cancel: "CANCELAR",
         degreeHint: "Controla o tamanho da grade. Valores maiores criam labirintos maiores e mais complexos.",
         safeModeHint: "Quando ativo, nenhum caçador surgirá no labirinto.",
         storyMsg1: "A igreja mística do culto ao caos!",
@@ -262,6 +280,15 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         safeMode: "セーフモード",
         generateMaze: "ニューゲーム",
         continue: "つづきから",
+        tutorialsMenu: "チュートリアル",
+        tutorialsTitle: "チュートリアル",
+        back: "戻る",
+        tutorialSuccess: "成功！",
+        nextTutorial: "次のチュートリアル",
+        tutKeysTitle: "鍵の収集",
+        tutHuntersTitle: "ハンター",
+        start: "スタート",
+        cancel: "キャンセル",
         degreeHint: "グリッドのサイズを調整します。値が大きいほど、より広く複雑な迷路になります。",
         safeModeHint: "有効にすると、迷路にハンターが出現しなくなります。",
         storyMsg1: "混沌崇拝の神秘的な教会!",
@@ -388,6 +415,15 @@ es: {
         safeMode: "Modo Seguro",
         generateMaze: "NUEVA PARTIDA",
         continue: "CONTINUAR",
+        tutorialsMenu: "TUTORIALES",
+        tutorialsTitle: "TUTORIALES",
+        back: "VOLVER",
+        tutorialSuccess: "¡Éxito!",
+        nextTutorial: "Siguiente Tutorial",
+        tutKeysTitle: "Recolección de Llaves",
+        tutHuntersTitle: "Cazadores",
+        start: "INICIAR",
+        cancel: "CANCELAR",
         degreeHint: "Controla el tamaño de la cuadrícula. Valores más altos crean laberintos más grandes y complejos.",
         safeModeHint: "Cuando está activo, no aparecerán cazadores en el laberinto.",
         storyMsg1: "¡La mística iglesia del culto al caos!",
@@ -511,6 +547,10 @@ export function setLanguage(lang: string) {
     } else {
         CURRENT_LANG = 'en';
     }
+}
+
+export function getCurrentLanguage(): string {
+    return CURRENT_LANG;
 }
 
 export function detectAndSetLanguage() {

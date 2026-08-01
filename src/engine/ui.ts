@@ -121,11 +121,45 @@ export class UIManager {
     /**
      * Show victory overlay and hide game controls.
      */
-    showVictory(mapCompletionPercent = 0, deathsCount = 0, degree = 8, elapsedTime = 0, manaCollected = 0, totalMana = 0) {
+    showVictory(
+        mapCompletionPercent = 0, 
+        deathsCount = 0, 
+        degree = 8, 
+        elapsedTime = 0, 
+        manaCollected = 0, 
+        totalMana = 0,
+        isTutorialMode = false,
+        hasNextTutorial = false
+    ) {
         this.hideGameUI();
         if (this.uiVictoryScreen) {
             this.uiVictoryScreen.classList.remove('hidden');
+            
+            const titleEl = this.uiVictoryScreen.querySelector('h1');
+            if (titleEl) {
+                titleEl.innerText = isTutorialMode ? getTranslation('tutorialSuccess') : getTranslation('victoryTitle');
+            }
+            const textEl = this.uiVictoryScreen.querySelector('p[data-i18n="victoryText"]') as HTMLElement | null;
+            if (textEl) {
+                textEl.style.display = isTutorialMode ? 'none' : '';
+            }
+            const statsElements = this.uiVictoryScreen.querySelectorAll('.victory-stats');
+            statsElements.forEach(el => {
+                (el as HTMLElement).style.display = isTutorialMode ? 'none' : '';
+            });
         }
+        
+        const menuBtn = document.getElementById('menu-btn-victory');
+        if (menuBtn) {
+            menuBtn.innerText = isTutorialMode ? getTranslation('back') : getTranslation('mainMenu');
+        }
+
+        const nextTutBtn = document.getElementById('next-tut-btn-victory');
+        if (nextTutBtn) {
+            nextTutBtn.classList.toggle('hidden', !hasNextTutorial);
+            nextTutBtn.innerText = getTranslation('nextTutorial');
+        }
+
         const manaEl = document.getElementById('victory-mana-count');
         if (manaEl) {
             manaEl.innerText = `${manaCollected}/${totalMana}`;
