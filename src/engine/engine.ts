@@ -390,7 +390,11 @@ export class Engine {
             }
         }
 
-        this.jellyPortalCount = this.totalMana < 10 ? 1 : (CONFIG.JELLY_PORTAL_COUNT || 0);
+        if (this.isTutorialMode) {
+            this.jellyPortalCount = tutorialStage && tutorialStage.jellyPortals !== undefined ? tutorialStage.jellyPortals : 0;
+        } else {
+            this.jellyPortalCount = this.totalMana < 10 ? 1 : (CONFIG.JELLY_PORTAL_COUNT || 0);
+        }
         this.jellyPortalFreezeTimer = 0;
         this.jellyPortalResetCells = new Set();
         this.jellyPortalResetDuration = 1.5;

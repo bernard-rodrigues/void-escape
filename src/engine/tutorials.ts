@@ -36,6 +36,7 @@ export interface TutorialStage {
     layers: string[][]; // layers[z][y] contendo caracteres do eixo X (qualquer dimensão)
     pathfinders?: number; // Cargas de localizadores disponíveis no tutorial (padrão 0)
     mana?: number; // Mana inicial disponível no tutorial (padrão 0)
+    jellyPortals?: number; // Portais de gelatina iniciais disponíveis no tutorial (padrão 0)
     revealed?: boolean; // Se true, o mapa e caminhos já vêm visíveis
     hunterBehavior?: HunterBehavior; // Comportamento customizado dos caçadores no tutorial
 }
@@ -82,7 +83,8 @@ export const TUTORIALS: TutorialStage[] = [
             ]
         ],
         pathfinders: 0,
-        mana: 0
+        mana: 0,
+        jellyPortals: 0
     },
     {
         id: "tutorial_elevators",
@@ -143,7 +145,8 @@ export const TUTORIALS: TutorialStage[] = [
             ]
         ],
         pathfinders: 0,
-        mana: 0
+        mana: 0,
+        jellyPortals: 0
     },
     {
         id: "tutorial_teleport",
@@ -184,6 +187,7 @@ export const TUTORIALS: TutorialStage[] = [
         ],
         pathfinders: 0,
         mana: 0,
+        jellyPortals: 0,
         revealed: true
     },
     {
@@ -225,6 +229,7 @@ export const TUTORIALS: TutorialStage[] = [
         ],
         pathfinders: 0,
         mana: 0,
+        jellyPortals: 0,
         revealed: true,
         hunterBehavior: {
             static: false,
