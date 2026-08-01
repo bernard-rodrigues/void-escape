@@ -1565,6 +1565,10 @@ export class Engine {
             if (rightHud) rightHud.classList.remove('hidden', 'intro-hidden');
             if (bottomHud) bottomHud.classList.remove('hidden', 'intro-hidden');
             
+            if (this.ui.uiMobileMap) {
+                this.ui.uiMobileMap.disabled = false;
+            }
+            
             this.ui.setMap3DVisible(false);
             this.isMap3DActive = false;
             this.staticMapCacheDirty = true;
