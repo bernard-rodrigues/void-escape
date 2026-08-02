@@ -157,10 +157,10 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Teletransporte"
         },
         description: {
-            en: "Use the teleporters to move between different areas of the level.",
-            ptBr: "Utilize os teletransportadores para se mover entre diferentes áreas do nível.",
-            ja: "テレポートを使用して、レベルの異なるエリア間を移動します。",
-            es: "Utiliza los teletransportadores para moverte entre diferentes áreas del nivel."
+            en: "Use the teleporters to move between different areas of the level. Step on a teleport block, activate it with one of the action screens, and select another available teleporter to move to it.",
+            ptBr: "Utilize os teletransportadores para se mover entre diferentes áreas do nível. Ao pisar sobre um bloco de teleporte, acione-o com uma das telas de ação e selecione outro teleporte disponível para se mover para ele.",
+            ja: "テレポートを使用して、レベルの異なるエリア間を移動します。テレポートブロックの上に立ち、アクション画面の1つでそれをアクティブにし、移動するために別の利用可能なテレポーターを選択します。",
+            es: "Utiliza los teletransportadores para moverte entre diferentes áreas del nivel. Pisa un bloque de teletransporte, actívalo con una de las pantallas de acción y selecciona otro teletransportador disponible para moverte a él."
         },
         layers: [
             [
@@ -246,8 +246,8 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Mapa y Zoom"
         },
         description: {
-            ptBr: "Alguns mapas podem ser grandes demais para caber na tela. Use o mapa e o zoom para se localizar.",
             en: "Some maps may be too large to fit on the screen. Use the map and zoom to navigate.",
+            ptBr: "Alguns mapas podem ser grandes demais para caber na tela. Use o mapa e o zoom para se localizar.",
             ja: "一部のマップは画面に収まらないほど大きい場合があります。マップとズームを使用してナビゲートします。",
             es: "Algunos mapas pueden ser demasiado grandes para caber en la pantalla. Utiliza el mapa y el zoom para navegar."
         },
@@ -362,10 +362,10 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Mana y Portales de Gelatina"
         },
         description: {
-            en: "Collect mana to unlock your secret ability and activate jelly portals to traverse the level.",
-            ptBr: "Colete mana para obter sua habilidade secreta e destrave os portais de geléia para atravessar o nível.",
-            ja: "マナを収集して秘密の能力をアンロックし、ジェリーのポータルをアクティブにしてレベルを移動します。",
-            es: "Recoge mana para desbloquear tu habilidad secreta y activa los portales de gelatina para atravesar el nivel."
+            en: "Collect mana to unlock your secret ability and activate jelly portals to traverse the level. The jelly god portal adds a jelly portal at the player's position (save point, but not safe) and destroys all void hunters in the action area. Visited points will be forgotten.",
+            ptBr: "Colete mana para obter sua habilidade secreta e destrave os portais de geléia para atravessar o nível. O portal do deus geleia adiciona um portal de geleia na posição do jogador (save point, mas não seguro) e destrói todos os void hunters na área de ação. Os pontos visitados serão esquecidos.",
+            ja: "マナを収集して秘密の能力をアンロックし、ジェリーのポータルをアクティブにしてレベルを移動します。ジェリーの神のポータルは、プレイヤーの位置にジェリーポータルを追加し（セーブポイントですが安全ではありません）、アクションエリア内のすべてのボイドハンターを破壊します。 訪問したポイントは忘れられます。",
+            es: "Recoge mana para desbloquear tu habilidad secreta y activa los portales de gelatina para atravesar el nivel. El portal del dios de la gelatina agrega un portal de gelatina en la posición del jugador (punto de guardado, pero no seguro) y destruye a todos los cazadores del vacío en el área de acción. Los puntos visitados serán olvidados."
         },
         layers: [
             [
@@ -398,5 +398,89 @@ export const TUTORIALS: TutorialStage[] = [
             respawn: false,
             fixed: true
         }
+    },
+    {
+        id: "tutorial_pathfinder",
+        title: {
+            en: "Pathfinding",
+            ptBr: "Localizador de Caminhos",
+            ja: "パスファインディング",
+            es: "Localizador de Caminos"
+        },
+        description: {
+            en: "Use the pathfinder to reveal the shortest route to the exit portal. Some levels can be extremely complex. To activate, open the map and click on teleporters, adjacent blocks, or the maze exit if discovered.",
+            ptBr: "Use o localizador de caminhos para revelar a rota mais curta até o portal de saída. Algumas fases podem ser extremamente complexas. Para ativar, abra o mapa e clique sobre teleportes, blocos vizinhos ou a saída do labirinto, se descoberta.",
+            ja: "パスファインダーを使用して、出口ポータルへの最短ルートを明らかにします。一部のレベルは非常に複雑な場合があります。有効にするには、マップを開き、テレポーター、隣接するブロック、または迷路の出口（発見された場合）をクリックします。",
+            es: "Utiliza el localizador de caminos para revelar la rota más corta al portal de salida. Algunos niveles pueden ser extremadamente complejos. Para activarlo, abre el mapa y haz clic en los teletransportadores, bloques adyacentes o la salida del laberinto si se ha descubierto."
+        },
+        layers: [
+            [
+                "###########",
+                "###########",
+                "###########",
+                "###########",
+                "###########",
+                "###########",
+                "###########",
+            ],
+            [
+                "###########",
+                "#...#.....#",
+                "#.#######.#",
+                "#.#...#.#.#",
+                "#.#.#.#.#.#",
+                "#.#.#.#.#.E",
+                "###########",
+            ],
+            [
+                "###########",
+                "###.#.#####",
+                "###########",
+                "#######.###",
+                "###########",
+                "###.#######",
+                "###########",
+            ],
+            [
+                "###########",
+                "#.#.#.###.#",
+                "#.#.#.###.#",
+                "#...#.#...#",
+                "#.#.#.###.#",
+                "#.#.#.###.#",
+                "###########",
+            ],
+            [
+                "###########",
+                "#.#######.#",
+                "###########",
+                "###########",
+                "###########",
+                "#####.###.#",
+                "###########",
+            ],
+            [
+                "###########",
+                "#.........#",
+                "#.###.###.#",
+                "#.#A#.#A#.#",
+                "#.#A#.#A#.#",
+                "S.###.###.#",
+                "###########",
+            ],
+            [
+                "###########",
+                "###########",
+                "###########",
+                "###########",
+                "###########",
+                "###########",
+                "###########",
+            ],
+        ],
+        pathfinders: 5,
+        mana: 0,
+        jellyPortals: 0,
+        revealed: true
     }
 ];

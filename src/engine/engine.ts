@@ -1777,8 +1777,7 @@ export class Engine {
 
         const isWallVisible = (wx: number, wy: number) => {
             if (wx < 0 || wx >= size || wy < 0 || wy >= size) return false;
-            const wVal = this.maze.get(wx, wy, z);
-            return wVal === 0 && (this.isNearVisited(wx, wy, z) || this.isAdjacentToStatue(wx, wy, z));
+            return this.isWallVisible(wx, wy, z);
         };
 
         const hasWallBelow = isWallVisible(x, y + 1);
@@ -4044,8 +4043,7 @@ export class Engine {
 
             for (let wx = minX; wx <= maxX; wx++) {
                 for (let wy = minY; wy <= maxY; wy++) {
-                    const cellVal = this.maze.get(wx, wy, z);
-                    if (cellVal === 0 && (this.isNearVisited(wx, wy, z) || this.isAdjacentToStatue(wx, wy, z))) {
+                    if (this.isWallVisible(wx, wy, z)) {
                         ctx.save();
                         if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
                             ctx.drawImage(this.wallImage, wx * cellSize, wy * cellSize, cellSize, cellSize);
@@ -4773,7 +4771,7 @@ export class Engine {
                     // Força a atualização do cache estático do mapa a cada frame para animar o pulso
                     hasActiveAnimations = true;
                 }
-                else if (val === 0 && (this.isNearVisited(x, y, z) || this.isAdjacentToStatue(x, y, z))) {
+                else if (this.isWallVisible(x, y, z)) {
                     drawCellWithFade(x, y, () => {
                         if (this.wallImage.complete && this.wallImage.naturalWidth !== 0) {
                             ctx.drawImage(this.wallImage, x * cellSize, y * cellSize, cellSize, cellSize);
@@ -4791,6 +4789,36 @@ export class Engine {
         } else {
             this.staticMapCacheDirty = false;
         }
+    }
+
+    isAdjacentToNonWall(x: number, y: number, z: number): boolean {
+        const size = this.mazeGen.size;
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                    if (this.maze.get(nx, ny, z) !== this.mazeGen.TYPES.WALL) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    isWallVisible(x: number, y: number, z: number): boolean {
+        const val = this.maze.get(x, y, z);
+        if (val !== 0) return false;
+        
+        const isTutorialRevealed = this.isTutorialMode && 
+                                   this.currentTutorialStage && 
+                                   this.currentTutorialStage.revealed;
+                                   
+        return this.isNearVisited(x, y, z) || 
+               this.isAdjacentToStatue(x, y, z) || 
+               (isTutorialRevealed && this.isAdjacentToNonWall(x, y, z));
     }
 
     isNearVisited(x: number, y: number, z: number) {
@@ -4839,7 +4867,7 @@ export class Engine {
                 const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
                 const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
                 const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
-                if (isVisited || isKnown || isRevealedPath || (val === 0 && this.isNearVisited(x, y, z))) {
+                if (isVisited || isKnown || isRevealedPath || this.isWallVisible(x, y, z)) {
                     this.fullyRevealedCells.add(`${x},${y},${z}`);
                 }
             }
@@ -7083,7 +7111,9 @@ export class Engine {
                     const isExit = val === TYPES.EXIT;
 
                     if (val === TYPES.WALL || val === TYPES.STATUE) {
-                        if (this.isNearVisited(x, y, z)) {
+                        const isVisible = (val === TYPES.WALL && this.isWallVisible(x, y, z)) ||
+                                          (val === TYPES.STATUE && (this.isNearVisited(x, y, z) || (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed)));
+                        if (isVisible) {
                             const subW = tileWidthHalf * 0.45;
                             const subH = tileHeightHalf * 0.45;
                             const boxH = tileHeight * 0.25;
