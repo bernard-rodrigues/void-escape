@@ -129,7 +129,7 @@ export class Engine {
     isTouchDevice!: boolean;
     isMouseOrTouchDetected!: boolean;
     teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
-    lastTouchTime!: number;
+    lastTeleportCloseTime!: number;
     staticMapCacheCanvas!: HTMLCanvasElement;
     staticMapCacheCtx!: CanvasRenderingContext2D | null;
     staticMapCacheDirty!: boolean;
@@ -461,7 +461,7 @@ export class Engine {
         this.teleportModalSelection = 'go'; // 'go' or 'cancel'
         this.isMouseOrTouchDetected = false;
         this.teleportGoBtnClickRect = null;
-        this.lastTouchTime = 0;
+        this.lastTeleportCloseTime = 0;
         this.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         this.teleportMeshes = [];
@@ -1520,27 +1520,27 @@ export class Engine {
         if (zoomBtn) {
             zoomBtn.onclick = (e) => {
                 e.stopPropagation();
-                if (Date.now() - this.lastTouchTime < 500) return;
+                if (Date.now() - this.lastTeleportCloseTime < 500) return;
                 this.toggleZoom();
             };
         }
 
         if (this.ui.uiMobileUp) {
             this.ui.uiMobileUp.onclick = () => {
-                if (Date.now() - this.lastTouchTime < 500) return;
+                if (Date.now() - this.lastTeleportCloseTime < 500) return;
                 this.changeFloor(2);
             };
         }
         if (this.ui.uiMobileDown) {
             this.ui.uiMobileDown.onclick = () => {
-                if (Date.now() - this.lastTouchTime < 500) return;
+                if (Date.now() - this.lastTeleportCloseTime < 500) return;
                 this.changeFloor(-2);
             };
         }
         
         if (this.ui.uiMobileMap) {
             this.ui.uiMobileMap.onclick = () => {
-                if (Date.now() - this.lastTouchTime < 500) return;
+                if (Date.now() - this.lastTeleportCloseTime < 500) return;
                 if (this.isMap3DActive) {
                     if (this.isTeleportMode) {
                         this.toggleTeleportMap(false);
@@ -1589,16 +1589,13 @@ export class Engine {
         };
         this.handleCanvasClick = (e: MouseEvent) => {
             if (isDragging) return;
-            if (Date.now() - this.lastTouchTime < 500) return;
+            if (Date.now() - this.lastTeleportCloseTime < 500) return;
             this.onCanvasClick(e);
         };
         
         this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
         this.renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
         this.renderer.domElement.addEventListener('click', this.handleCanvasClick);
-        window.addEventListener('touchend', () => {
-            this.lastTouchTime = Date.now();
-        }, { passive: true });
         
         this.resize();
         this.updateFloorUI();
@@ -5839,6 +5836,7 @@ export class Engine {
             
             this.teleportConfirmModalActive = false;
         } else {
+            this.lastTeleportCloseTime = Date.now();
             if (telExitBtn) telExitBtn.classList.add('hidden');
             if (this.ui.uiMobileControls) this.ui.uiMobileControls.classList.remove('hidden');
             this.ui.setMap3DVisible(false);
@@ -6259,7 +6257,6 @@ export class Engine {
         canvas.addEventListener('touchend', (e) => {
             isPinchZooming = false;
             isTouchPanning = false;
-            this.lastTouchTime = Date.now();
  
             // Trigger click only if touch moved very little and didn't swipe floor
             if (totalTouchMoveDist < 8 && !hasSwipedFloor) {
@@ -6442,7 +6439,7 @@ export class Engine {
         if (!this.isMap3DActive || this.isIntroPlaying) return;
  
         // Evita clique fantasma emulado pelo browser mobile após o touchend
-        if (event instanceof MouseEvent && Date.now() - this.lastTouchTime < 500) {
+        if (event instanceof MouseEvent && Date.now() - this.lastTeleportCloseTime < 500) {
             return;
         }
 
