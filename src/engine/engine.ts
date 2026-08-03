@@ -1520,15 +1520,27 @@ export class Engine {
         if (zoomBtn) {
             zoomBtn.onclick = (e) => {
                 e.stopPropagation();
+                if (Date.now() - this.lastTouchTime < 500) return;
                 this.toggleZoom();
             };
         }
 
-        if (this.ui.uiMobileUp) this.ui.uiMobileUp.onclick = () => this.changeFloor(2);
-        if (this.ui.uiMobileDown) this.ui.uiMobileDown.onclick = () => this.changeFloor(-2);
+        if (this.ui.uiMobileUp) {
+            this.ui.uiMobileUp.onclick = () => {
+                if (Date.now() - this.lastTouchTime < 500) return;
+                this.changeFloor(2);
+            };
+        }
+        if (this.ui.uiMobileDown) {
+            this.ui.uiMobileDown.onclick = () => {
+                if (Date.now() - this.lastTouchTime < 500) return;
+                this.changeFloor(-2);
+            };
+        }
         
         if (this.ui.uiMobileMap) {
             this.ui.uiMobileMap.onclick = () => {
+                if (Date.now() - this.lastTouchTime < 500) return;
                 if (this.isMap3DActive) {
                     if (this.isTeleportMode) {
                         this.toggleTeleportMap(false);
@@ -1577,12 +1589,16 @@ export class Engine {
         };
         this.handleCanvasClick = (e: MouseEvent) => {
             if (isDragging) return;
+            if (Date.now() - this.lastTouchTime < 500) return;
             this.onCanvasClick(e);
         };
         
         this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
         this.renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
         this.renderer.domElement.addEventListener('click', this.handleCanvasClick);
+        window.addEventListener('touchend', () => {
+            this.lastTouchTime = Date.now();
+        }, { passive: true });
         
         this.resize();
         this.updateFloorUI();
@@ -4645,7 +4661,7 @@ export class Engine {
                                         ctx.beginPath();
                                         if (ctx.roundRect) {
                                              ctx.roundRect(bodyX, bodyY, w, h, borderRadius);
-                                         } else {
+                                         } else if (ctx.rect) {
                                              ctx.rect(bodyX, bodyY, w, h);
                                          }
                                         ctx.fill();
@@ -8094,7 +8110,7 @@ export class Engine {
                     ctx.beginPath();
                     if (ctx.roundRect) {
                         ctx.roundRect(goBtnX, goBtnY, goBtnW, goBtnH, 6);
-                    } else {
+                    } else if (ctx.rect) {
                         ctx.rect(goBtnX, goBtnY, goBtnW, goBtnH);
                     }
                     ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
