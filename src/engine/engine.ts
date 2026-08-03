@@ -129,6 +129,7 @@ export class Engine {
     isTouchDevice!: boolean;
     isMouseOrTouchDetected!: boolean;
     teleportGoBtnClickRect!: { x: number; y: number; w: number; h: number } | null;
+    lastTouchTime!: number;
     staticMapCacheCanvas!: HTMLCanvasElement;
     staticMapCacheCtx!: CanvasRenderingContext2D | null;
     staticMapCacheDirty!: boolean;
@@ -460,6 +461,7 @@ export class Engine {
         this.teleportModalSelection = 'go'; // 'go' or 'cancel'
         this.isMouseOrTouchDetected = false;
         this.teleportGoBtnClickRect = null;
+        this.lastTouchTime = 0;
         this.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         this.teleportMeshes = [];
@@ -4615,25 +4617,59 @@ export class Engine {
                                     hasActiveAnimations = true;
                                     
                                     if (this.keysCollected < this.totalKeys) {
-                                        ctx.strokeStyle = '#ff3300';
-                                        ctx.lineWidth = Math.max(2, cellSize * 0.08);
                                         const cx = x * cellSize + cellSize / 2;
                                         const cy = y * cellSize + cellSize / 2;
-                                        const r = cellSize * 0.2;
                                         
+                                        // Proporções do cadeado
+                                        const w = cellSize * 0.45;
+                                        const h = cellSize * 0.38;
+                                        const arcWidth = w * 0.75;
+                                        const bodyX = cx - w / 2;
+                                        const bodyY = cy - h / 4;
+                                        const borderRadius = Math.max(3, cellSize * 0.06);
+
+                                        // 1. Alça do Cadeado (Arco Neon)
                                         ctx.beginPath();
-                                        ctx.arc(cx, cy - r * 0.2, r * 0.6, Math.PI, 0);
+                                        ctx.arc(cx, bodyY, arcWidth / 2, Math.PI, 0);
+                                        ctx.strokeStyle = '#ff3300';
+                                        ctx.lineWidth = Math.max(2.5, cellSize * 0.07);
+                                        ctx.lineCap = 'round';
                                         ctx.stroke();
+
+                                        // 2. Corpo do Cadeado (Vidro/Metal Escuro Gradiente)
+                                        const grad = ctx.createLinearGradient(bodyX, bodyY, bodyX, bodyY + h);
+                                        grad.addColorStop(0, '#2e0808');
+                                        grad.addColorStop(1, '#140303');
                                         
-                                        ctx.fillStyle = '#111';
-                                        ctx.fillRect(cx - r, cy - r * 0.1, r * 2, r * 1.5);
-                                        ctx.strokeRect(cx - r, cy - r * 0.1, r * 2, r * 1.5);
+                                        ctx.fillStyle = grad;
+                                        ctx.beginPath();
+                                        if (ctx.roundRect) {
+                                             ctx.roundRect(bodyX, bodyY, w, h, borderRadius);
+                                         } else {
+                                             ctx.rect(bodyX, bodyY, w, h);
+                                         }
+                                        ctx.fill();
+
+                                        // Contorno Neon do Corpo
+                                        ctx.strokeStyle = '#ff3300';
+                                        ctx.lineWidth = Math.max(1.5, cellSize * 0.04);
+                                        ctx.stroke();
+
+                                        // 3. Texto Centralizado Reativo (1 ou 2 dígitos)
+                                        const text = String(this.totalKeys - this.keysCollected);
+                                        const fontSize = text.length > 1 ? Math.max(8, cellSize * 0.22) : Math.max(10, cellSize * 0.28);
                                         
-                                        ctx.fillStyle = '#ff3300';
-                                        ctx.font = `bold ${Math.max(10, cellSize * 0.35)}px sans-serif`;
+                                        ctx.save();
+                                        ctx.fillStyle = '#ff8888';
+                                        ctx.font = `bold ${fontSize}px "Outfit", "Inter", sans-serif`;
                                         ctx.textAlign = 'center';
                                         ctx.textBaseline = 'middle';
-                                        ctx.fillText(String(this.totalKeys - this.keysCollected), cx, cy + r * 0.6);
+                                        
+                                        // Efeito de brilho neon no número
+                                        ctx.shadowColor = '#ff3300';
+                                        ctx.shadowBlur = Math.max(2, cellSize * 0.08);
+                                        ctx.fillText(text, cx, cy + h / 4);
+                                        ctx.restore();
                                     }
                                 } else {
                                     if (val === 2) {
@@ -6207,7 +6243,8 @@ export class Engine {
         canvas.addEventListener('touchend', (e) => {
             isPinchZooming = false;
             isTouchPanning = false;
-
+            this.lastTouchTime = Date.now();
+ 
             // Trigger click only if touch moved very little and didn't swipe floor
             if (totalTouchMoveDist < 8 && !hasSwipedFloor) {
                 const touch = e.changedTouches[0];
@@ -6387,6 +6424,11 @@ export class Engine {
 
     handleIsometricClick(event: MouseEvent | { clientX: number, clientY: number }) {
         if (!this.isMap3DActive || this.isIntroPlaying) return;
+ 
+        // Evita clique fantasma emulado pelo browser mobile após o touchend
+        if (event instanceof MouseEvent && Date.now() - this.lastTouchTime < 500) {
+            return;
+        }
 
         const rect = this.isometricCanvas!.getBoundingClientRect();
         const clickX = event.clientX - rect.left;
@@ -6414,7 +6456,7 @@ export class Engine {
                 return;
             }
 
-            if (this.isMouseOrTouchDetected && !this.teleportConfirmModalActive && this.teleportGoBtnClickRect) {
+            if (!this.teleportConfirmModalActive && this.teleportGoBtnClickRect) {
                 const r = this.teleportGoBtnClickRect;
                 if (clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
                     const targetT = this.allTeleports[this.selectedTeleportIndex!];
@@ -7728,7 +7770,7 @@ export class Engine {
         }
 
         // Draw Floor Indicators Line on the right side
-        const rightPadding = 45;
+        const rightPadding = this.isTouchDevice ? 65 : 45;
         const startYLine = height / 3;
         const endYLine = (height / 3) * 2;
         const lineX = width - rightPadding;
@@ -7763,7 +7805,7 @@ export class Engine {
         ctx.save();
         ctx.fillStyle = '#00ffff';
         ctx.beginPath();
-        ctx.arc(lineX, sliderY, 5, 0, Math.PI * 2);
+        ctx.arc(lineX, sliderY, this.isTouchDevice ? 8 : 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
 
@@ -7779,9 +7821,10 @@ export class Engine {
         positions.forEach(pos => {
             if (!pos.valid) return;
 
-            const rectW = 60;
-            const rectH = 36;
-            const rectX = lineX - rectW - 15; // float to the left of the line
+            const isMobile = this.isTouchDevice;
+            const rectW = isMobile ? 90 : 60;
+            const rectH = isMobile ? 50 : 36;
+            const rectX = lineX - rectW - (isMobile ? 20 : 15); // float to the left of the line
             const rectY = pos.y - rectH / 2;
 
             const isActive = pos.floor === activeZ;
@@ -7817,32 +7860,33 @@ export class Engine {
 
             // Draw Header Text ("LEVEL")
             ctx.fillStyle = isActive ? '#00ffff' : 'rgba(255, 255, 255, 0.5)';
-            ctx.font = 'bold 8px Courier New';
+            ctx.font = isMobile ? 'bold 12px "Courier New"' : 'bold 8px "Courier New"';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillText('LEVEL', rectX + rectW / 2, rectY + 6);
+            ctx.fillText('LEVEL', rectX + rectW / 2, rectY + (isMobile ? 8 : 6));
 
             // Draw Value Text ("1F")
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 15px Courier New';
+            ctx.font = isMobile ? 'bold 22px "Courier New"' : 'bold 15px "Courier New"';
             ctx.textBaseline = 'top';
-            ctx.fillText(pos.label, rectX + rectW / 2, rectY + 16);
+            ctx.fillText(pos.label, rectX + rectW / 2, rectY + (isMobile ? 22 : 16));
 
             this.floorClickRects.push({
                 floor: pos.floor,
                 x: rectX,
                 y: rectY,
-                w: rectW + 15, // cover click area up to the line
+                w: rectW + (isMobile ? 25 : 15), // cover click area up to the line
                 h: rectH
             });
         });
 
         // 3. Draw Pathfinder HUD Panel (Normal Map Mode only)
         if (!this.isTeleportMode) {
-            const rectX = 25;
-            const rectY = 30;
-            const rectW = 120;
-            const rectH = 36;
+            const isMobile = this.isTouchDevice;
+            const rectX = isMobile ? 30 : 25;
+            const rectY = isMobile ? 30 : 30;
+            const rectW = isMobile ? 160 : 120;
+            const rectH = isMobile ? 50 : 36;
 
             ctx.save();
 
@@ -7863,15 +7907,15 @@ export class Engine {
             ctx.restore();
 
             ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
-            ctx.font = "bold 8px 'Roboto', sans-serif";
+            ctx.font = `bold ${isMobile ? 11 : 8}px 'Roboto', sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillText(getTranslation('hudPathfinders'), rectX + rectW / 2, rectY + 5);
+            ctx.fillText(getTranslation('hudPathfinders'), rectX + rectW / 2, rectY + (isMobile ? 8 : 5));
 
             ctx.fillStyle = '#ffffff';
-            ctx.font = "bold 13px 'Roboto', sans-serif";
+            ctx.font = `bold ${isMobile ? 18 : 13}px 'Roboto', sans-serif`;
             ctx.textBaseline = 'top';
-            ctx.fillText(`${this.pathfindersRemaining} / ${this.totalPathfinders}`, rectX + rectW / 2, rectY + 16);
+            ctx.fillText(`${this.pathfindersRemaining} / ${this.totalPathfinders}`, rectX + rectW / 2, rectY + (isMobile ? 23 : 16));
         }
 
         // 3. Draw Teleport Header Banner
@@ -7910,149 +7954,290 @@ export class Engine {
 
         // 3. Draw Teleport Selection Dots UI Dock
         if (this.isTeleportMode) {
-            const spacing = this.isTouchDevice ? 64 : 56;
             const numTeleports = this.allTeleports.length;
-            const totalDotsWidth = (numTeleports - 1) * spacing;
-            const dotY = height - 60;
+            const isMobile = this.isTouchDevice;
 
-            const showGoBtn = this.isMouseOrTouchDetected && !this.teleportConfirmModalActive;
-            const goBtnW = this.isTouchDevice ? 82 : 62;
-            const goBtnH = this.isTouchDevice ? 40 : 30;
-
-            const gap = this.isTouchDevice ? 46 : 36;
+            // Escala e tamanhos adequados para toque
+            const spacing = isMobile ? 72 : 56;
+            const unselectedR = isMobile ? 16 : 10;
+            const selectedR = isMobile ? 24 : 15;
+            const clickRSize = isMobile ? 38 : 25;
+            
+            const goBtnW = isMobile ? 90 : 62;
+            const goBtnH = isMobile ? 46 : 30;
+            const gap = isMobile ? 46 : 36;
+            
+            const showGoBtn = !this.teleportConfirmModalActive;
             const extraW = showGoBtn ? (gap + goBtnW) : 0;
-            const dockW = totalDotsWidth + 60 + extraW;
-            const dockH = this.isTouchDevice ? 74 : 62;
-            const dockX = width / 2 - dockW / 2;
-            const dockYPos = dotY - dockH / 2;
-            const startX = dockX + 30;
+            
+            // Largura máxima do dock para não estourar a tela (20px de margem em cada lado)
+            const maxDockW = width - 40;
+            const totalDotsWidth = (numTeleports - 1) * spacing;
+            const singleRowWidth = totalDotsWidth + 60 + extraW;
+            const mustWrap = isMobile && (singleRowWidth > maxDockW);
 
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(dockX + 6, dockYPos);
-            ctx.lineTo(dockX + dockW - 6, dockYPos);
-            ctx.lineTo(dockX + dockW, dockYPos + 6);
-            ctx.lineTo(dockX + dockW, dockYPos + dockH - 6);
-            ctx.lineTo(dockX + dockW - 6, dockYPos + dockH);
-            ctx.lineTo(dockX + 6, dockYPos + dockH);
-            ctx.lineTo(dockX, dockYPos + dockH - 6);
-            ctx.lineTo(dockX, dockYPos + 6);
-            ctx.closePath();
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-            ctx.strokeStyle = 'rgba(0, 255, 255, 0.25)';
-            ctx.lineWidth = 1;
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-
+            let dockW: number, dockH: number, dockYPos: number, dockX: number;
             this.teleportDotsClickRects = [];
-            const selectable = this.getSelectableTeleportIndices();
 
-            this.allTeleports.forEach((t, idx) => {
-                const dotX = startX + idx * spacing;
-                const coordsStr = `${t.x},${t.y},${t.z}`;
-                const isDiscovered = this.discoveredTeleports.has(coordsStr);
-                const isSelected = (idx === this.selectedTeleportIndex);
-                const isPlayerHere = (t.x === Math.floor(this.player.x) && t.y === Math.floor(this.player.y) && t.z === this.player.z);
-                const isInactive = this.inactiveTeleportPos && 
-                                   (t.x === this.inactiveTeleportPos.x && t.y === this.inactiveTeleportPos.y && t.z === this.inactiveTeleportPos.z);
+            if (mustWrap) {
+                // Quebra em duas linhas equilibradas
+                const dotsInRow1 = Math.ceil(numTeleports / 2);
+                const dotsInRow2 = numTeleports - dotsInRow1;
+                const row1DotsWidth = (dotsInRow1 - 1) * spacing;
+                const row2DotsWidth = (dotsInRow2 - 1) * spacing;
+                const maxRowDotsWidth = Math.max(row1DotsWidth, row2DotsWidth);
 
+                dockW = maxRowDotsWidth + 60 + extraW;
+                dockH = 124;
+                dockYPos = height - 145;
+                dockX = width / 2 - dockW / 2;
+
+                const dotsAreaW = maxRowDotsWidth;
+                const startX1 = dockX + 30 + (dotsAreaW - row1DotsWidth) / 2;
+                const startX2 = dockX + 30 + (dotsAreaW - row2DotsWidth) / 2;
+
+                const dotY1 = dockYPos + 35;
+                const dotY2 = dockYPos + 89;
+
+                // Desenha o container de dock
                 ctx.save();
-
-                const unselectedR = this.isTouchDevice ? 13 : 10;
-                const selectedR = this.isTouchDevice ? 19 : 15;
-
-                if (!isDiscovered) {
-                    // Locked/Undiscovered Dot (Grey/Lock representation)
-                    ctx.beginPath();
-                    ctx.arc(dotX, dotY, unselectedR, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(100, 100, 100, 0.45)';
-                    ctx.fill();
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-                    ctx.stroke();
-                } else if (isInactive) {
-                    // Inactive Dot (crossed/faded)
-                    ctx.beginPath();
-                    ctx.arc(dotX, dotY, unselectedR, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(255, 45, 0, 0.2)';
-                    ctx.fill();
-                    ctx.strokeStyle = 'rgba(255, 45, 0, 0.4)';
-                    ctx.lineWidth = 1.2;
-                    ctx.stroke();
-                } else {
-                    // Active Discovered Dot
-                    if (isSelected) {
-                        // Bouncing/glowing highlight
-                        const pulse = 1.0 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() / 120));
-                        const highlightR = (this.isTouchDevice ? 28 : 22) * pulse;
-                        ctx.beginPath();
-                        ctx.arc(dotX, dotY, highlightR, 0, Math.PI * 2);
-                        ctx.fillStyle = 'rgba(0, 255, 255, 0.18)';
-                        ctx.fill();
-                    }
-
-                    ctx.beginPath();
-                    ctx.arc(dotX, dotY, isSelected ? selectedR : unselectedR, 0, Math.PI * 2);
-                    ctx.fillStyle = isSelected ? '#ffffff' : '#00b3ff';
-                    ctx.fill();
-                    ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
-                    ctx.lineWidth = isSelected ? 1.5 : 1;
-                    ctx.stroke();
-
-                    // Mini inner core if player is on it
-                    if (isPlayerHere) {
-                        ctx.beginPath();
-                        ctx.arc(dotX, dotY, isSelected ? (this.isTouchDevice ? 10 : 8) : (this.isTouchDevice ? 6 : 5), 0, Math.PI * 2);
-                        ctx.fillStyle = '#39ff14'; // glowing green core
-                        ctx.fill();
-                    }
-                }
-
-                ctx.restore();
-
-                const rSize = this.isTouchDevice ? 33 : 25;
-                this.teleportDotsClickRects.push({
-                    x: dotX - rSize,
-                    y: dotY - rSize,
-                    w: rSize * 2,
-                    h: rSize * 2,
-                    index: idx
-                });
-            });
-
-            if (showGoBtn) {
-                const goBtnX = startX + totalDotsWidth + 30;
-                const goBtnY = dotY - goBtnH / 2;
-                
-                ctx.save();
-                
-                // Draw glassmorphic button background
                 ctx.beginPath();
-                ctx.rect(goBtnX, goBtnY, goBtnW, goBtnH);
-                ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
-                ctx.strokeStyle = '#00ffff';
+                ctx.moveTo(dockX + 10, dockYPos);
+                ctx.lineTo(dockX + dockW - 10, dockYPos);
+                ctx.lineTo(dockX + dockW, dockYPos + 10);
+                ctx.lineTo(dockX + dockW, dockYPos + dockH - 10);
+                ctx.lineTo(dockX + dockW - 10, dockYPos + dockH);
+                ctx.lineTo(dockX + 10, dockYPos + dockH);
+                ctx.lineTo(dockX, dockYPos + dockH - 10);
+                ctx.lineTo(dockX, dockYPos + 10);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.25)';
                 ctx.lineWidth = 1.5;
                 ctx.fill();
                 ctx.stroke();
-                
-                // Draw text "IR" / "GO"
-                ctx.fillStyle = '#ffffff';
-                ctx.font = "bold 12px 'Roboto', sans-serif";
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(getTranslation('teleportGo'), goBtnX + goBtnW / 2, goBtnY + goBtnH / 2);
-                
                 ctx.restore();
-                
-                // Store click/hover rectangle for the go button
-                this.teleportGoBtnClickRect = {
-                    x: goBtnX,
-                    y: goBtnY,
-                    w: goBtnW,
-                    h: goBtnH
-                };
+
+                // Desenha cada bolinha
+                this.allTeleports.forEach((t, idx) => {
+                    const inRow1 = idx < dotsInRow1;
+                    const rowIdx = inRow1 ? idx : idx - dotsInRow1;
+                    const dotX = (inRow1 ? startX1 : startX2) + rowIdx * spacing;
+                    const dotY = inRow1 ? dotY1 : dotY2;
+
+                    const coordsStr = `${t.x},${t.y},${t.z}`;
+                    const isDiscovered = this.discoveredTeleports.has(coordsStr);
+                    const isSelected = (idx === this.selectedTeleportIndex);
+                    const isPlayerHere = (t.x === Math.floor(this.player.x) && t.y === Math.floor(this.player.y) && t.z === this.player.z);
+                    const isInactive = this.inactiveTeleportPos && 
+                                       (t.x === this.inactiveTeleportPos.x && t.y === this.inactiveTeleportPos.y && t.z === this.inactiveTeleportPos.z);
+
+                    ctx.save();
+
+                    if (!isDiscovered) {
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, unselectedR, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(100, 100, 100, 0.45)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                        ctx.stroke();
+                    } else if (isInactive) {
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, unselectedR, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 45, 0, 0.2)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255, 45, 0, 0.4)';
+                        ctx.lineWidth = 1.2;
+                        ctx.stroke();
+                    } else {
+                        if (isSelected) {
+                            const pulse = 1.0 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() / 120));
+                            const highlightR = (isMobile ? 36 : 22) * pulse;
+                            ctx.beginPath();
+                            ctx.arc(dotX, dotY, highlightR, 0, Math.PI * 2);
+                            ctx.fillStyle = 'rgba(0, 255, 255, 0.18)';
+                            ctx.fill();
+                        }
+
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, isSelected ? selectedR : unselectedR, 0, Math.PI * 2);
+                        ctx.fillStyle = isSelected ? '#ffffff' : '#00b3ff';
+                        ctx.fill();
+                        ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
+                        ctx.lineWidth = isSelected ? 2 : 1;
+                        ctx.stroke();
+
+                        if (isPlayerHere) {
+                            ctx.beginPath();
+                            ctx.arc(dotX, dotY, isSelected ? (isMobile ? 12 : 8) : (isMobile ? 8 : 5), 0, Math.PI * 2);
+                            ctx.fillStyle = '#39ff14';
+                            ctx.fill();
+                        }
+                    }
+
+                    ctx.restore();
+
+                    this.teleportDotsClickRects.push({
+                        x: dotX - clickRSize,
+                        y: dotY - clickRSize,
+                        w: clickRSize * 2,
+                        h: clickRSize * 2,
+                        index: idx
+                    });
+                });
+
+                if (showGoBtn) {
+                    const goBtnX = dockX + 30 + dotsAreaW + gap;
+                    const goBtnY = dockYPos + dockH / 2 - goBtnH / 2;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(goBtnX, goBtnY, goBtnW, goBtnH, 6);
+                    } else {
+                        ctx.rect(goBtnX, goBtnY, goBtnW, goBtnH);
+                    }
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2;
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = "bold 15px 'Roboto', sans-serif";
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(getTranslation('teleportGo'), goBtnX + goBtnW / 2, goBtnY + goBtnH / 2);
+                    ctx.restore();
+
+                    this.teleportGoBtnClickRect = {
+                        x: goBtnX,
+                        y: goBtnY,
+                        w: goBtnW,
+                        h: goBtnH
+                    };
+                } else {
+                    this.teleportGoBtnClickRect = null;
+                }
             } else {
-                this.teleportGoBtnClickRect = null;
+                // Layout clássico em uma única linha
+                const dotY = height - (isMobile ? 70 : 60);
+                dockW = totalDotsWidth + 60 + extraW;
+                dockH = isMobile ? 86 : 62;
+                dockYPos = dotY - dockH / 2;
+                dockX = width / 2 - dockW / 2;
+                const startX = dockX + 30;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(dockX + 6, dockYPos);
+                ctx.lineTo(dockX + dockW - 6, dockYPos);
+                ctx.lineTo(dockX + dockW, dockYPos + 6);
+                ctx.lineTo(dockX + dockW, dockYPos + dockH - 6);
+                ctx.lineTo(dockX + dockW - 6, dockYPos + dockH);
+                ctx.lineTo(dockX + 6, dockYPos + dockH);
+                ctx.lineTo(dockX, dockYPos + dockH - 6);
+                ctx.lineTo(dockX, dockYPos + 6);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.25)';
+                ctx.lineWidth = 1;
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+
+                this.allTeleports.forEach((t, idx) => {
+                    const dotX = startX + idx * spacing;
+                    const coordsStr = `${t.x},${t.y},${t.z}`;
+                    const isDiscovered = this.discoveredTeleports.has(coordsStr);
+                    const isSelected = (idx === this.selectedTeleportIndex);
+                    const isPlayerHere = (t.x === Math.floor(this.player.x) && t.y === Math.floor(this.player.y) && t.z === this.player.z);
+                    const isInactive = this.inactiveTeleportPos && 
+                                       (t.x === this.inactiveTeleportPos.x && t.y === this.inactiveTeleportPos.y && t.z === this.inactiveTeleportPos.z);
+
+                    ctx.save();
+
+                    if (!isDiscovered) {
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, unselectedR, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(100, 100, 100, 0.45)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                        ctx.stroke();
+                    } else if (isInactive) {
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, unselectedR, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 45, 0, 0.2)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(255, 45, 0, 0.4)';
+                        ctx.lineWidth = 1.2;
+                        ctx.stroke();
+                    } else {
+                        if (isSelected) {
+                            const pulse = 1.0 + 0.3 * (0.5 + 0.5 * Math.sin(performance.now() / 120));
+                            const highlightR = (isMobile ? 36 : 22) * pulse;
+                            ctx.beginPath();
+                            ctx.arc(dotX, dotY, highlightR, 0, Math.PI * 2);
+                            ctx.fillStyle = 'rgba(0, 255, 255, 0.18)';
+                            ctx.fill();
+                        }
+
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, isSelected ? selectedR : unselectedR, 0, Math.PI * 2);
+                        ctx.fillStyle = isSelected ? '#ffffff' : '#00b3ff';
+                        ctx.fill();
+                        ctx.strokeStyle = isSelected ? '#00ffff' : '#ffffff';
+                        ctx.lineWidth = isSelected ? 2 : 1;
+                        ctx.stroke();
+
+                        if (isPlayerHere) {
+                            ctx.beginPath();
+                            ctx.arc(dotX, dotY, isSelected ? (isMobile ? 12 : 8) : (isMobile ? 8 : 5), 0, Math.PI * 2);
+                            ctx.fillStyle = '#39ff14';
+                            ctx.fill();
+                        }
+                    }
+
+                    ctx.restore();
+
+                    this.teleportDotsClickRects.push({
+                        x: dotX - clickRSize,
+                        y: dotY - clickRSize,
+                        w: clickRSize * 2,
+                        h: clickRSize * 2,
+                        index: idx
+                    });
+                });
+
+                if (showGoBtn) {
+                    const goBtnX = startX + totalDotsWidth + gap;
+                    const goBtnY = dotY - goBtnH / 2;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(goBtnX, goBtnY, goBtnW, goBtnH);
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${isMobile ? 15 : 12}px 'Roboto', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(getTranslation('teleportGo'), goBtnX + goBtnW / 2, goBtnY + goBtnH / 2);
+                    ctx.restore();
+
+                    this.teleportGoBtnClickRect = {
+                        x: goBtnX,
+                        y: goBtnY,
+                        w: goBtnW,
+                        h: goBtnH
+                    };
+                } else {
+                    this.teleportGoBtnClickRect = null;
+                }
             }
 
             // 4. Draw Teleport Confirmation Modal Overlay
