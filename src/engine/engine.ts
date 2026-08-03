@@ -4615,25 +4615,55 @@ export class Engine {
                                     hasActiveAnimations = true;
                                     
                                     if (this.keysCollected < this.totalKeys) {
-                                        ctx.strokeStyle = '#ff3300';
-                                        ctx.lineWidth = Math.max(2, cellSize * 0.08);
                                         const cx = x * cellSize + cellSize / 2;
                                         const cy = y * cellSize + cellSize / 2;
-                                        const r = cellSize * 0.2;
                                         
+                                        // Proporções do cadeado
+                                        const w = cellSize * 0.45;
+                                        const h = cellSize * 0.38;
+                                        const arcWidth = w * 0.75;
+                                        const bodyX = cx - w / 2;
+                                        const bodyY = cy - h / 4;
+                                        const borderRadius = Math.max(3, cellSize * 0.06);
+
+                                        // 1. Alça do Cadeado (Arco Neon)
                                         ctx.beginPath();
-                                        ctx.arc(cx, cy - r * 0.2, r * 0.6, Math.PI, 0);
+                                        ctx.arc(cx, bodyY, arcWidth / 2, Math.PI, 0);
+                                        ctx.strokeStyle = '#ff3300';
+                                        ctx.lineWidth = Math.max(2.5, cellSize * 0.07);
+                                        ctx.lineCap = 'round';
                                         ctx.stroke();
+
+                                        // 2. Corpo do Cadeado (Vidro/Metal Escuro Gradiente)
+                                        const grad = ctx.createLinearGradient(bodyX, bodyY, bodyX, bodyY + h);
+                                        grad.addColorStop(0, '#2e0808');
+                                        grad.addColorStop(1, '#140303');
                                         
-                                        ctx.fillStyle = '#111';
-                                        ctx.fillRect(cx - r, cy - r * 0.1, r * 2, r * 1.5);
-                                        ctx.strokeRect(cx - r, cy - r * 0.1, r * 2, r * 1.5);
+                                        ctx.fillStyle = grad;
+                                        ctx.beginPath();
+                                        ctx.roundRect(bodyX, bodyY, w, h, borderRadius);
+                                        ctx.fill();
+
+                                        // Contorno Neon do Corpo
+                                        ctx.strokeStyle = '#ff3300';
+                                        ctx.lineWidth = Math.max(1.5, cellSize * 0.04);
+                                        ctx.stroke();
+
+                                        // 3. Texto Centralizado Reativo (1 ou 2 dígitos)
+                                        const text = String(this.totalKeys - this.keysCollected);
+                                        const fontSize = text.length > 1 ? Math.max(8, cellSize * 0.22) : Math.max(10, cellSize * 0.28);
                                         
-                                        ctx.fillStyle = '#ff3300';
-                                        ctx.font = `bold ${Math.max(10, cellSize * 0.35)}px sans-serif`;
+                                        ctx.save();
+                                        ctx.fillStyle = '#ff8888';
+                                        ctx.font = `bold ${fontSize}px "Outfit", "Inter", sans-serif`;
                                         ctx.textAlign = 'center';
                                         ctx.textBaseline = 'middle';
-                                        ctx.fillText(String(this.totalKeys - this.keysCollected), cx, cy + r * 0.6);
+                                        
+                                        // Efeito de brilho neon no número
+                                        ctx.shadowColor = '#ff3300';
+                                        ctx.shadowBlur = Math.max(2, cellSize * 0.08);
+                                        ctx.fillText(text, cx, cy + h / 4);
+                                        ctx.restore();
                                     }
                                 } else {
                                     if (val === 2) {
