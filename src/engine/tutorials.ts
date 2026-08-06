@@ -158,9 +158,9 @@ export const TUTORIALS: TutorialStage[] = [
         },
         description: {
             en: "Use the teleporters to move between different areas of the level. Step on a teleport block, activate it with one of the action screens, and select another available teleporter to move to it.",
-            ptBr: "Utilize os teletransportadores para se mover entre diferentes áreas do nível. Ao pisar sobre um bloco de teleporte, acione-o com uma das telas de ação e selecione outro teleporte disponível para se mover para ele.",
-            ja: "テレポートを使用して、レベルの異なるエリア間を移動します。テレポートブロックの上に立ち、アクション画面の1つでそれをアクティブにし、移動するために別の利用可能なテレポーターを選択します。",
-            es: "Utiliza los teletransportadores para moverte entre diferentes áreas del nivel. Pisa un bloque de teletransporte, actívalo con una de las pantallas de acción y selecciona otro teletransportador disponible para moverte a él."
+            ptBr: "Utilize os teletransportadores para se mover entre diferentes áreas do nível. Ao pisar sobre um bloco de teleporte, acione-o com um dos botões de ação e selecione outro teleporte disponível para se mover para ele.",
+            ja: "レベルの異なるエリア間を移動するには、テレポーターを使用します。テレポートブロックに乗り、アクション画面の1つでそれをアクティブにし、別の利用可能なテレポーターを選択して移動します。",
+            es: "Utiliza los teletransportadores para moverte entre diferentes áreas del nivel. Párate en un bloque de teletransporte, actívalo con una de las pantallas de acción y selecciona otro teletransportador disponible para moverte a él."
         },
         layers: [
             [

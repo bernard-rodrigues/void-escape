@@ -113,6 +113,14 @@ export class Engine {
     notificationQueue: string[];
     activeNotification: any;
     isPaused: boolean;
+    manaCharges!: number;
+    jellyPortalCount!: number;
+    jellyPortalFreezeTimer!: number;
+    jellyPortalResetCells!: Set<string>;
+    jellyPortalResetDuration!: number;
+    jellyPortalResetElapsed!: number;
+    dyingHunters!: any[];
+    pathfinderConfirmTarget!: { x: number; y: number; z: number } | null;
     isDestroyed: boolean;
     isIntroPlaying: boolean;
     isStoryActive: boolean;
@@ -459,6 +467,7 @@ export class Engine {
 
         this.teleportConfirmModalActive = false;
         this.teleportModalSelection = 'go'; // 'go' or 'cancel'
+        this.pathfinderConfirmTarget = null;
         this.isMouseOrTouchDetected = false;
         this.teleportGoBtnClickRect = null;
         this.lastTeleportCloseTime = 0;
@@ -869,7 +878,7 @@ export class Engine {
 
         const activationPercentage = this.getMapVisitedPercentage();
         for (const hunter of this.hunters) {
-            if (hunter.state !== 'SLEEP' && hunter.state !== 'DEAD_BY_JELLY' && hunter.state !== 'DYING' && hunter.z === pz) {
+            if (hunter.state !== 'SLEEP' && hunter.state !== 'DEAD_BY_JELLY' && hunter.state !== 'DYING' && hunter.z === pz && hunter.x !== null && hunter.y !== null) {
                 const hDist = Math.abs(hunter.x - px) + Math.abs(hunter.y - py);
                 if (hDist <= 5) {
                     hunter.state = 'DYING';
@@ -1059,9 +1068,7 @@ export class Engine {
 
         for (let i = candidates.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            const temp = candidates[i];
-            candidates[i] = candidates[j];
-            candidates[j] = temp;
+            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
         }
 
         let spawnIdx = 0;
@@ -1370,6 +1377,23 @@ export class Engine {
     init(savedState: any = null) {
         this.handleKeyDownExtra = (e: KeyboardEvent) => {
             const key = e.key.toLowerCase();
+            if (this.pathfinderConfirmTarget) {
+                if (key === 'enter' || key === ' ' || key === 'y') {
+                    const target = this.pathfinderConfirmTarget;
+                    this.pathfinderConfirmTarget = null;
+                    const modal = document.getElementById('pathfinder-confirm-modal');
+                    if (modal) modal.classList.add('hidden');
+                    this.triggerPathReveal(target.x, target.y, target.z, true);
+                    e.preventDefault();
+                }
+                if (key === 'escape' || key === 'backspace') {
+                    this.pathfinderConfirmTarget = null;
+                    const modal = document.getElementById('pathfinder-confirm-modal');
+                    if (modal) modal.classList.add('hidden');
+                    e.preventDefault();
+                }
+                return;
+            }
             if (key === 'escape') {
                 if (this.isMap3DActive) {
                     if (this.isTeleportMode) {
@@ -1384,6 +1408,32 @@ export class Engine {
                 return;
             }
             if (this.isPaused) return;
+
+            // Se o jogador estiver sobre um teleporte ativo, Q, E, M, Space e Enter abrem a tela de teleporte
+            const px = Math.floor(this.player.x);
+            const py = Math.floor(this.player.y);
+            const pz = this.player.z;
+            const val = this.maze.get(px, py, pz);
+            const isJelly = val === this.mazeGen.TYPES.JELLY_PORTAL;
+            const isTeleport = val === this.mazeGen.TYPES.TELEPORT || isJelly;
+            const isInactive = this.inactiveTeleportPos && 
+                               this.inactiveTeleportPos.x === px && 
+                               this.inactiveTeleportPos.y === py && 
+                               this.inactiveTeleportPos.z === pz;
+            const isOnTeleport = isTeleport && this.discoveredTeleports.has(`${px},${py},${pz}`);
+
+            if (!this.isMap3DActive && isOnTeleport && !isInactive) {
+                if (key === 'q' || key === 'e' || key === 'm' || key === ' ' || key === 'enter') {
+                    e.preventDefault();
+                    if (this.discoveredTeleports.size >= 2) {
+                        this.toggleTeleportMap(true);
+                    } else {
+                        this.ui.showInfoBanner(getTranslation('msgNoOtherActiveTeleport'));
+                    }
+                    return;
+                }
+            }
+
             if (key === 'm') {
                 if (this.isTeleportMode) {
                     this.toggleTeleportMap(false);
@@ -2011,6 +2061,23 @@ export class Engine {
         const isPressed = (btnIdx: number) => gp.buttons[btnIdx] && gp.buttons[btnIdx].pressed;
         const justPressed = (btnIdx: number) => isPressed(btnIdx) && !wasPressed(btnIdx);
 
+        if (this.pathfinderConfirmTarget) {
+            if (justPressed(0) || justPressed(2)) { // A or X -> Confirm
+                const target = this.pathfinderConfirmTarget;
+                this.pathfinderConfirmTarget = null;
+                const modal = document.getElementById('pathfinder-confirm-modal');
+                if (modal) modal.classList.add('hidden');
+                this.triggerPathReveal(target.x, target.y, target.z, true);
+            }
+            if (justPressed(1) || justPressed(8)) { // B or Back -> Cancel
+                this.pathfinderConfirmTarget = null;
+                const modal = document.getElementById('pathfinder-confirm-modal');
+                if (modal) modal.classList.add('hidden');
+            }
+            this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+            return;
+        }
+
         if (this.isStoryActive) {
             if (justPressed(9)) {
                 this.skipStory();
@@ -2177,6 +2244,34 @@ export class Engine {
 
             this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
             return;
+        }
+
+        // Se o jogador estiver sobre um teleporte ativo, os botões equivalentes do gamepad (A, X, Y, Back) abrem a tela de teleporte
+        if (!this.isMap3DActive && !this.isTeleportMode) {
+            const px = Math.floor(this.player.x);
+            const py = Math.floor(this.player.y);
+            const pz = this.player.z;
+            const val = this.maze.get(px, py, pz);
+            const isJelly = val === this.mazeGen.TYPES.JELLY_PORTAL;
+            const isTeleport = val === this.mazeGen.TYPES.TELEPORT || isJelly;
+            const isInactive = this.inactiveTeleportPos && 
+                               this.inactiveTeleportPos.x === px && 
+                               this.inactiveTeleportPos.y === py && 
+                               this.inactiveTeleportPos.z === pz;
+            const isOnTeleport = isTeleport && this.discoveredTeleports.has(`${px},${py},${pz}`);
+
+            if (isOnTeleport && !isInactive) {
+                if (justPressed(0) || justPressed(2) || justPressed(3) || justPressed(8)) {
+                    if (this.discoveredTeleports.size >= 2) {
+                        this.toggleTeleportMap(true);
+                        this.gamepadTeleportSelectedIndex = 0;
+                    } else {
+                        this.ui.showInfoBanner(getTranslation('msgNoOtherActiveTeleport'));
+                    }
+                    this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
+                    return;
+                }
+            }
         }
 
         // A Button (Button 0): Descend floor / Confirm teleport
@@ -5992,7 +6087,7 @@ export class Engine {
         return aStarPath(start, end, tempMaze, size, 0) ?? [];
     }
 
-    triggerPathReveal(tx: number, ty: number, tz: number) {
+    triggerPathReveal(tx: number, ty: number, tz: number, bypassConfirm: boolean = false) {
         if (this.pathRevealInterval || (this.pathfinderBlockedUntil && Date.now() < this.pathfinderBlockedUntil)) {
             return;
         }
@@ -6002,12 +6097,6 @@ export class Engine {
             return;
         }
 
-        if (this.pathRevealInterval) {
-            clearInterval(this.pathRevealInterval);
-            this.pathRevealInterval = null;
-        }
-        this.revealedPathSet.clear();
-
         const isExitClicked = this.maze.get(tx, ty, tz) === this.mazeGen.TYPES.EXIT;
         if (isExitClicked) {
             if (!this.exitPathfinderUnlocked) {
@@ -6015,6 +6104,22 @@ export class Engine {
                 return;
             }
         }
+
+        if (!bypassConfirm) {
+            const modal = document.getElementById('pathfinder-confirm-modal');
+            if (modal) {
+                this.pathfinderConfirmTarget = { x: tx, y: ty, z: tz };
+                modal.classList.remove('hidden');
+                this.ui.localizeDOM();
+                return;
+            }
+        }
+
+        if (this.pathRevealInterval) {
+            clearInterval(this.pathRevealInterval);
+            this.pathRevealInterval = null;
+        }
+        this.revealedPathSet.clear();
 
         let targetZ = tz;
         if (tz % 2 === 0) {

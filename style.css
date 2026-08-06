@@ -178,6 +178,7 @@ body {
 #tutorials-menu .tutorials-list,
 #tutorials-menu .menu-action-btns {
     opacity: 0;
+    pointer-events: none;
     animation: elements-fade-in 0.8s ease-out forwards;
     animation-delay: 4.0s;
 }
@@ -224,9 +225,11 @@ body {
 @keyframes elements-fade-in {
     from {
         opacity: 0;
+        pointer-events: none;
     }
     to {
         opacity: 1;
+        pointer-events: auto;
     }
 }
 
@@ -1887,6 +1890,35 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
         min-width: calc(var(--d-h-unit) * 9.5);
         box-sizing: border-box;
     }
+    
+    #tutorial-instructions-modal .modal-container,
+    #pathfinder-confirm-modal .modal-container {
+        width: 85%;
+        max-width: 90%;
+        padding: 24px 16px;
+        gap: 20px;
+    }
+    #tutorial-instructions-modal h2,
+    #pathfinder-confirm-modal h2 {
+        font-size: 20px;
+    }
+    #tutorial-instructions-modal p,
+    #pathfinder-confirm-modal p {
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    #tutorial-instructions-modal .modal-confirm-btn,
+    #pathfinder-confirm-modal .modal-confirm-btn,
+    #tutorial-instructions-modal .modal-cancel-btn,
+    #pathfinder-confirm-modal .modal-cancel-btn {
+        padding: 14px 20px;
+        font-size: 14px;
+        min-height: 48px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        max-width: 100%;
+    }
 }
 
 /* Oculta os botões mobile, o botão de pause flutuante e a lupa do mobile quando pause, vitória ou game-over estiverem abertos */
@@ -1901,7 +1933,11 @@ body:has(#victory-screen:not(.hidden)) #mobile-jelly-portal-btn,
 body:has(#game-over-screen:not(.hidden)) #mobile-controls,
 body:has(#game-over-screen:not(.hidden)) #mobile-pause-btn,
 body:has(#game-over-screen:not(.hidden)) #mobile-zoom-btn,
-body:has(#game-over-screen:not(.hidden)) #mobile-jelly-portal-btn {
+body:has(#game-over-screen:not(.hidden)) #mobile-jelly-portal-btn,
+body:has(#pathfinder-confirm-modal:not(.hidden)) #mobile-controls,
+body:has(#pathfinder-confirm-modal:not(.hidden)) #mobile-pause-btn,
+body:has(#pathfinder-confirm-modal:not(.hidden)) #mobile-zoom-btn,
+body:has(#pathfinder-confirm-modal:not(.hidden)) #mobile-jelly-portal-btn {
     display: none !important;
 }
 
@@ -2149,8 +2185,9 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     color: #000;
 }
 
-/* Tutorial Instructions Modal Styles (Premium Glassmorphism & Neon Glow) */
-#tutorial-instructions-modal {
+/* Tutorial Instructions & Pathfinder Confirm Modal Styles (Premium Glassmorphism & Neon Glow) */
+#tutorial-instructions-modal,
+#pathfinder-confirm-modal {
     position: fixed;
     top: 0;
     left: 0;
@@ -2162,7 +2199,8 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     z-index: 2000;
 }
 
-#tutorial-instructions-modal .modal-overlay {
+#tutorial-instructions-modal .modal-overlay,
+#pathfinder-confirm-modal .modal-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -2172,7 +2210,8 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     backdrop-filter: blur(8px);
 }
 
-#tutorial-instructions-modal .modal-container {
+#tutorial-instructions-modal .modal-container,
+#pathfinder-confirm-modal .modal-container {
     position: relative;
     background: #121824;
     border: calc(var(--h-unit) * 0.3) solid var(--clr-neon);
@@ -2188,7 +2227,8 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     gap: calc(var(--h-unit) * 3);
 }
 
-#tutorial-instructions-modal h2 {
+#tutorial-instructions-modal h2,
+#pathfinder-confirm-modal h2 {
     font-family: 'Orbitron', sans-serif;
     color: var(--clr-neon);
     font-size: calc(var(--h-unit) * 2.8);
@@ -2197,7 +2237,8 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     letter-spacing: calc(var(--h-unit) * 0.15);
 }
 
-#tutorial-instructions-modal p {
+#tutorial-instructions-modal p,
+#pathfinder-confirm-modal p {
     color: var(--clr-text);
     font-size: calc(var(--h-unit) * 1.8);
     line-height: 1.6;
@@ -2205,14 +2246,17 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     font-family: 'Roboto', sans-serif;
 }
 
-#tutorial-instructions-modal .modal-buttons {
+#tutorial-instructions-modal .modal-buttons,
+#pathfinder-confirm-modal .modal-buttons {
     display: flex;
     gap: calc(var(--h-unit) * 2);
     justify-content: center;
 }
 
 #tutorial-instructions-modal .modal-confirm-btn,
-#tutorial-instructions-modal .modal-cancel-btn {
+#pathfinder-confirm-modal .modal-confirm-btn,
+#tutorial-instructions-modal .modal-cancel-btn,
+#pathfinder-confirm-modal .modal-cancel-btn {
     background: transparent;
     border: calc(var(--h-unit) * 0.25) solid currentColor;
     font-family: inherit;
@@ -2226,18 +2270,22 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     max-width: calc(var(--h-unit) * 18);
 }
 
-#tutorial-instructions-modal .modal-confirm-btn {
+#tutorial-instructions-modal .modal-confirm-btn,
+#pathfinder-confirm-modal .modal-confirm-btn {
     color: var(--clr-neon);
 }
-#tutorial-instructions-modal .modal-confirm-btn:hover {
+#tutorial-instructions-modal .modal-confirm-btn:hover,
+#pathfinder-confirm-modal .modal-confirm-btn:hover {
     background: var(--clr-neon);
     color: #000;
 }
 
-#tutorial-instructions-modal .modal-cancel-btn {
+#tutorial-instructions-modal .modal-cancel-btn,
+#pathfinder-confirm-modal .modal-cancel-btn {
     color: #ff3333;
 }
-#tutorial-instructions-modal .modal-cancel-btn:hover {
+#tutorial-instructions-modal .modal-cancel-btn:hover,
+#pathfinder-confirm-modal .modal-cancel-btn:hover {
     background: #ff3333;
     color: #000;
 }
@@ -2277,5 +2325,21 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
 #tutorials-menu .menu-action-btns {
     animation: none !important;
     opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Premium Neon Focus Rings for Accessibility (Keyboard & Gamepad Menu Navigation) */
+button:focus,
+input[type="range"]:focus,
+input[type="checkbox"]:focus,
+a:focus {
+    outline: calc(var(--h-unit) * 0.25) solid var(--clr-neon) !important;
+    box-shadow: 0 0 calc(var(--h-unit) * 1.5) var(--clr-neon) !important;
+}
+
+/* Custom styled switch focus styling */
+.switch input:focus + .slider {
+    outline: calc(var(--h-unit) * 0.25) solid var(--clr-neon) !important;
+    box-shadow: 0 0 calc(var(--h-unit) * 1.5) var(--clr-neon) !important;
 }
 
