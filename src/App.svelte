@@ -75,6 +75,21 @@
 
     let selectedTutorialStage: any = null;
 
+    function formatDescription(desc: string, images: string[] = []): string {
+        if (!desc) return '';
+        let formatted = desc;
+        let imgIndex = 0;
+        
+        while (formatted.includes('{img}') && images && imgIndex < images.length) {
+            const imgUrl = images[imgIndex++];
+            const imgHtml = `<br><img src="${imgUrl}" class="tutorial-desc-img" alt="Tutorial Illustration"><br>`;
+            formatted = formatted.replace('{img}', imgHtml);
+        }
+        
+        formatted = formatted.replaceAll('{img}', '');
+        return formatted.replace(/\n/g, '<br>');
+    }
+
     function selectTutorial(stage: any) {
         selectedTutorialStage = stage;
         const lang = getCurrentLanguage();
@@ -82,7 +97,9 @@
         const titleEl = document.getElementById('tut-modal-title');
         const descEl = document.getElementById('tut-modal-description');
         if (titleEl) titleEl.innerText = stage.title[lang] || stage.title['en'];
-        if (descEl) descEl.innerText = stage.description[lang] || stage.description['en'];
+        if (descEl) {
+            descEl.innerHTML = formatDescription(stage.description[lang] || stage.description['en'], stage.images || []);
+        }
         
         document.getElementById('tutorial-instructions-modal')?.classList.remove('hidden');
     }

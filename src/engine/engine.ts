@@ -4773,9 +4773,6 @@ export class Engine {
                                         ctx.textAlign = 'center';
                                         ctx.textBaseline = 'middle';
                                         
-                                        // Efeito de brilho neon no número
-                                        ctx.shadowColor = '#ff3300';
-                                        ctx.shadowBlur = Math.max(2, cellSize * 0.08);
                                         ctx.fillText(text, cx, cy + h / 4);
                                         ctx.restore();
                                     }
@@ -4878,13 +4875,7 @@ export class Engine {
                             const dx = x * cellSize + (cellSize - dw) / 2;
                             const dy = y * cellSize + (cellSize - dh) / 2 + bobbingOffset;
                             
-                            ctx.save();
-                            ctx.shadowColor = 'rgba(0, 255, 255, 0.85)';
-                            ctx.shadowBlur = cellSize * 0.35;
-                            ctx.shadowOffsetX = 0;
-                            ctx.shadowOffsetY = 0;
                             ctx.drawImage(img, dx, dy, dw, dh);
-                            ctx.restore();
                         } else {
                             ctx.beginPath();
                             ctx.arc(x * cellSize + cellSize/2, y * cellSize + cellSize/2 + bobbingOffset, cellSize * 0.2, 0, 2*Math.PI);
@@ -4902,7 +4893,7 @@ export class Engine {
                             ctx.drawImage(this.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
                             ctx.restore();
                             
-                            // Brilho extra pulsante com a cor do caminho conhecido (azul translúcido)
+                            // Brilho extra pulsante com a cor do caminho conhecido (azul translúdido)
                             // A opacidade oscila suavemente entre 0.10 e 0.34
                             const pulseOpacity = 0.22 + 0.12 * Math.sin(Date.now() / 250);
                             ctx.fillStyle = `rgba(136, 204, 255, ${pulseOpacity})`;
@@ -7543,10 +7534,6 @@ export class Engine {
                     dw = maxDim * aspect;
                 }
                 
-                ctx.shadowColor = 'rgba(0, 255, 255, 0.85)';
-                ctx.shadowBlur = tileWidth * 0.25;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 0;
                 ctx.drawImage(img, cx - dw / 2, y - dh / 2, dw, dh);
             } else {
                 ctx.beginPath();

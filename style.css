@@ -1168,7 +1168,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
     color: #00ffff; /* Ciano para mana */
     font-size: calc(var(--h-unit) * 1.4);
     font-size: calc(var(--d-h-unit) * 1.4);
-    box-shadow: 0 0 calc(var(--h-unit) * 0.8) rgba(0, 255, 255, 0.1);
 }
 
 .jelly-portal-panel-hud {
@@ -1185,7 +1184,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
     color: #ffd700; /* Dourado */
     font-size: calc(var(--h-unit) * 1.4);
     font-size: calc(var(--d-h-unit) * 1.4);
-    box-shadow: 0 0 calc(var(--h-unit) * 0.8) rgba(255, 215, 0, 0.15);
 }
 
 #jelly-portal-counter-desktop {
@@ -1216,7 +1214,6 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
     height: calc(var(--d-h-unit) * 0.6);
     background-color: #ffd700;
     border-radius: 50%;
-    box-shadow: 0 0 4px #ffd700;
 }
 
 .gold-ball-1 {
@@ -1608,7 +1605,9 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
     #start-menu .menu-content {
         opacity: 0;
         clip-path: inset(0 50% 0 50%);
-        animation: menu-open 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        border-color: transparent;
+        animation: menu-open 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+                   border-fade-in 1.5s ease-out 0.8s forwards;
     }
     #start-menu .game-title {
         transform: translateY(35dvh);
@@ -1779,13 +1778,11 @@ kbd.kbd-dark { background: linear-gradient(to bottom, #3a3a3a, #222222); border-
 #mobile-jelly-portal-btn.jelly-portal-btn--active .jelly-portal-spiral {
     animation: jelly-spiral-spin 1.5s linear infinite;
     stroke: #d896ff;
-    filter: drop-shadow(0 0 4px #a020f0);
 }
 
 #mobile-jelly-portal-btn.jelly-portal-btn--active {
     background: rgba(160, 32, 240, 0.35);
     border-color: rgba(160, 32, 240, 0.8);
-    box-shadow: 0 0 10px rgba(160, 32, 240, 0.5);
     color: #a020f0;
 }
 
@@ -2173,7 +2170,6 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
 .tutorial-item-btn:hover {
     background: var(--clr-neon);
     color: #000;
-    box-shadow: 0 0 calc(var(--h-unit) * 1.5) rgba(136, 204, 255, 0.4);
     transform: scale(1.02);
 }
 
@@ -2215,7 +2211,6 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     position: relative;
     background: #121824;
     border: calc(var(--h-unit) * 0.3) solid var(--clr-neon);
-    box-shadow: 0 0 calc(var(--h-unit) * 3) rgba(136, 204, 255, 0.3);
     width: 90%;
     max-width: calc(var(--h-unit) * 50);
     padding: calc(var(--h-unit) * 4);
@@ -2334,12 +2329,25 @@ input[type="range"]:focus,
 input[type="checkbox"]:focus,
 a:focus {
     outline: calc(var(--h-unit) * 0.25) solid var(--clr-neon) !important;
-    box-shadow: 0 0 calc(var(--h-unit) * 1.5) var(--clr-neon) !important;
 }
 
 /* Custom styled switch focus styling */
 .switch input:focus + .slider {
     outline: calc(var(--h-unit) * 0.25) solid var(--clr-neon) !important;
-    box-shadow: 0 0 calc(var(--h-unit) * 1.5) var(--clr-neon) !important;
+}
+
+/* Tutorial Description Screenshots (Premium Cyberpunk Borders & Alignment) */
+.tutorial-desc-img {
+    display: block;
+    margin: calc(var(--h-unit) * 2) auto;
+    max-width: 90%;
+    height: auto;
+    border: calc(var(--h-unit) * 0.25) solid rgba(0, 255, 255, 0.4);
+    border-radius: calc(var(--h-unit) * 1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.tutorial-desc-img:hover {
+    transform: scale(1.02);
 }
 

@@ -39,6 +39,7 @@ export interface TutorialStage {
     jellyPortals?: number; // Portais de gelatina iniciais disponíveis no tutorial (padrão 0)
     revealed?: boolean; // Se true, o mapa e caminhos já vêm visíveis
     hunterBehavior?: HunterBehavior; // Comportamento customizado dos caçadores no tutorial
+    images?: string[]; // Array de URLs das imagens explicativas do tutorial
 }
 
 export const TUTORIALS: TutorialStage[] = [
@@ -51,10 +52,10 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Recolección de Llaves"
         },
         description: {
-            en: "Collect all available keys to unlock the exit portal.",
-            ptBr: "Capture todas as chaves disponíveis para liberar a saída.",
-            ja: "出口ポータルを解放するために、利用可能なすべての鍵を収集します。",
-            es: "Recoge todas las llaves disponibles para liberar la salida."
+            en: "Collect all available keys to unlock the exit portal.{img}Check the remaining number of keys in the game info panel.{img}",
+            ptBr: "Capture todas as chaves disponíveis para liberar a saída.{img}Confira o número de chaves restantes no painel de informações do jogo.{img}",
+            ja: "出口ポータルを解放するために、利用可能なすべての鍵を収集します。{img}ゲーム情報パネルで残りの鍵の数を確認してください。{img}",
+            es: "Recoge todas las llaves disponibles para liberar la salida.{img}Comprueba el número de llaves restantes en el panel de información del juego.{img}"
         },
         layers: [
             // z = 0 (Andar de transição - paredes sólidas)
@@ -84,7 +85,8 @@ export const TUTORIALS: TutorialStage[] = [
         ],
         pathfinders: 0,
         mana: 0,
-        jellyPortals: 0
+        jellyPortals: 0,
+        images: ["assets/images/tutorials/key_tutorial_1.png", "assets/images/tutorials/key_tutorial_2.png"]
     },
     {
         id: "tutorial_elevators",
