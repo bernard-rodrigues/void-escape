@@ -4,6 +4,11 @@ import { CONFIG } from './config.js';
  * 3D Maze Logic Handler - Represents the maze using a 1D contiguously allocated Int8Array
  */
 export interface Point3D { x: number; y: number; z: number; }
+export type MazeMatrix = Omit<Int8Array, 'set'> & {
+    size: number;
+    get: (x: number, y: number, z: number) => number;
+    set: (x: number, y: number, z: number, val: number) => void;
+};
 export class Maze3D {
     n!: number;
     branchingFactor!: number;
@@ -653,7 +658,7 @@ export class Maze3D {
         }
     }
 
-    generateFromLayout(layout: { layers: string[][] }): Int8Array {
+    generateFromLayout(layout: { layers: string[][] }): MazeMatrix {
         const layoutDepth = layout.layers.length;
         const layoutHeight = layout.layers[0].length;
         const layoutWidth = layout.layers[0][0].length;

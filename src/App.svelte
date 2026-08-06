@@ -9,6 +9,48 @@
     let currentGame: any = null;
     let currentLang: string = 'en';
 
+    // Mapeamento de navegação por teclado e gamepad nos menus
+    let menuFocusableElements: HTMLElement[] = [];
+    let menuFocusIndex: number = -1;
+
+    function updateMenuFocusableElements() {
+        const activeScreens = Array.from(document.querySelectorAll('section:not(.hidden), div[id$="-modal"]:not(.hidden), div[id$="-screen"]:not(.hidden)'));
+        if (activeScreens.length === 0) {
+            menuFocusableElements = [];
+            menuFocusIndex = -1;
+            return;
+        }
+        
+        const activeScreen = activeScreens[activeScreens.length - 1];
+        menuFocusableElements = Array.from(activeScreen.querySelectorAll('button, input:not([type="hidden"])')) as HTMLElement[];
+        
+        menuFocusableElements = menuFocusableElements.filter(el => {
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && !(el as any).disabled;
+        });
+
+        const currentActive = document.activeElement as HTMLElement;
+        const idx = menuFocusableElements.indexOf(currentActive);
+        if (idx !== -1) {
+            menuFocusIndex = idx;
+        } else {
+            menuFocusIndex = -1;
+        }
+    }
+
+    function moveMenuFocus(dir: number) {
+        updateMenuFocusableElements();
+        if (menuFocusableElements.length === 0) return;
+        
+        if (menuFocusIndex === -1) {
+            menuFocusIndex = dir > 0 ? 0 : menuFocusableElements.length - 1;
+        } else {
+            menuFocusIndex = (menuFocusIndex + dir + menuFocusableElements.length) % menuFocusableElements.length;
+        }
+        
+        menuFocusableElements[menuFocusIndex].focus();
+    }
+
     function startNewGame(degree: number) {
         if (currentGame) currentGame.destroy();
         clearSave();
@@ -344,7 +386,149 @@
                 selectedTutorialStage = null;
             };
         }
-        
+
+        // Pathfinder Confirm Modal Actions
+        const pathfinderConfirmBtn = document.getElementById('pathfinder-modal-confirm-btn');
+        const pathfinderCancelBtn = document.getElementById('pathfinder-modal-cancel-btn');
+        const pathfinderModal = document.getElementById('pathfinder-confirm-modal');
+
+        if (pathfinderConfirmBtn) {
+            pathfinderConfirmBtn.onclick = () => {
+                if (currentGame && currentGame.pathfinderConfirmTarget) {
+                    const target = currentGame.pathfinderConfirmTarget;
+                    currentGame.pathfinderConfirmTarget = null;
+                    pathfinderModal?.classList.add('hidden');
+                    currentGame.triggerPathReveal(target.x, target.y, target.z, true);
+                }
+            };
+        }
+
+        if (pathfinderCancelBtn) {
+            pathfinderCancelBtn.onclick = () => {
+                if (currentGame) {
+                    currentGame.pathfinderConfirmTarget = null;
+                }
+                pathfinderModal?.classList.add('hidden');
+            };
+        }
+
+        // Listener de teclado para menus
+        window.addEventListener('keydown', (e) => {
+            const isMenuVisible = !currentGame || currentGame.isPaused || 
+                                 (document.getElementById('victory-screen') && !document.getElementById('victory-screen').classList.contains('hidden')) || 
+                                 (document.getElementById('game-over-screen') && !document.getElementById('game-over-screen').classList.contains('hidden')) ||
+                                 (document.getElementById('pathfinder-confirm-modal') && !document.getElementById('pathfinder-confirm-modal').classList.contains('hidden'));
+
+            if (isMenuVisible) {
+                const key = e.key.toLowerCase();
+                const activeEl = document.activeElement as HTMLInputElement;
+                const isSlider = activeEl && activeEl.type === 'range';
+
+                if (isSlider && (key === 'arrowleft' || key === 'arrowright')) {
+                    const step = parseInt(activeEl.step || '1');
+                    const min = parseInt(activeEl.min || '3');
+                    const max = parseInt(activeEl.max || '15');
+                    let val = parseInt(activeEl.value);
+                    if (key === 'arrowleft') {
+                        val = Math.max(min, val - step);
+                    } else {
+                        val = Math.min(max, val + step);
+                    }
+                    activeEl.value = String(val);
+                    if (typeof activeEl.oninput === 'function') {
+                        activeEl.oninput(new Event('input'));
+                    }
+                    e.preventDefault();
+                    return;
+                }
+
+                if (key === 'arrowdown' || key === 'arrowright') {
+                    moveMenuFocus(1);
+                    e.preventDefault();
+                } else if (key === 'arrowup' || key === 'arrowleft') {
+                    moveMenuFocus(-1);
+                    e.preventDefault();
+                }
+            }
+        });
+
+        // Polling de Gamepad para menus
+        let lastGamepadAxes = { x: 0, y: 0 };
+        let prevGamepadButtonsMenu: boolean[] = [];
+
+        function pollGamepadMenu() {
+            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            const gp = gamepads[0] || gamepads.find(g => g !== null);
+            if (gp) {
+                const isMenuVisible = !currentGame || currentGame.isPaused || 
+                                     (document.getElementById('victory-screen') && !document.getElementById('victory-screen').classList.contains('hidden')) || 
+                                     (document.getElementById('game-over-screen') && !document.getElementById('game-over-screen').classList.contains('hidden')) ||
+                                     (document.getElementById('pathfinder-confirm-modal') && !document.getElementById('pathfinder-confirm-modal').classList.contains('hidden'));
+
+                if (isMenuVisible) {
+                    const deadzone = 0.5;
+                    const axisX = gp.axes[0];
+                    const axisY = gp.axes[1];
+                    
+                    const downPressed = axisY > deadzone || (gp.buttons[13] && gp.buttons[13].pressed);
+                    const upPressed = axisY < -deadzone || (gp.buttons[12] && gp.buttons[12].pressed);
+                    const rightPressed = axisX > deadzone || (gp.buttons[15] && gp.buttons[15].pressed);
+                    const leftPressed = axisX < -deadzone || (gp.buttons[14] && gp.buttons[14].pressed);
+
+                    const confirmPressed = gp.buttons[0]?.pressed || gp.buttons[2]?.pressed; // A or X
+
+                    const justDown = downPressed && lastGamepadAxes.y <= deadzone;
+                    const justUp = upPressed && lastGamepadAxes.y >= -deadzone;
+                    const justRight = rightPressed && lastGamepadAxes.x <= deadzone;
+                    const justLeft = leftPressed && lastGamepadAxes.x >= -deadzone;
+
+                    lastGamepadAxes = { x: axisX, y: axisY };
+
+                    const activeEl = document.activeElement as HTMLInputElement;
+                    const isSlider = activeEl && activeEl.type === 'range';
+
+                    if (isSlider) {
+                        if (justLeft || justRight) {
+                            const step = parseInt(activeEl.step || '1');
+                            const min = parseInt(activeEl.min || '3');
+                            const max = parseInt(activeEl.max || '15');
+                            let val = parseInt(activeEl.value);
+                            if (justLeft) {
+                                val = Math.max(min, val - step);
+                            } else {
+                                val = Math.min(max, val + step);
+                            }
+                            activeEl.value = String(val);
+                            if (typeof activeEl.oninput === 'function') {
+                                activeEl.oninput(new Event('input'));
+                            }
+                        }
+                        if (justDown) {
+                            moveMenuFocus(1);
+                        } else if (justUp) {
+                            moveMenuFocus(-1);
+                        }
+                    } else {
+                        if (justDown || justRight) {
+                            moveMenuFocus(1);
+                        } else if (justUp || justLeft) {
+                            moveMenuFocus(-1);
+                        }
+                    }
+
+                    if (confirmPressed && (!prevGamepadButtonsMenu[0] && !prevGamepadButtonsMenu[2])) {
+                        const activeEl = document.activeElement as HTMLElement;
+                        if (activeEl && typeof activeEl.click === 'function') {
+                            activeEl.click();
+                        }
+                    }
+
+                    prevGamepadButtonsMenu = gp.buttons.map(b => b.pressed);
+                }
+            }
+            requestAnimationFrame(pollGamepadMenu);
+        }
+        pollGamepadMenu();
     });
 </script>
 
@@ -438,6 +622,19 @@
         <div class="modal-buttons">
             <button id="tut-modal-start-btn" class="modal-confirm-btn" data-i18n="start">START</button>
             <button id="tut-modal-cancel-btn" class="modal-cancel-btn" data-i18n="cancel">CANCEL</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação do Pathfinder -->
+<div id="pathfinder-confirm-modal" class="hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-container">
+        <h2 data-i18n="pathfinderConfirmTitle">Use Pathfinder?</h2>
+        <p data-i18n="pathfinderConfirmDesc">This will consume 1 Pathfinder charge to reveal the shortest route.</p>
+        <div class="modal-buttons">
+            <button id="pathfinder-modal-confirm-btn" class="modal-confirm-btn" data-i18n="confirm">CONFIRM</button>
+            <button id="pathfinder-modal-cancel-btn" class="modal-cancel-btn" data-i18n="cancel">CANCEL</button>
         </div>
     </div>
 </div>
