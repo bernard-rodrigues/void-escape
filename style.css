@@ -2239,6 +2239,32 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     font-family: 'Roboto', sans-serif;
 }
 
+#tut-modal-description {
+    max-height: 40vh;
+    overflow-y: auto;
+    padding-right: calc(var(--h-unit) * 1);
+    box-sizing: border-box;
+}
+
+/* Custom Scrollbar for Tutorial Description */
+#tut-modal-description::-webkit-scrollbar {
+    width: calc(var(--h-unit) * 0.8);
+}
+
+#tut-modal-description::-webkit-scrollbar-track {
+    background: rgba(18, 24, 36, 0.4);
+    border-radius: 0;
+}
+
+#tut-modal-description::-webkit-scrollbar-thumb {
+    background: var(--clr-neon);
+    border-radius: 0;
+}
+
+#tut-modal-description::-webkit-scrollbar-thumb:hover {
+    background: #fff;
+}
+
 #tutorial-instructions-modal .modal-buttons,
 #pathfinder-confirm-modal .modal-buttons {
     display: flex;

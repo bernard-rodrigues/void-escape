@@ -52,7 +52,7 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Recolección de Llaves"
         },
         description: {
-            en: "Collect all available keys to unlock the exit portal.{img}The number of remaining keys is displayed in the game info panel.{img}Once all keys are collected, the exit portal will be unlocked.",
+            en: "Collect all available keys to unlock the exit portal.{img}The number of remaining keys is displayed in the game info panel.{img}Once all keys are collected, the exit portal will be unlocked.{img}",
             ptBr: "Capture todas as chaves disponíveis para liberar a saída.{img}O número de chaves restantes é exibido no painel de informações do jogo.{img}Ao coletar todas as chaves, o portal de saída será liberado.{img}",
             ja: "すべての鍵を集めて、出口ポータルを開放しよう。",
             es: "Recoge todas las llaves disponibles para liberar la salida."

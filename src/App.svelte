@@ -389,6 +389,15 @@
         if (modalCancelBtn) {
             modalCancelBtn.onclick = () => {
                 document.getElementById('tutorial-instructions-modal')?.classList.add('hidden');
+                if (currentGame) {
+                    if (currentGame.isTutorialMode) {
+                        currentGame.destroy();
+                        currentGame = null;
+                        document.getElementById('tutorials-menu')?.classList.remove('hidden');
+                    } else {
+                        returnToMenu();
+                    }
+                }
                 selectedTutorialStage = null;
             };
         }
