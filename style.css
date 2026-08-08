@@ -2242,8 +2242,10 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
 #tut-modal-description {
     max-height: 40vh;
     overflow-y: auto;
+    overflow-x: hidden; /* Evita rolagem horizontal completamente */
     padding-right: calc(var(--h-unit) * 1);
     box-sizing: border-box;
+    width: 100%;
 }
 
 /* Custom Scrollbar for Tutorial Description */
@@ -2368,6 +2370,7 @@ a:focus {
     border-radius: 4px;
     margin: calc(var(--h-unit) * 1.5) 0;
     display: inline-block;
+    box-sizing: border-box;
 }
 
 /* Container for side-by-side images */
@@ -2384,6 +2387,9 @@ a:focus {
 
 /* Individual image inside side-by-side layout */
 .tutorial-desc-image-in-group {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
     height: auto;
     border: calc(var(--h-unit) * 0.25) solid var(--clr-neon);
     border-radius: 4px;

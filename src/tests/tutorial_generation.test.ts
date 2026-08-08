@@ -519,9 +519,9 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
         expect(result).toBe(
             "<span>Antes</span><br/>" +
             '<div class="tutorial-desc-image-group">' +
-            '<img src="url1.png" class="tutorial-desc-image-in-group" style="max-width: 30%; flex-basis: 33.333333333333336%;" alt="Tutorial Screenshot" />' +
-            '<img src="url2.png" class="tutorial-desc-image-in-group" style="max-width: 30%; flex-basis: 33.333333333333336%;" alt="Tutorial Screenshot" />' +
-            '<img src="url3.png" class="tutorial-desc-image-in-group" style="max-width: 30%; flex-basis: 33.333333333333336%;" alt="Tutorial Screenshot" />' +
+            '<img src="url1.png" class="tutorial-desc-image-in-group" alt="Tutorial Screenshot" />' +
+            '<img src="url2.png" class="tutorial-desc-image-in-group" alt="Tutorial Screenshot" />' +
+            '<img src="url3.png" class="tutorial-desc-image-in-group" alt="Tutorial Screenshot" />' +
             '</div><br/>' +
             "<span>Depois</span>"
         );
