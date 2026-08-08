@@ -510,4 +510,20 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             '<img src="url3.png" class="tutorial-desc-image" alt="Tutorial Screenshot" />'
         );
     });
+
+    it('should format consecutive {img} tags side by side in a flex group', () => {
+        const text = "Antes{img}{img}{img}Depois";
+        const images = ["url1.png", "url2.png", "url3.png"];
+        const result = formatTutorialDescription(text, images);
+
+        expect(result).toBe(
+            "<span>Antes</span><br/>" +
+            '<div class="tutorial-desc-image-group">' +
+            '<img src="url1.png" class="tutorial-desc-image-in-group" style="max-width: 30%; flex-basis: 33.333333333333336%;" alt="Tutorial Screenshot" />' +
+            '<img src="url2.png" class="tutorial-desc-image-in-group" style="max-width: 30%; flex-basis: 33.333333333333336%;" alt="Tutorial Screenshot" />' +
+            '<img src="url3.png" class="tutorial-desc-image-in-group" style="max-width: 30%; flex-basis: 33.333333333333336%;" alt="Tutorial Screenshot" />' +
+            '</div><br/>' +
+            "<span>Depois</span>"
+        );
+    });
 });

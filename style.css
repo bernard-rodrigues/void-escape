@@ -2370,3 +2370,24 @@ a:focus {
     display: inline-block;
 }
 
+/* Container for side-by-side images */
+.tutorial-desc-image-group {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: calc(var(--h-unit) * 1);
+    width: 100%;
+    margin: calc(var(--h-unit) * 1.5) 0;
+    box-sizing: border-box;
+}
+
+/* Individual image inside side-by-side layout */
+.tutorial-desc-image-in-group {
+    height: auto;
+    border: calc(var(--h-unit) * 0.25) solid var(--clr-neon);
+    border-radius: 4px;
+    box-sizing: border-box;
+    display: block;
+}
+

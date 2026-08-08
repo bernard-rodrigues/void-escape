@@ -97,11 +97,12 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Ascensores"
         },
         description: {
-            en: "Use the elevators to reach the floors above and below.",
-            ptBr: "Utilize os elevadores para visitar os andares adjacentes.",
+            en: "Use the elevators to reach the floors above and below.{img}{img}{img}Press Q (desktop)/Y (gamepad) to go up and E (desktop)/A (gamepad) to go down.\nOn mobile devices, use the panel at the bottom of the screen.{img}",
+            ptBr: "Utilize os elevadores para visitar os andares adjacentes.{img}{img}{img}Utilize Q (desktop)/Y (gamepad) para subir e E (desktop)/A (gamepad) para descer.\nEm dispositivos móveis, use o painel da parte inferior da tela.{img}",
             ja: "エレベーターを使って、上下の階を移動しよう。",
             es: "Utiliza los ascensores para visitar los pisos adyacentes."
         },
+        images: ["/assets/images/tutorials/tutorial2-1.png", "/assets/images/tutorials/tutorial2-2.png", "/assets/images/tutorials/tutorial2-3.png", "/assets/images/tutorials/tutorial2-4.png"],
         layers: [
             [
                 "#######",
@@ -501,27 +502,71 @@ function escapeHTML(str: string): string {
         .replace(/'/g, '&#039;');
 }
 
+interface DescriptionBlock {
+    type: 'text' | 'image-group';
+    content: string;
+    images?: string[];
+}
+
 export function formatTutorialDescription(descriptionText: string, images?: string[]): string {
     if (!images || images.length === 0 || !descriptionText.includes('{img}')) {
         return escapeHTML(descriptionText);
     }
 
-    const parts = descriptionText.split('{img}');
-    let html = '';
+    const rawParts = descriptionText.split('{img}');
+    const blocks: DescriptionBlock[] = [];
     let imgIndex = 0;
 
-    for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
-        if (part) {
-            html += `<span>${escapeHTML(part)}</span>`;
+    if (rawParts[0]) {
+        blocks.push({ type: 'text', content: rawParts[0] });
+    }
+
+    let currentImgGroup: string[] = [];
+
+    for (let i = 1; i < rawParts.length; i++) {
+        if (imgIndex < images.length) {
+            currentImgGroup.push(images[imgIndex++]);
         }
 
-        if (i < parts.length - 1 && imgIndex < images.length) {
-            const imgSrc = images[imgIndex++];
-            const breakBefore = i > 0 || part ? '<br/>' : '';
-            const hasMoreText = i + 1 < parts.length && parts[i + 1].trim().length > 0;
-            const breakAfter = hasMoreText ? '<br/>' : '';
-            html += `${breakBefore}<img src="${imgSrc}" class="tutorial-desc-image" alt="Tutorial Screenshot" />${breakAfter}`;
+        const part = rawParts[i];
+        if (part.trim() === '') {
+            // Se o texto intermediário for vazio, acumula as imagens no mesmo grupo para renderizar lado a lado
+        } else {
+            if (currentImgGroup.length > 0) {
+                blocks.push({ type: 'image-group', content: '', images: currentImgGroup });
+                currentImgGroup = [];
+            }
+            blocks.push({ type: 'text', content: part });
+        }
+    }
+
+    if (currentImgGroup.length > 0) {
+        blocks.push({ type: 'image-group', content: '', images: currentImgGroup });
+    }
+
+    let html = '';
+    for (let i = 0; i < blocks.length; i++) {
+        const block = blocks[i];
+        if (block.type === 'text') {
+            html += `<span>${escapeHTML(block.content)}</span>`;
+        } else if (block.type === 'image-group' && block.images && block.images.length > 0) {
+            const hasTextBefore = i > 0 && blocks[i - 1].type === 'text';
+            const hasTextAfter = i + 1 < blocks.length && blocks[i + 1].type === 'text';
+
+            const breakBefore = hasTextBefore ? '<br/>' : '';
+            const breakAfter = hasTextAfter ? '<br/>' : '';
+
+            if (block.images.length === 1) {
+                html += `${breakBefore}<img src="${block.images[0]}" class="tutorial-desc-image" alt="Tutorial Screenshot" />${breakAfter}`;
+            } else {
+                let imagesHtml = '';
+                const flexBasis = `${100 / block.images.length}%`;
+                const maxPercentWidth = `${90 / block.images.length}%`;
+                for (const imgUrl of block.images) {
+                    imagesHtml += `<img src="${imgUrl}" class="tutorial-desc-image-in-group" style="max-width: ${maxPercentWidth}; flex-basis: ${flexBasis};" alt="Tutorial Screenshot" />`;
+                }
+                html += `${breakBefore}<div class="tutorial-desc-image-group">${imagesHtml}</div>${breakAfter}`;
+            }
         }
     }
 
