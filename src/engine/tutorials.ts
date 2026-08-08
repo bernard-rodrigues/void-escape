@@ -57,7 +57,7 @@ export const TUTORIALS: TutorialStage[] = [
             ja: "すべての鍵を集めて、出口ポータルを開放しよう。{img}残りの鍵の数は、ゲームの情報パネルに表示される。{img}すべての鍵を集めると、出口ポータルが開放される。{img}",
             es: "Recoge todas las llaves disponibles para liberar la salida.{img}El número de llaves restantes se muestra en el panel de información del juego.{img}Una vez recogidas todas las llaves, se liberará el portal de salida.{img}"
         },
-        images: ["/assets/images/tutorials/tutorial1-1.png", "/assets/images/tutorials/tutorial1-2.png", "/assets/images/tutorials/tutorial1-3.png"],
+        images: ["assets/images/tutorials/tutorial1-1.png", "assets/images/tutorials/tutorial1-2.png", "assets/images/tutorials/tutorial1-3.png"],
         layers: [
             // z = 0 (Andar de transição - paredes sólidas)
             [
@@ -102,7 +102,7 @@ export const TUTORIALS: TutorialStage[] = [
             ja: "エレベーターを使って、上下の階を移動しよう。{img}{img}{img}Q(デスクトップ)/Y(ゲームパッド)で上昇、E(デスクトップ)/A(ゲームパッド)で下降できる。\nモバイル端末では、画面下部のパネルを使おう。{img}",
             es: "Utiliza los ascensores para visitar los pisos adyacentes.{img}{img}{img}Presiona Q (escritorio)/Y (mando) para subir y E (escritorio)/A (mando) para bajar.\nEn dispositivos móviles, usa el panel en la parte inferior de la pantalla.{img}"
         },
-        images: ["/assets/images/tutorials/tutorial2-1.png", "/assets/images/tutorials/tutorial2-2.png", "/assets/images/tutorials/tutorial2-3.png", "/assets/images/tutorials/tutorial2-4.png"],
+        images: ["assets/images/tutorials/tutorial2-1.png", "assets/images/tutorials/tutorial2-2.png", "assets/images/tutorials/tutorial2-3.png", "assets/images/tutorials/tutorial2-4.png"],
         layers: [
             [
                 "#######",
@@ -165,7 +165,7 @@ export const TUTORIALS: TutorialStage[] = [
             ja: "テレポーターを使えば、レベル内の離れたエリアへ移動できる。{img}{img}{img}テレポートブロックの上に乗ってアクションボタンで起動し、行き先のテレポーターを選ぼう。{img}テレポーターは音を立てるため、ハンターに気づかれてしまう。{img}起動すると、しばらくの間すべてのハンターが選択した新しい地点に集まってくる。ハンターのステータスパネルを確認しよう。{img}移動した後、そのテレポーターは一時的に使用できなくなり、安全地帯ではなくなる。{img}",
             es: "Utiliza los teletransportes para moverte entre diferentes áreas del nivel.{img}{img}{img} Párate en un bloque de teletransporte, actívalo con uno de los botones de acción y selecciona otro teletransportador disponible para moverte a él.{img}Los teletransportadores son ruidosos y llaman la atención de los cazadores.{img}Una vez activados, todos los cazadores convergerán hacia la nueva posición elegida durante un período de tiempo. Presta atención al panel de estado de los cazadores.{img}Tras un viaje, los teletransportadores quedarán temporalmente inhabilitados y dejarán de ser puntos seguros.{img}",
         },
-        images: ["/assets/images/tutorials/tutorial3-1.png", "/assets/images/tutorials/tutorial3-2.png", "/assets/images/tutorials/tutorial3-3.png", "/assets/images/tutorials/tutorial3-4.png", "/assets/images/tutorials/tutorial3-5.png", "/assets/images/tutorials/tutorial3-6.png", "/assets/images/tutorials/tutorial3-7.png"],
+        images: ["assets/images/tutorials/tutorial3-1.png", "assets/images/tutorials/tutorial3-2.png", "assets/images/tutorials/tutorial3-3.png", "assets/images/tutorials/tutorial3-4.png", "assets/images/tutorials/tutorial3-5.png", "assets/images/tutorials/tutorial3-6.png", "assets/images/tutorials/tutorial3-7.png"],
         layers: [
             [
                 "#######",
@@ -208,7 +208,7 @@ export const TUTORIALS: TutorialStage[] = [
             ja: "ハンターを避けるか、周囲の地形をうまく利用しよう。{img}入り口とテレポーターは安全地帯だ。{img}死亡すると、キャラクターはその場所に鍵を落としてしまう。{img}そして、最後に訪れた安全地帯へ送り返される。\n近接検知機に注意しよう!{img}",
             es: "Evita a los cazadores o utiliza el entorno a tu favor.{img}La entrada y los teletransportadores son puntos seguros.{img}Si mueres, tu personaje dejará una llave en el lugar de la muerte.{img}Será transportado de vuelta al último punto seguro visitado.\n¡Presta atención al Detector de Proximidad!{img}"
         },
-        images: ["/assets/images/tutorials/tutorial4-1.png", "/assets/images/tutorials/tutorial4-2.png", "/assets/images/tutorials/tutorial4-3.png", "/assets/images/tutorials/tutorial4-4.png"],
+        images: ["assets/images/tutorials/tutorial4-1.png", "assets/images/tutorials/tutorial4-2.png", "assets/images/tutorials/tutorial4-3.png", "assets/images/tutorials/tutorial4-4.png"],
         layers: [
             [
                 "#######",
@@ -262,7 +262,7 @@ export const TUTORIALS: TutorialStage[] = [
             ja: "マップによっては画面に収まらないほど広い場合がある。{img}マップとズーム機能を使って移動しよう。\nマップはZキー(デスクトップ)またはSELECTボタン(ゲームパッド)で切り替えられる。\nモバイル端末では、画面下部のパネルを使おう。{img}{img}ズームはZキー(デスクトップ)またはBボタン(ゲームパッド)で切り替えられる。\nモバイル端末では、画面右下の虫眼鏡アイコンを使おう。{img}",
             es: "Algunos mapas pueden ser demasiado grandes para caber en la pantalla.{img}Utiliza el mapa y el zoom para navegar.\nEl mapa se puede activar con la tecla Z (escritorio) o el botón SELECT (mando).\nEn dispositivos móviles, usa el panel en la parte inferior de la pantalla.{img}{img}El zoom se puede alternar con la tecla Z (escritorio) o el botón B (mando).\nEn dispositivos móviles, usa la lupa en la parte inferior derecha de la pantalla.{img}"
         },
-        images: ["/assets/images/tutorials/tutorial5-1.png", "/assets/images/tutorials/tutorial5-2.png", "/assets/images/tutorials/tutorial5-3.png", "/assets/images/tutorials/tutorial5-4.png"],
+        images: ["assets/images/tutorials/tutorial5-1.png", "assets/images/tutorials/tutorial5-2.png", "assets/images/tutorials/tutorial5-3.png", "assets/images/tutorials/tutorial5-4.png"],
         layers: [
             [
                 "##############################",
@@ -379,7 +379,7 @@ export const TUTORIALS: TutorialStage[] = [
             ja: "迷路を探索しながらマナを集めよう。{img}マナを10集めるごとに、パワーのチャージが1つ手に入る。{img}このチャージを使えば、秘密の能力——ジェリーの神のポータル——を発動できる!{img}この能力は、プレイヤーの現在地にテレポートポータルを追加する(セーブポイントだが安全とは限らない)。{img}さらに、効果範囲内のボイドハンターをすべて消し去る。{img}一度訪れたポイントは忘れられてしまう。{img}{img}",
             es: "Recoge mana mientras exploras el laberinto.{img}Por cada 10 de mana recogido, obtienes una carga de poder.{img}Estas cargas pueden usarse para activar tu habilidad secreta: ¡el Portal del Dios de la Gelatina!{img}Esta habilidad añade un portal de teletransporte en la posición actual del jugador (un punto de guardado, pero no seguro).{img}Además, destruye a todos los cazadores del vacío en el área de efecto.{img}Los puntos visitados anteriormente se olvidarán.{img}{img}"
         },
-        images: ["/assets/images/tutorials/tutorial6-1.png", "/assets/images/tutorials/tutorial6-2.png", "/assets/images/tutorials/tutorial6-3.png", "/assets/images/tutorials/tutorial6-4.png", "/assets/images/tutorials/tutorial6-5.png", "/assets/images/tutorials/tutorial6-6.png", "/assets/images/tutorials/tutorial6-7.png"],
+        images: ["assets/images/tutorials/tutorial6-1.png", "assets/images/tutorials/tutorial6-2.png", "assets/images/tutorials/tutorial6-3.png", "assets/images/tutorials/tutorial6-4.png", "assets/images/tutorials/tutorial6-5.png", "assets/images/tutorials/tutorial6-6.png", "assets/images/tutorials/tutorial6-7.png"],
         layers: [
             [
                 "######",
@@ -426,7 +426,7 @@ export const TUTORIALS: TutorialStage[] = [
             ja: "パスファインダーを使って、テレポーター、まだ訪れていない隣接ブロック、または迷路の出口までの最短ルートを見つけよう。{img}目的地までの最短経路は、迷路とマップの両方でハイライト表示される。{img}パスファインダーを起動するには、対象の地点をクリックするか、そこまで移動してスペースキーかEnterキー(デスクトップ)、またはXボタン(ゲームパッド)を押そう。\n確認メッセージが表示される。{img}利用可能なパスファインダーの数は、ゲームの情報パネルに表示される。{img}",
             es: "Utiliza los localizadores para encontrar la ruta más corta hacia teletransportadores, bloques adyacentes no visitados o la salida del laberinto.{img}El camino más corto hasta el destino se resaltará tanto en el laberinto como en el mapa.{img}Para activar un localizador, simplemente haz clic sobre el punto de interés, o navega hasta él y presiona espacio o intro (escritorio) o X (mando).\nSe mostrará un mensaje de confirmación.{img}El número de localizadores disponibles se mostrará en el panel de información del juego.{img}"
         },
-        images: ["/assets/images/tutorials/tutorial7-1.png", "/assets/images/tutorials/tutorial7-2.png", "/assets/images/tutorials/tutorial7-3.png", "/assets/images/tutorials/tutorial7-4.png"],
+        images: ["assets/images/tutorials/tutorial7-1.png", "assets/images/tutorials/tutorial7-2.png", "assets/images/tutorials/tutorial7-3.png", "assets/images/tutorials/tutorial7-4.png"],
         layers: [
             [
                 "###########",
