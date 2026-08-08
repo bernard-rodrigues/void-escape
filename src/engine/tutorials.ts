@@ -39,6 +39,7 @@ export interface TutorialStage {
     jellyPortals?: number; // Portais de gelatina iniciais disponíveis no tutorial (padrão 0)
     revealed?: boolean; // Se true, o mapa e caminhos já vêm visíveis
     hunterBehavior?: HunterBehavior; // Comportamento customizado dos caçadores no tutorial
+    images?: string[]; // Array de URLs de imagens armazenadas na pasta tutorials
 }
 
 export const TUTORIALS: TutorialStage[] = [
@@ -47,15 +48,16 @@ export const TUTORIALS: TutorialStage[] = [
         title: {
             en: "Key Collection",
             ptBr: "Coleta de Chaves",
-            ja: "鍵の収集",
+            ja: "鍵集め",
             es: "Recolección de Llaves"
         },
         description: {
-            en: "Collect all available keys to unlock the exit portal.",
-            ptBr: "Capture todas as chaves disponíveis para liberar a saída.",
-            ja: "出口ポータルを解放するために、利用可能なすべての鍵を収集します。",
+            en: "Collect all available keys to unlock the exit portal.{img}The number of remaining keys is displayed in the game info panel.{img}Once all keys are collected, the exit portal will be unlocked.",
+            ptBr: "Capture todas as chaves disponíveis para liberar a saída.{img}O número de chaves restantes é exibido no painel de informações do jogo.{img}Ao coletar todas as chaves, o portal de saída será liberado.{img}",
+            ja: "すべての鍵を集めて、出口ポータルを開放しよう。",
             es: "Recoge todas las llaves disponibles para liberar la salida."
         },
+        images: ["/assets/images/tutorials/tutorial1-1.png", "/assets/images/tutorials/tutorial1-2.png", "/assets/images/tutorials/tutorial1-3.png"],
         layers: [
             // z = 0 (Andar de transição - paredes sólidas)
             [
@@ -95,9 +97,9 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Ascensores"
         },
         description: {
-            en: "Use the elevators to visit the adjacent floors.",
+            en: "Use the elevators to reach the floors above and below.",
             ptBr: "Utilize os elevadores para visitar os andares adjacentes.",
-            ja: "エレベーターを使用して、隣接するフロアを訪問します。",
+            ja: "エレベーターを使って、上下の階を移動しよう。",
             es: "Utiliza los ascensores para visitar los pisos adyacentes."
         },
         layers: [
@@ -157,10 +159,10 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Teletransporte"
         },
         description: {
-            en: "Use the teleporters to move between different areas of the level. Step on a teleport block, activate it with one of the action screens, and select another available teleporter to move to it.",
-            ptBr: "Utilize os teletransportadores para se mover entre diferentes áreas do nível. Ao pisar sobre um bloco de teleporte, acione-o com um dos botões de ação e selecione outro teleporte disponível para se mover para ele.",
-            ja: "レベルの異なるエリア間を移動するには、テレポーターを使用します。テレポートブロックに乗り、アクション画面の1つでそれをアクティブにし、別の利用可能なテレポーターを選択して移動します。",
-            es: "Utiliza los teletransportadores para moverte entre diferentes áreas del nivel. Párate en un bloque de teletransporte, actívalo con una de las pantallas de acción y selecciona otro teletransportador disponible para moverte a él."
+            en: "Use the teleporters to move between different areas of the level. Step onto a teleporter block, activate it with an action button, then select another available teleporter to warp there.",
+            ptBr: "Utilize os teleportes para se mover entre diferentes áreas do nível. Ao pisar sobre um bloco de teleporte, acione-o com um dos botões de ação e selecione outro teleporte disponível para se mover para ele.",
+            ja: "テレポーターを使えば、レベル内の離れたエリアへ移動できる。テレポートブロックの上に乗ってアクションボタンで起動し、行き先のテレポーターを選ぼう。",
+            es: "Utiliza los teletransportes para moverte entre diferentes áreas del nivel. Párate en un bloque de teletransporte, actívalo con uno de los botones de acción y selecciona otro teletransportador disponible para moverte a él."
         },
         layers: [
             [
@@ -201,11 +203,13 @@ export const TUTORIALS: TutorialStage[] = [
         description: {
             en: "Avoid the hunters or use the environment to your advantage. The entrance and teleporters are safe points.",
             ptBr: "Evite os caçadores ou use o ambiente a seu favor. A entrada e teleportes são pontos seguros.",
-            ja: "ハンターを避けたり、環境を有利に利用したりします。入り口とテレポーターは安全なポイントです。",
+            ja: "ハンターを避けるか、周囲の地形をうまく利用しよう。入り口とテレポーターは安全地帯だ。",
             es: "Evita a los cazadores o utiliza el entorno a tu favor. La entrada y los teletransportadores son puntos seguros."
         },
         layers: [
             [
+                "#######",
+                "#######",
                 "#######",
                 "#######",
                 "#######",
@@ -217,14 +221,18 @@ export const TUTORIALS: TutorialStage[] = [
                 "S..H..E",
                 "###.###",
                 "#K...T#",
-                "#######"
+                "###.###",
+                "#T...K#",
+                "#######",
             ],
             [
                 "#######",
                 "#######",
                 "#######",
                 "#######",
-                "#######"
+                "#######",
+                "#######",
+                "#######",
             ]
         ],
         pathfinders: 0,
@@ -248,7 +256,7 @@ export const TUTORIALS: TutorialStage[] = [
         description: {
             en: "Some maps may be too large to fit on the screen. Use the map and zoom to navigate.",
             ptBr: "Alguns mapas podem ser grandes demais para caber na tela. Use o mapa e o zoom para se localizar.",
-            ja: "一部のマップは画面に収まらないほど大きい場合があります。マップとズームを使用してナビゲートします。",
+            ja: "マップによっては画面に収まらないほど広い場合がある。マップとズーム機能を使って移動しよう。",
             es: "Algunos mapas pueden ser demasiado grandes para caber en la pantalla. Utiliza el mapa y el zoom para navegar."
         },
         layers: [
@@ -362,10 +370,10 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Mana y Portales de Gelatina"
         },
         description: {
-            en: "Collect mana to unlock your secret ability and activate jelly portals to traverse the level. The jelly god portal adds a jelly portal at the player's position (save point, but not safe) and destroys all void hunters in the action area. Visited points will be forgotten.",
+            en: "Collect mana to unlock your secret ability and place jelly portals to traverse the level. Summoning the jelly god adds a portal at your current position (a save point, but not a safe one) and destroys all void hunters in the area of effect. Previously visited points will be forgotten.",
             ptBr: "Colete mana para obter sua habilidade secreta e destrave os portais de geléia para atravessar o nível. O portal do deus geleia adiciona um portal de geleia na posição do jogador (save point, mas não seguro) e destrói todos os void hunters na área de ação. Os pontos visitados serão esquecidos.",
-            ja: "マナを収集して秘密の能力をアンロックし、ジェリーのポータルをアクティブにしてレベルを移動します。ジェリーの神のポータルは、プレイヤーの位置にジェリーポータルを追加し（セーブポイントですが安全ではありません）、アクションエリア内のすべてのボイドハンターを破壊します。 訪問したポイントは忘れられます。",
-            es: "Recoge mana para desbloquear tu habilidad secreta y activa los portales de gelatina para atravesar el nivel. El portal del dios de la gelatina agrega un portal de gelatina en la posición del jugador (punto de guardado, pero no seguro) y destruye a todos los cazadores del vacío en el área de acción. Los puntos visitados serán olvidados."
+            ja: "マナを集めて秘密の能力を解放し、ジェリーのポータルを使ってレベルを移動しよう。ジェリーの神を呼び出すとプレイヤーの現在地にポータルが追加され（セーブポイントだが安全とは限らない）、効果範囲内のボイドハンターをすべて消し去る。一度訪れたポイントは忘れられてしまう。",
+            es: "Recoge mana para desbloquear tu habilidad secreta y coloca portales de gelatina para atravesar el nivel. Invocar al dios de la gelatina añade un portal en la posición del jugador (un punto de guardado, pero no seguro) y destruye a todos los cazadores del vacío en el área de efecto. Los puntos visitados anteriormente se olvidarán."
         },
         layers: [
             [
@@ -404,14 +412,14 @@ export const TUTORIALS: TutorialStage[] = [
         title: {
             en: "Pathfinding",
             ptBr: "Localizador de Caminhos",
-            ja: "パスファインディング",
+            ja: "経路探索",
             es: "Localizador de Caminos"
         },
         description: {
             en: "Use the pathfinder to reveal the shortest route to the exit portal. Some levels can be extremely complex. To activate, open the map and click on teleporters, adjacent blocks, or the maze exit if discovered.",
             ptBr: "Use o localizador de caminhos para revelar a rota mais curta até o portal de saída. Algumas fases podem ser extremamente complexas. Para ativar, abra o mapa e clique sobre teleportes, blocos vizinhos ou a saída do labirinto, se descoberta.",
-            ja: "パスファインダーを使用して、出口ポータルへの最短ルートを明らかにします。一部のレベルは非常に複雑な場合があります。有効にするには、マップを開き、テレポーター、隣接するブロック、または迷路の出口（発見された場合）をクリックします。",
-            es: "Utiliza el localizador de caminos para revelar la rota más corta al portal de salida. Algunos niveles pueden ser extremadamente complejos. Para activarlo, abre el mapa y haz clic en los teletransportadores, bloques adyacentes o la salida del laberinto si se ha descubierto."
+            ja: "パスファインダーを使えば、出口ポータルまでの最短ルートが分かる。レベルによっては非常に複雑になることもある。使うにはマップを開き、テレポーター、隣接するブロック、または（発見済みなら）迷路の出口をクリックしよう。",
+            es: "Utiliza el localizador de caminos para revelar la ruta más corta al portal de salida. Algunos niveles pueden ser extremadamente complejos. Para activarlo, abre el mapa y haz clic en los teletransportadores, bloques adyacentes o la salida del laberinto si ya ha sido descubierta."
         },
         layers: [
             [
@@ -481,6 +489,41 @@ export const TUTORIALS: TutorialStage[] = [
         pathfinders: 5,
         mana: 0,
         jellyPortals: 0,
-        revealed: true
     }
 ];
+
+function escapeHTML(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+export function formatTutorialDescription(descriptionText: string, images?: string[]): string {
+    if (!images || images.length === 0 || !descriptionText.includes('{img}')) {
+        return escapeHTML(descriptionText);
+    }
+
+    const parts = descriptionText.split('{img}');
+    let html = '';
+    let imgIndex = 0;
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part) {
+            html += `<span>${escapeHTML(part)}</span>`;
+        }
+
+        if (i < parts.length - 1 && imgIndex < images.length) {
+            const imgSrc = images[imgIndex++];
+            const breakBefore = i > 0 || part ? '<br/>' : '';
+            const hasMoreText = i + 1 < parts.length && parts[i + 1].trim().length > 0;
+            const breakAfter = hasMoreText ? '<br/>' : '';
+            html += `${breakBefore}<img src="${imgSrc}" class="tutorial-desc-image" alt="Tutorial Screenshot" />${breakAfter}`;
+        }
+    }
+
+    return html;
+}

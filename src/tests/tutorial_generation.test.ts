@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Maze3D } from '../engine/maze3d.js';
-import { TUTORIALS } from '../engine/tutorials.js';
+import { TUTORIALS, formatTutorialDescription } from '../engine/tutorials.js';
 import { Engine } from '../engine/engine.js';
 import { saveGame, loadSave } from '../engine/save.js';
 
@@ -494,5 +494,20 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             document.body.removeChild(canvas);
             document.body.removeChild(safeModeInput);
         }
+    });
+
+    it('should format tutorial description with {img} tags correctly', () => {
+        const text = "Esse é um texto{img}A primeira imagem em images foi inserida acima{img}A segunda imagem de images foi inserida acima e a terceira será inserida abaixo, sem outra quebra de linha após ela{img}";
+        const images = ["url1.png", "url2.png", "url3.png"];
+        const result = formatTutorialDescription(text, images);
+        
+        expect(result).toBe(
+            "<span>Esse é um texto</span><br/>" +
+            '<img src="url1.png" class="tutorial-desc-image" alt="Tutorial Screenshot" /><br/>' +
+            "<span>A primeira imagem em images foi inserida acima</span><br/>" +
+            '<img src="url2.png" class="tutorial-desc-image" alt="Tutorial Screenshot" /><br/>' +
+            "<span>A segunda imagem de images foi inserida acima e a terceira será inserida abaixo, sem outra quebra de linha após ela</span><br/>" +
+            '<img src="url3.png" class="tutorial-desc-image" alt="Tutorial Screenshot" />'
+        );
     });
 });

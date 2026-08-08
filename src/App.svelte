@@ -4,7 +4,7 @@
     import { loadSave, hasSave, clearSave } from './engine/save';
     import { localizeDOM, getCurrentLanguage } from './engine/translations';
     import { CONFIG } from './engine/config';
-    import { TUTORIALS } from './engine/tutorials';
+    import { TUTORIALS, type TutorialStage, formatTutorialDescription } from './engine/tutorials';
 
     let currentGame: any = null;
     let currentLang: string = 'en';
@@ -73,21 +73,27 @@
         }, 50);
     }
 
-    let selectedTutorialStage: any = null;
+    let selectedTutorialStage: TutorialStage | null = null;
 
-    function selectTutorial(stage: any) {
+
+
+    function selectTutorial(stage: TutorialStage) {
         selectedTutorialStage = stage;
         const lang = getCurrentLanguage();
         
         const titleEl = document.getElementById('tut-modal-title');
         const descEl = document.getElementById('tut-modal-description');
         if (titleEl) titleEl.innerText = stage.title[lang] || stage.title['en'];
-        if (descEl) descEl.innerText = stage.description[lang] || stage.description['en'];
+        
+        if (descEl) {
+            const rawDesc = stage.description[lang] || stage.description['en'];
+            descEl.innerHTML = formatTutorialDescription(rawDesc, stage.images);
+        }
         
         document.getElementById('tutorial-instructions-modal')?.classList.remove('hidden');
     }
 
-    function runTutorial(stage: any) {
+    function runTutorial(stage: TutorialStage) {
         if (currentGame) currentGame.destroy();
         
         document.getElementById('tutorial-instructions-modal')?.classList.add('hidden');
