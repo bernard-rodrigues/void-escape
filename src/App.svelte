@@ -88,6 +88,7 @@
         if (descEl) {
             const rawDesc = stage.description[lang] || stage.description['en'];
             descEl.innerHTML = formatTutorialDescription(rawDesc, stage.images);
+            descEl.scrollTop = 0;
         }
         
         document.getElementById('tutorial-instructions-modal')?.classList.remove('hidden');
