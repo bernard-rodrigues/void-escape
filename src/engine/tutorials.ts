@@ -97,10 +97,10 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Ascensores"
         },
         description: {
-            en: "Use the elevators to reach the floors above and below.{img}{img}{img}Press Q (desktop)/Y (gamepad) to go up and E (desktop)/A (gamepad) to go down.\nOn mobile devices, use the panel at the bottom of the screen.{img}",
-            ptBr: "Utilize os elevadores para visitar os andares adjacentes.{img}{img}{img}Utilize Q (desktop)/Y (gamepad) para subir e E (desktop)/A (gamepad) para descer.\nEm dispositivos móveis, use o painel da parte inferior da tela.{img}",
-            ja: "エレベーターを使って、上下の階を移動しよう。{img}{img}{img}Q(デスクトップ)/Y(ゲームパッド)で上昇、E(デスクトップ)/A(ゲームパッド)で下降できる。\nモバイル端末では、画面下部のパネルを使おう。{img}",
-            es: "Utiliza los ascensores para visitar los pisos adyacentes.{img}{img}{img}Presiona Q (escritorio)/Y (mando) para subir y E (escritorio)/A (mando) para bajar.\nEn dispositivos móviles, usa el panel en la parte inferior de la pantalla.{img}"
+            en: "Use the elevators to reach the floors above and below.{img}{img}{img}Press E (desktop)/Y (gamepad) to go up and Q (desktop)/A (gamepad) to go down.\nOn mobile devices, use the panel at the bottom of the screen.{img}",
+            ptBr: "Utilize os elevadores para visitar os andares adjacentes.{img}{img}{img}Utilize E (desktop)/Y (gamepad) para subir e Q (desktop)/A (gamepad) para descer.\nEm dispositivos móveis, use o painel da parte inferior da tela.{img}",
+            ja: "エレベーターを使って、上下の階を移動しよう。{img}{img}{img}E(デスクトップ)/Y(ゲームパッド)で上昇、Q(デスクトップ)/A(ゲームパッド)で下降できる。\nモバイル端末では、画面下部のパネルを使おう。{img}",
+            es: "Utiliza los ascensores para visitar los pisos adyacentes.{img}{img}{img}Presiona E (escritorio)/Y (mando) para subir y Q (escritorio)/A (mando) para bajar.\nEn dispositivos móviles, usa el panel en la parte inferior de la pantalla.{img}"
         },
         images: ["assets/images/tutorials/tutorial2-1.png", "assets/images/tutorials/tutorial2-2.png", "assets/images/tutorials/tutorial2-3.png", "assets/images/tutorials/tutorial2-4.png"],
         layers: [
@@ -203,10 +203,10 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Cazadores"
         },
         description: {
-            en: "Avoid the hunters or use the environment to your advantage.{img}The entrance and teleporters are safe points.{img}If you die, your character will drop a key at the location of death.{img}They will be sent back to the last safe point visited.\nKeep an eye on the Proximity Detector!{img}",
-            ptBr: "Evite os caçadores ou use o ambiente a seu favor.{img}A entrada e teleportes são pontos seguros.{img}Se você morrer, seu personagem irá deixar uma chave no local da morte.{img}Ele será transportado para o último ponto seguro visitado.\nFique atento ao Detector de Proximidade!{img}",
-            ja: "ハンターを避けるか、周囲の地形をうまく利用しよう。{img}入り口とテレポーターは安全地帯だ。{img}死亡すると、キャラクターはその場所に鍵を落としてしまう。{img}そして、最後に訪れた安全地帯へ送り返される。\n近接検知機に注意しよう!{img}",
-            es: "Evita a los cazadores o utiliza el entorno a tu favor.{img}La entrada y los teletransportadores son puntos seguros.{img}Si mueres, tu personaje dejará una llave en el lugar de la muerte.{img}Será transportado de vuelta al último punto seguro visitado.\n¡Presta atención al Detector de Proximidad!{img}"
+            en: "Avoid the hunters or use the environment to your advantage.{img}The entrance and teleporters are safe points.{img}If you die, your character will drop a key at the location of death.{img}They will be sent back to the last safe point visited.\nKeep an eye on the Proximity Detector!{img}And watch the hunters' status panel!{img}The search modes are:\n- SLEEPING: void hunters are not active on the map. They will appear once the map reaches a certain completion percentage;\n- SCANNING: void hunters search the entire map for a position visited by the player;\n- TRACKING MODE: void hunters narrow their search area to positions visited by the player only;\n- HUNTERS CONVERGING: when a teleporter is activated, the noise draws the void hunters' attention, and they head toward the destination teleporter;\n- INACTIVE: the default mode for Safe Mode maps. There will be no void hunters in these matches.",
+            ptBr: "Evite os caçadores ou use o ambiente a seu favor.{img}A entrada e teleportes são pontos seguros.{img}Se você morrer, seu personagem irá deixar uma chave no local da morte.{img}Ele será transportado para o último ponto seguro visitado.\nFique atento ao Detector de Proximidade!{img}E de olho no painel de status dos caçadores!{img}Os métodos de busca são:\n- DORMINDO: Os void hunters não estão ativos no mapa. Eles irão aparecer após certa conclusão do mapa;\n- ESCANEANDO: Os void hunters visitam todo o mapa em busca de uma posição visitada pelo jogador;\n- MODO DE RESTREAMENTO: Os void hunters reduzem a área de busca para apenas posições visitadas pelo jogador;\n- HUNTERS CONVERGINDO: Quando um temeporte é ativado, o som chama a atenção dos void hunters, que partem para a direção do teleporte de destino;\n- INATIVO: é o modo padrão de mapas em Modo Seguro. Não existirão void hunters nessas partidas.",
+            ja: "ハンターを避けるか、周囲の地形をうまく利用しよう。{img}入り口とテレポーターは安全地帯だ。{img}死亡すると、キャラクターはその場所に鍵を落としてしまう。{img}そして、最後に訪れた安全地帯へ送り返される。\n近接検知機に注意しよう!{img}ハンターのステータスパネルも忘れずにチェックしよう!{img}探索モードは以下の通りだ:\n- 待機中: ボイドハンターはマップ上で活動していない。マップの進行度が一定の割合に達すると出現する;\n- 探索中: ボイドハンターがマップ全体を巡回し、プレイヤーが訪れた地点を探している;\n- 追跡モード: ボイドハンターの捜索範囲が、プレイヤーが訪れた地点のみに絞られる;\n- ハンター収束中: テレポーターが起動すると、その音でボイドハンターに気づかれ、目的地のテレポーターへ向かってくる;\n- 非アクティブ: セーフモードのマップにおける標準状態。この場合、ボイドハンターは一切出現しない。",
+            es: "Evita a los cazadores o utiliza el entorno a tu favor.{img}La entrada y los teletransportadores son puntos seguros.{img}Si mueres, tu personaje dejará una llave en el lugar de la muerte.{img}Será transportado de vuelta al último punto seguro visitado.\n¡Presta atención al Detector de Proximidad!{img}¡Y no pierdas de vista el panel de estado de los cazadores!{img}Los modos de búsqueda son:\n- DURMIENDO: los cazadores del vacío no están activos en el mapa. Aparecerán una vez que el mapa alcance cierto porcentaje de finalización;\n- ESCANEANDO: los cazadores del vacío recorren todo el mapa en busca de una posición visitada por el jugador;\n- MODO DE RASTREO: los cazadores del vacío reducen su área de búsqueda solo a las posiciones visitadas por el jugador;\n- CAZADORES CONVERGIENDO: cuando se activa un teletransportador, el sonido llama la atención de los cazadores del vacío, que se dirigen hacia el teletransportador de destino;\n- INACTIVO: es el modo predeterminado de los mapas en Modo Seguro. No habrá cazadores del vacío en estas partidas."
         },
         images: ["assets/images/tutorials/tutorial4-1.png", "assets/images/tutorials/tutorial4-2.png", "assets/images/tutorials/tutorial4-3.png", "assets/images/tutorials/tutorial4-4.png"],
         layers: [
@@ -374,12 +374,12 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Mana y Portales de Gelatina"
         },
         description: {
-            en: "Collect mana as you explore the maze.{img}For every 10 mana collected, you gain one charge of power.{img}These charges can be used to activate your secret ability: the Portal of the Jelly God!{img}This ability adds a teleport portal at the player's current position (a save point, but not a safe one).{img}It also destroys all void hunters in the area of effect.{img}Previously visited points will be forgotten.{img}{img}",
-            ptBr: "Colete mana durante sua exploração do loabirinto.{img}A cada 10 mana coletado, você ganha uma carga de poderzinho.{img}Essas cargas podem ser utilizadas para ativar sua habilidade secreta: o Portal do Deus Geleia!{img}Essa habilidade adiciona um portal de teleporte na posição atual do jogador (um ponto de salvamento, mas não seguro).{img}Além disso, destrói todos os void hunters na área de efeito.{img}Pontos visitados anteriormente serão esquecidos.{img}{img}",
-            ja: "迷路を探索しながらマナを集めよう。{img}マナを10集めるごとに、パワーのチャージが1つ手に入る。{img}このチャージを使えば、秘密の能力——ジェリーの神のポータル——を発動できる!{img}この能力は、プレイヤーの現在地にテレポートポータルを追加する(セーブポイントだが安全とは限らない)。{img}さらに、効果範囲内のボイドハンターをすべて消し去る。{img}一度訪れたポイントは忘れられてしまう。{img}{img}",
-            es: "Recoge mana mientras exploras el laberinto.{img}Por cada 10 de mana recogido, obtienes una carga de poder.{img}Estas cargas pueden usarse para activar tu habilidad secreta: ¡el Portal del Dios de la Gelatina!{img}Esta habilidad añade un portal de teletransporte en la posición actual del jugador (un punto de guardado, pero no seguro).{img}Además, destruye a todos los cazadores del vacío en el área de efecto.{img}Los puntos visitados anteriormente se olvidarán.{img}{img}"
+            en: "Collect mana as you explore the maze.{img}For every 10 mana collected, you gain one charge of power.{img}These charges can be used to activate your secret ability: the Portal of the Jelly God!{img}Use R (desktop)/RB (gamepad) to activate this ability, or use the activation button in the bottom left corner on mobile devices.{img}This ability adds a teleport portal at the player's current position (a save point, but not a safe one).{img}It also destroys all void hunters in the area of effect.{img}Previously visited points will be forgotten.{img}{img}The Portal of the Jelly God's area of effect reaches 5 tiles away (Manhattan distance; diagonals are not taken into account).{img}",
+            ptBr: "Colete mana durante sua exploração do loabirinto.{img}A cada 10 mana coletado, você ganha uma carga de poderzinho.{img}Essas cargas podem ser utilizadas para ativar sua habilidade secreta: o Portal do Deus Geleia!{img}Use R (desktop)/RB (gamepad) para ativar essa habilidade ou utilize o botão de ativação no canto inferior esquerdo, em dispositivos mobile.{img}Essa habilidade adiciona um portal de teleporte na posição atual do jogador (um ponto de salvamento, mas não seguro).{img}Além disso, destrói todos os void hunters na área de efeito.{img}Pontos visitados anteriormente serão esquecidos.{img}{img}A área de atuação do Portal do Deus Geleia é de 5 quadros de distância (distância de Manhattan; diagonais não são levadas em consideração).{img}",
+            ja: "迷路を探索しながらマナを集めよう。{img}マナを10集めるごとに、パワーのチャージが1つ手に入る。{img}このチャージを使えば、秘密の能力——ジェリーの神のポータル——を発動できる!{img}このアビリティはR(デスクトップ)/RB(ゲームパッド)で発動できる。モバイル端末では、画面左下の発動ボタンを使おう。{img}この能力は、プレイヤーの現在地にテレポートポータルを追加する(セーブポイントだが安全とは限らない)。{img}さらに、効果範囲内のボイドハンターをすべて消し去る。{img}一度訪れたポイントは忘れられてしまう。{img}{img}ジェリーの神のポータルの効果範囲は、5マス以内だ(マンハッタン距離。斜め方向は考慮されない)。{img}",
+            es: "Recoge mana mientras exploras el laberinto.{img}Por cada 10 de mana recogido, obtienes una carga de poder.{img}Estas cargas pueden usarse para activar tu habilidad secreta: ¡el Portal del Dios de la Gelatina!{img}Usa R (escritorio)/RB (mando) para activar esta habilidad, o utiliza el botón de activación en la esquina inferior izquierda en dispositivos móviles.{img}Esta habilidad añade un portal de teletransporte en la posición actual del jugador (un punto de guardado, pero no seguro).{img}Además, destruye a todos los cazadores del vacío en el área de efecto.{img}Los puntos visitados anteriormente se olvidarán.{img}{img}El área de efecto del Portal del Dios de la Gelatina alcanza 5 casillas de distancia (distancia de Manhattan; las diagonales no se toman en cuenta).{img}"
         },
-        images: ["assets/images/tutorials/tutorial6-1.png", "assets/images/tutorials/tutorial6-2.png", "assets/images/tutorials/tutorial6-3.png", "assets/images/tutorials/tutorial6-4.png", "assets/images/tutorials/tutorial6-5.png", "assets/images/tutorials/tutorial6-6.png", "assets/images/tutorials/tutorial6-7.png"],
+        images: ["assets/images/tutorials/tutorial6-1.png", "assets/images/tutorials/tutorial6-2.png", "assets/images/tutorials/tutorial6-3.png", "assets/images/tutorials/tutorial6-4.png", "assets/images/tutorials/tutorial6-5.png", "assets/images/tutorials/tutorial6-6.png", "assets/images/tutorials/tutorial6-7.png", "assets/images/tutorials/tutorial6-8.png", "assets/images/tutorials/tutorial6-9.png"],
         layers: [
             [
                 "######",
@@ -515,8 +515,12 @@ interface DescriptionBlock {
 }
 
 export function formatTutorialDescription(descriptionText: string, images?: string[]): string {
+    const processNewlines = (str: string) => {
+        return str.replace(/\n/g, '<br/>').replace(/\\n/g, '<br/>');
+    };
+
     if (!images || images.length === 0 || !descriptionText.includes('{img}')) {
-        return escapeHTML(descriptionText);
+        return processNewlines(escapeHTML(descriptionText));
     }
 
     const rawParts = descriptionText.split('{img}');
@@ -554,7 +558,7 @@ export function formatTutorialDescription(descriptionText: string, images?: stri
     for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
         if (block.type === 'text') {
-            html += `<span>${escapeHTML(block.content)}</span>`;
+            html += `<span>${processNewlines(escapeHTML(block.content))}</span>`;
         } else if (block.type === 'image-group' && block.images && block.images.length > 0) {
             const hasTextBefore = i > 0 && blocks[i - 1].type === 'text';
             const hasTextAfter = i + 1 < blocks.length && blocks[i + 1].type === 'text';

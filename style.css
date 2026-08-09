@@ -2243,24 +2243,32 @@ body:has(#map3d-container:not(.hidden)) #mobile-jelly-portal-btn {
     max-height: 40vh;
     overflow-y: auto;
     overflow-x: hidden; /* Evita rolagem horizontal completamente */
-    padding-right: calc(var(--h-unit) * 1);
+    padding-right: calc(var(--h-unit) * 1.5);
     box-sizing: border-box;
     width: 100%;
+    -webkit-overflow-scrolling: touch; /* Rolagem por toque suave no iOS */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--clr-neon) rgba(18, 24, 36, 0.4); /* Firefox */
 }
 
 /* Custom Scrollbar for Tutorial Description */
 #tut-modal-description::-webkit-scrollbar {
+    -webkit-appearance: none;
     width: calc(var(--h-unit) * 0.8);
+    height: calc(var(--h-unit) * 0.8);
+    display: block !important;
 }
 
 #tut-modal-description::-webkit-scrollbar-track {
     background: rgba(18, 24, 36, 0.4);
     border-radius: 0;
+    display: block !important;
 }
 
 #tut-modal-description::-webkit-scrollbar-thumb {
     background: var(--clr-neon);
-    border-radius: 0;
+    border-radius: calc(var(--h-unit) * 0.4);
+    display: block !important;
 }
 
 #tut-modal-description::-webkit-scrollbar-thumb:hover {

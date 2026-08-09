@@ -526,4 +526,10 @@ describe('Maze3D - Tutorial Generation & Auto-Wrapping', () => {
             "<span>Depois</span>"
         );
     });
+
+    it('should replace \\n and literal newlines in description text with <br/> tags', () => {
+        const text = "Linha 1\nLinha 2\\nLinha 3";
+        const result = formatTutorialDescription(text);
+        expect(result).toBe("Linha 1<br/>Linha 2<br/>Linha 3");
+    });
 });
