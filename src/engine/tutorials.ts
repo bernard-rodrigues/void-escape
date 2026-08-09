@@ -97,10 +97,10 @@ export const TUTORIALS: TutorialStage[] = [
             es: "Ascensores"
         },
         description: {
-            en: "Use the elevators to reach the floors above and below.{img}{img}{img}Press Q (desktop)/Y (gamepad) to go up and E (desktop)/A (gamepad) to go down.\nOn mobile devices, use the panel at the bottom of the screen.{img}",
-            ptBr: "Utilize os elevadores para visitar os andares adjacentes.{img}{img}{img}Utilize Q (desktop)/Y (gamepad) para subir e E (desktop)/A (gamepad) para descer.\nEm dispositivos móveis, use o painel da parte inferior da tela.{img}",
-            ja: "エレベーターを使って、上下の階を移動しよう。{img}{img}{img}Q(デスクトップ)/Y(ゲームパッド)で上昇、E(デスクトップ)/A(ゲームパッド)で下降できる。\nモバイル端末では、画面下部のパネルを使おう。{img}",
-            es: "Utiliza los ascensores para visitar los pisos adyacentes.{img}{img}{img}Presiona Q (escritorio)/Y (mando) para subir y E (escritorio)/A (mando) para bajar.\nEn dispositivos móviles, usa el panel en la parte inferior de la pantalla.{img}"
+            en: "Use the elevators to reach the floors above and below.{img}{img}{img}Press E (desktop)/Y (gamepad) to go up and Q (desktop)/A (gamepad) to go down.\nOn mobile devices, use the panel at the bottom of the screen.{img}",
+            ptBr: "Utilize os elevadores para visitar os andares adjacentes.{img}{img}{img}Utilize E (desktop)/Y (gamepad) para subir e Q (desktop)/A (gamepad) para descer.\nEm dispositivos móveis, use o painel da parte inferior da tela.{img}",
+            ja: "エレベーターを使って、上下の階を移動しよう。{img}{img}{img}E(デスクトップ)/Y(ゲームパッド)で上昇、Q(デスクトップ)/A(ゲームパッド)で下降できる。\nモバイル端末では、画面下部のパネルを使おう。{img}",
+            es: "Utiliza los ascensores para visitar los pisos adyacentes.{img}{img}{img}Presiona E (escritorio)/Y (mando) para subir y Q (escritorio)/A (mando) para bajar.\nEn dispositivos móviles, usa el panel en la parte inferior de la pantalla.{img}"
         },
         images: ["assets/images/tutorials/tutorial2-1.png", "assets/images/tutorials/tutorial2-2.png", "assets/images/tutorials/tutorial2-3.png", "assets/images/tutorials/tutorial2-4.png"],
         layers: [
