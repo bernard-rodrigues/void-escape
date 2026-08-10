@@ -3357,6 +3357,60 @@ export class Engine {
                 for (let z = 0; z < size; z++) {
                     const val = this.maze.get(x, y, z);
                     if (val === this.mazeGen.TYPES.WALL || val === this.mazeGen.TYPES.STATUE) {
+                        const isVisible = isIntro ||
+                            (val === this.mazeGen.TYPES.WALL && this.isWallVisible(x, y, z)) ||
+                            (val === this.mazeGen.TYPES.STATUE && (this.isNearVisited(x, y, z) || (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed)));
+
+                        if (isVisible) {
+                            const wallGeom = new THREE.BoxGeometry(0.35, 0.3 * this.vScale, 0.35);
+                            const wallMat = new THREE.MeshPhongMaterial({
+                                color: 0x5a14a0,
+                                emissive: 0x5a14a0,
+                                emissiveIntensity: 0.35 * opFactor,
+                                transparent: true,
+                                opacity: 0.8 * opFactor
+                            });
+
+                            const offsets = [
+                                { dx: -0.23, dy: -0.23 },
+                                { dx: 0.23, dy: -0.23 },
+                                { dx: -0.23, dy: 0.23 },
+                                { dx: 0.23, dy: 0.23 }
+                            ];
+
+                            for (const offset of offsets) {
+                                const subMesh = new THREE.Mesh(wallGeom, wallMat);
+                                subMesh.position.set(
+                                    (x + offset.dx) - size/2,
+                                    (z - size/2) * this.vScale - 0.3 * this.vScale,
+                                    (y + offset.dy) - size/2
+                                );
+                                this.scene.add(subMesh);
+                            }
+
+                            if (val === this.mazeGen.TYPES.STATUE) {
+                                const baseGeom = new THREE.BoxGeometry(0.5, 0.1 * this.vScale, 0.5);
+                                const baseMat = new THREE.MeshPhongMaterial({
+                                    color: 0x333333,
+                                    transparent: true,
+                                    opacity: 0.9 * opFactor
+                                });
+                                const baseMesh = new THREE.Mesh(baseGeom, baseMat);
+                                const base_Y = (z - size/2) * this.vScale - 0.4 * this.vScale;
+                                baseMesh.position.set(x - size/2, base_Y, y - size/2);
+                                this.scene.add(baseMesh);
+
+                                const bodyGeom = new THREE.CylinderGeometry(0.18, 0.22, 0.5 * this.vScale, 8);
+                                const bodyMat = new THREE.MeshPhongMaterial({
+                                    color: 0x777777,
+                                    transparent: true,
+                                    opacity: 0.9 * opFactor
+                                });
+                                const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
+                                bodyMesh.position.set(x - size/2, base_Y + 0.3 * this.vScale, y - size/2);
+                                this.scene.add(bodyMesh);
+                            }
+                        }
                         continue;
                     }
 
@@ -3597,18 +3651,21 @@ export class Engine {
                                 const paintUpWhite = isRevealedPath && (routeUsesUp || (!routeUsesUp && !routeUsesDown));
                                 const paintDownWhite = isRevealedPath && (routeUsesDown || (!routeUsesUp && !routeUsesDown));
 
+                                const colorDown = paintDownWhite ? 0xffffff : (isVisited ? CONFIG.COLORS.THREE_ELEVATOR_DOWN : CONFIG.COLORS.THREE_ELEVATOR_DOWN_UNUSED);
+                                const colorUp = paintUpWhite ? 0xffffff : (isVisited ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_UP_UNUSED);
+
                                 const matBottom = new THREE.MeshPhongMaterial({
-                                    color: paintDownWhite ? 0xffffff : CONFIG.COLORS.THREE_ELEVATOR_DOWN,
+                                    color: colorDown,
                                     transparent: true,
                                     opacity: 0.9 * opFactor,
-                                    emissive: paintDownWhite ? 0xffffff : CONFIG.COLORS.THREE_ELEVATOR_DOWN,
+                                    emissive: colorDown,
                                     emissiveIntensity: (paintDownWhite ? 2.0 : 0.4) * opFactor
                                 });
                                 const matTop = new THREE.MeshPhongMaterial({
-                                    color: paintUpWhite ? 0xffffff : CONFIG.COLORS.THREE_ELEVATOR_UP,
+                                    color: colorUp,
                                     transparent: true,
                                     opacity: 0.9 * opFactor,
-                                    emissive: paintUpWhite ? 0xffffff : CONFIG.COLORS.THREE_ELEVATOR_UP,
+                                    emissive: colorUp,
                                     emissiveIntensity: (paintUpWhite ? 2.0 : 0.4) * opFactor
                                 });
 
@@ -3627,7 +3684,9 @@ export class Engine {
                                 }
                                 continue;
                             } else {
-                                const elevatorColor = isRevealedPath ? 0xffffff : (hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN);
+                                const baseColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
+                                const unusedColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP_UNUSED : CONFIG.COLORS.THREE_ELEVATOR_DOWN_UNUSED;
+                                const elevatorColor = isRevealedPath ? 0xffffff : (isVisited ? baseColor : unusedColor);
                                 const intensity = isRevealedPath ? 2.0 : 0.4;
                                 material = new THREE.MeshPhongMaterial({
                                     color: elevatorColor,
