@@ -105,6 +105,9 @@ export class Engine {
     pathRevealInterval: any;
     pathfinderBlockedUntil: number;
     isMap3DActive: boolean;
+    teleportAnim: any | null;
+    auraHeight: number;
+    auraTime: number;
     isGameOver: boolean;
     deathAnimation: any;
     isTutorialMode!: boolean;
@@ -421,6 +424,9 @@ export class Engine {
         this.ui.updateJellyPortalHUD(this.jellyPortalCount);
 
         this.isMap3DActive = false;
+        this.teleportAnim = null;
+        this.auraHeight = 0;
+        this.auraTime = 0;
         this.isGameOver = false;
         this.deathAnimation = null;
         this.notificationQueue = [];
@@ -2497,6 +2503,44 @@ export class Engine {
     update(dt: number) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
 
+        if (this.teleportAnim && this.teleportAnim.active) {
+            this.teleportAnim.elapsed += dt;
+            this.auraTime = (this.auraTime || 0) + dt;
+            
+            if (this.teleportAnim.elapsed >= this.teleportAnim.duration) {
+                if (this.teleportAnim.stage === 'OUT') {
+                    this.player.x = this.teleportAnim.targetX;
+                    this.player.y = this.teleportAnim.targetY;
+                    this.player.z = this.teleportAnim.targetZ;
+                    this.activeMapFloor = this.teleportAnim.targetZ;
+                    this.visualActiveFloor = this.teleportAnim.targetZ;
+                    this.lastPlayerCell = {
+                        x: Math.floor(this.teleportAnim.targetX),
+                        y: Math.floor(this.teleportAnim.targetY),
+                        z: this.teleportAnim.targetZ
+                    };
+                    
+                    const tx = Math.floor(this.player.x);
+                    const ty = Math.floor(this.player.y);
+                    const tz = this.player.z;
+                    if (this.maze.get(tx, ty, tz) === this.mazeGen.TYPES.PATH) {
+                        this.maze.set(tx, ty, tz, this.mazeGen.TYPES.VISITED);
+                        this.visitedCells.add(`${tx},${ty},${tz}`);
+                    }
+                    this.updateFloorUI();
+                    this.staticMapCacheDirty = true;
+                    
+                    this.teleportAnim.stage = 'IN';
+                    this.teleportAnim.elapsed = 0;
+                } else {
+                    this.teleportAnim = null;
+                }
+            }
+            this.updateNotification(dt);
+            this.updateGamepad(dt);
+            return;
+        }
+
         if (this.jellyPortalFreezeTimer > 0) {
             this.jellyPortalFreezeTimer -= dt;
             this.jellyPortalResetElapsed += dt;
@@ -2512,6 +2556,22 @@ export class Engine {
 
         if (!this.isPaused && !this.isIntroPlaying && !this.isStoryActive) {
             this.elapsedTime += dt;
+            
+            // Animate teleport aura height and time
+            const px = Math.floor(this.player.x);
+            const py = Math.floor(this.player.y);
+            const pz = this.player.z;
+            const val = this.maze.get(px, py, pz);
+            const isStartPos = px === Math.floor(this.mazeGen.startPos.x) && py === Math.floor(this.mazeGen.startPos.y) && pz === this.mazeGen.startPos.z;
+            const isTeleportBlock = (val === this.mazeGen.TYPES.TELEPORT || val === this.mazeGen.TYPES.START || isStartPos) && val !== this.mazeGen.TYPES.JELLY_PORTAL;
+
+            const targetAuraHeight = isTeleportBlock ? 1.0 : 0.0;
+            if (this.auraHeight < targetAuraHeight) {
+                this.auraHeight = Math.min(targetAuraHeight, this.auraHeight + dt * 4.0);
+            } else if (this.auraHeight > targetAuraHeight) {
+                this.auraHeight = Math.max(targetAuraHeight, this.auraHeight - dt * 4.0);
+            }
+            this.auraTime = (this.auraTime || 0) + dt;
         }
 
         if (this.isStoryActive) {
@@ -3928,8 +3988,30 @@ export class Engine {
         const size = this.mazeGen.size;
         const useZoom = size > 11;
         const cellSize = useZoom ? ctx.canvas.width / 11 : ctx.canvas.width / size;
-        const px = this.player.x;
-        const py = this.player.y;
+        let px = this.player.x;
+        let py = this.player.y;
+        
+        let tScaleX = 1.0;
+        let tScaleY = 1.0;
+        let tOpacity = 1.0;
+
+        if (this.teleportAnim && this.teleportAnim.active) {
+            const anim = this.teleportAnim;
+            const progress = Math.min(1.0, anim.elapsed / anim.duration);
+            if (anim.stage === 'OUT') {
+                px = anim.startX;
+                py = anim.startY;
+                tScaleX = 1.0 - progress * 0.9;
+                tScaleY = 1.0 + progress * 2.0;
+                tOpacity = 1.0 - progress;
+            } else {
+                px = anim.targetX;
+                py = anim.targetY;
+                tScaleX = progress;
+                tScaleY = 3.0 - progress * 2.0;
+                tOpacity = progress;
+            }
+        }
         const pCellX = Math.floor(px);
         const pCellY = Math.floor(py);
 
@@ -4125,6 +4207,15 @@ export class Engine {
             const cx = px * cellSize;
             const cy = py * cellSize;
 
+            let playerOpacity = 1.0;
+            if (this.deathAnimation && this.deathAnimation.active) {
+                const flashInterval = 120; // ms
+                const show = Math.floor(Date.now() / flashInterval) % 2 === 0;
+                if (!show) {
+                    playerOpacity = 0.2;
+                }
+            }
+
             // =========================================================
             // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR NO MAPA 2D (MINIMAP) AQUI:
             // =========================================================
@@ -4144,6 +4235,122 @@ export class Engine {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fill();
             ctx.restore();
+
+            // Draw cylindrical protection aura (magic cylinder with simulated height projecting upwards)
+            const drawFlatAura = (acx: number, acy: number, progress: number, aOpacity: number, layer: 'BACK' | 'FRONT') => {
+                const maxH = cellSize * 1.2;
+                const h = maxH * progress; // Aura height scales with progress
+                if (h <= 0) return;
+
+                const time = this.auraTime || 0;
+                const r = cellSize * 0.45; // radius of cylinder base
+
+                ctx.save();
+                ctx.globalAlpha = aOpacity * 0.7;
+
+                const colorAura = 'rgba(0, 220, 255, 0.4)';
+                const colorAuraBright = 'rgba(0, 255, 255, 0.8)';
+                const colorAuraFade = 'rgba(0, 100, 255, 0.05)';
+
+                const wallGrad = ctx.createLinearGradient(acx, acy, acx, acy - h);
+                wallGrad.addColorStop(0, `rgba(0, 220, 255, ${aOpacity * 0.35})`);
+                wallGrad.addColorStop(0.3, `rgba(0, 200, 255, ${aOpacity * 0.25})`);
+                wallGrad.addColorStop(1, `rgba(0, 150, 255, 0.0)`);
+
+                if (layer === 'BACK') {
+                    // 1. Bottom cap back half (top arc)
+                    ctx.beginPath();
+                    ctx.arc(acx, acy, r, Math.PI, 0, false);
+                    ctx.strokeStyle = colorAura;
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    // 2. Back cylindrical wall fill
+                    ctx.fillStyle = wallGrad;
+                    ctx.beginPath();
+                    ctx.rect(acx - r, acy - h, r * 2, h);
+                    ctx.fill();
+
+                    // 3. Back half of rising rings
+                    for (let i = 0; i < 3; i++) {
+                        const ringProgress = ((time * 0.8 + i / 3) % 1.0) * progress;
+                        const ringY = acy - maxH * ringProgress;
+                        if (ringY > acy - h) {
+                            const ringOpacity = (1.0 - ringProgress) * aOpacity * 0.5;
+                            ctx.beginPath();
+                            ctx.arc(acx, ringY, r, Math.PI, 0, false);
+                            ctx.strokeStyle = `rgba(0, 255, 255, ${ringOpacity})`;
+                            ctx.lineWidth = 1.0;
+                            ctx.stroke();
+                        }
+                    }
+
+                    // 4. Top cap back half
+                    const topOpacity = (1.0 - progress * 0.3) * aOpacity * 0.8;
+                    ctx.beginPath();
+                    ctx.arc(acx, acy - h, r, Math.PI, 0, false);
+                    ctx.strokeStyle = `rgba(0, 255, 255, ${topOpacity})`;
+                    ctx.stroke();
+                } else {
+                    // FRONT LAYER
+                    // 1. Bottom cap front half (bottom arc)
+                    ctx.beginPath();
+                    ctx.arc(acx, acy, r, 0, Math.PI, false);
+                    ctx.strokeStyle = colorAuraBright;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // 2. Front cylindrical wall fill (light transparency on top of player)
+                    const frontWallGrad = ctx.createLinearGradient(acx, acy, acx, acy - h);
+                    frontWallGrad.addColorStop(0, `rgba(0, 255, 255, ${aOpacity * 0.2})`);
+                    frontWallGrad.addColorStop(1, `rgba(0, 255, 255, 0.0)`);
+                    ctx.fillStyle = frontWallGrad;
+                    ctx.beginPath();
+                    ctx.rect(acx - r, acy - h, r * 2, h);
+                    ctx.fill();
+
+                    // Side outlines
+                    const sideGrad = ctx.createLinearGradient(acx, acy, acx, acy - h);
+                    sideGrad.addColorStop(0, `rgba(0, 255, 255, ${aOpacity * 0.7})`);
+                    sideGrad.addColorStop(1, `rgba(0, 255, 255, 0.0)`);
+                    ctx.strokeStyle = sideGrad;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(acx - r, acy);
+                    ctx.lineTo(acx - r, acy - h);
+                    ctx.moveTo(acx + r, acy);
+                    ctx.lineTo(acx + r, acy - h);
+                    ctx.stroke();
+
+                    // 3. Front half of rising rings
+                    for (let i = 0; i < 3; i++) {
+                        const ringProgress = ((time * 0.8 + i / 3) % 1.0) * progress;
+                        const ringY = acy - maxH * ringProgress;
+                        if (ringY > acy - h) {
+                            const ringOpacity = (1.0 - ringProgress) * aOpacity * 0.7;
+                            ctx.beginPath();
+                            ctx.arc(acx, ringY, r, 0, Math.PI, false);
+                            ctx.strokeStyle = `rgba(0, 255, 255, ${ringOpacity})`;
+                            ctx.lineWidth = 1.5;
+                            ctx.stroke();
+                        }
+                    }
+
+                    // 4. Top cap front half
+                    const topOpacity = (1.0 - progress * 0.3) * aOpacity * 0.8;
+                    ctx.beginPath();
+                    ctx.arc(acx, acy - h, r, 0, Math.PI, false);
+                    ctx.strokeStyle = `rgba(0, 255, 255, ${topOpacity})`;
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            };
+
+            const auraHeight = this.getAuraHeightAt(pCellX, pCellY, z);
+            if (auraHeight > 0) {
+                drawFlatAura(cx, cy, auraHeight, playerOpacity * tOpacity, 'BACK');
+            }
 
             // REDESENHAR AS PAREDES ADJACENTES QUE ESTÃO SOBRE A SOMBRA PARA OCLUÍ-LA
             const minX = Math.max(0, Math.floor((shadowX - shadowW) / cellSize));
@@ -4166,18 +4373,11 @@ export class Engine {
                 }
             }
 
-            let playerOpacity = 1.0;
-            if (this.deathAnimation && this.deathAnimation.active) {
-                const flashInterval = 120; // ms
-                const show = Math.floor(Date.now() / flashInterval) % 2 === 0;
-                if (!show) {
-                    playerOpacity = 0.2;
-                }
-            }
+
 
             if (img && img.complete) {
                 ctx.save();
-                ctx.globalAlpha = playerOpacity;
+                ctx.globalAlpha = playerOpacity * tOpacity;
                 
                 const drawSize = cellSize * 0.90; 
                 const imgW = drawSize;
@@ -4185,7 +4385,7 @@ export class Engine {
                 
                 // Translate to bottom center for squishing anchor
                 ctx.translate(cx, cy);
-                ctx.scale(this.playerSquashX || 1, this.playerSquashY || 1);
+                ctx.scale((this.playerSquashX || 1) * tScaleX, (this.playerSquashY || 1) * tScaleY);
                 
                 // AJUSTE O ALINHAMENTO VERTICAL VISUAL DO MAGO AQUI:
                 const offsetY = -imgH * 0.85;
@@ -4194,25 +4394,31 @@ export class Engine {
             } else {
                 // Fallback to original ball and direction line if image is not loaded
                 ctx.save();
-                ctx.globalAlpha = playerOpacity;
+                ctx.globalAlpha = playerOpacity * tOpacity;
+                ctx.translate(cx, cy);
+                ctx.scale(tScaleX, tScaleY);
                 
                 ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
                 ctx.lineWidth = 1;
-                ctx.strokeRect(pCellX * cellSize + 2, pCellY * cellSize + 2, cellSize - 4, cellSize - 4);
+                ctx.strokeRect(-cellSize/2 + 2, -cellSize/2 + 2, cellSize - 4, cellSize - 4);
                 
                 ctx.fillStyle = CONFIG.COLORS.PLAYER;
                 ctx.beginPath();
-                ctx.arc(cx, cy, cellSize * 0.4, 0, Math.PI * 2);
+                ctx.arc(0, 0, cellSize * 0.4, 0, Math.PI * 2);
                 ctx.fill();
                 
                 ctx.strokeStyle = CONFIG.COLORS.PLAYER;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(cx, cy);
-                ctx.lineTo(cx + Math.cos(this.player.dir) * cellSize * 1, cy + Math.sin(this.player.dir) * cellSize * 1);
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(this.player.dir) * cellSize * 1, Math.sin(this.player.dir) * cellSize * 1);
                 ctx.stroke();
                 
                 ctx.restore();
+            }
+
+            if (auraHeight > 0) {
+                drawFlatAura(cx, cy, auraHeight, playerOpacity * tOpacity, 'FRONT');
             }
 
             if (CONFIG.SHOW_COLLISION_DEBUG) {
@@ -4950,6 +5156,35 @@ export class Engine {
             }
         }
         return false;
+    }
+
+    getAuraHeightAt(x: number, y: number, z: number): number {
+        const val = this.maze.get(x, y, z);
+        const isStartPos = x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
+        const isTeleportBlock = (val === this.mazeGen.TYPES.TELEPORT || val === this.mazeGen.TYPES.START || isStartPos) && val !== this.mazeGen.TYPES.JELLY_PORTAL;
+
+        if (!isTeleportBlock) return 0;
+
+        if (this.teleportAnim && this.teleportAnim.active) {
+            const anim = this.teleportAnim;
+            const progress = Math.min(1.0, anim.elapsed / anim.duration);
+            if (anim.stage === 'OUT') {
+                if (x === Math.floor(anim.startX) && y === Math.floor(anim.startY) && z === anim.startZ) {
+                    return 1.0 - progress;
+                }
+            } else if (anim.stage === 'IN') {
+                if (x === Math.floor(anim.targetX) && y === Math.floor(anim.targetY) && z === anim.targetZ) {
+                    return progress;
+                }
+            }
+            return 0;
+        }
+
+        const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
+        if (isPlayerHere) {
+            return this.auraHeight || 0;
+        }
+        return 0;
     }
 
     isWallVisible(x: number, y: number, z: number): boolean {
@@ -6202,19 +6437,23 @@ export class Engine {
     }
 
     teleportTo(x: number, y: number, z: number) {
-        this.skipCellAnimations = true;
-        this.player.x = x + CONFIG.PLAYER_START_X;
-        this.player.y = y + (CONFIG.PLAYER_START_Y % 1.0);
-        this.player.z = z;
-        this.staticMapCacheDirty = true;
-        
         this.toggleTeleportMap(false);
-        
-        if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH) {
-            this.maze.set(x, y, z, this.mazeGen.TYPES.VISITED);
-            this.visitedCells.add(`${x},${y},${z}`);
-        }
 
+        this.teleportAnim = {
+            active: true,
+            stage: 'OUT',
+            startX: this.player.x,
+            startY: this.player.y,
+            startZ: this.player.z,
+            targetX: x + CONFIG.PLAYER_START_X,
+            targetY: y + (CONFIG.PLAYER_START_Y % 1.0),
+            targetZ: z,
+            duration: 0.4, // 400ms per phase
+            elapsed: 0
+        };
+
+        this.skipCellAnimations = true;
+        
         if (!this.isSafeMode) {
             const nTicks = Math.floor(this.degree * 1.5) + 3;
             this.teleportCooldownTicks = nTicks;
@@ -6234,8 +6473,6 @@ export class Engine {
             }
         }
         
-        this.updateFloorUI();
-        this.draw2DMap();
         this.input.keys = {};
     }
 
@@ -7395,8 +7632,38 @@ export class Engine {
                             drawTeleport(coords.x, coords.y - H, teleportColor, opacity, isCursorOnCell);
                         }
 
-                        if (x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z) {
-                            drawPlayer(coords.x, coords.y - H, opacity);
+                        let isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
+                        let tScaleX = 1.0;
+                        let tScaleY = 1.0;
+                        let tOpacity = 1.0;
+
+                        if (this.teleportAnim && this.teleportAnim.active) {
+                            const anim = this.teleportAnim;
+                            const progress = Math.min(1.0, anim.elapsed / anim.duration);
+                            if (anim.stage === 'OUT') {
+                                isPlayerHere = x === Math.floor(anim.startX) && y === Math.floor(anim.startY) && z === anim.startZ;
+                                tScaleX = 1.0 - progress * 0.9;
+                                tScaleY = 1.0 + progress * 2.0;
+                                tOpacity = 1.0 - progress;
+                            } else {
+                                isPlayerHere = x === Math.floor(anim.targetX) && y === Math.floor(anim.targetY) && z === anim.targetZ;
+                                tScaleX = progress;
+                                tScaleY = 3.0 - progress * 2.0;
+                                tOpacity = progress;
+                            }
+                        }
+
+                        const auraHeight = this.getAuraHeightAt(x, y, z);
+                        if (auraHeight > 0) {
+                            drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'BACK');
+                        }
+
+                        if (isPlayerHere) {
+                            drawPlayer(coords.x, coords.y - H, opacity * tOpacity, tScaleX, tScaleY);
+                        }
+
+                        if (auraHeight > 0) {
+                            drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'FRONT');
                         }
                     }
                 }
@@ -7624,7 +7891,85 @@ export class Engine {
             }
         };
 
-        const drawPlayer = (cx: number, cy: number, opacity: number) => {
+        const drawCylinderAura = (cx: number, cy: number, rX: number, rY: number, fullHeight: number, progress: number, opacity: number, layer: 'BACK' | 'FRONT') => {
+            const h = fullHeight * progress; // Aura height scales with progress
+            if (h <= 0) return;
+
+            const time = this.auraTime || 0;
+
+            ctx.save();
+
+            const colorAura = 'rgba(0, 220, 255, 0.4)';
+            const colorAuraBright = 'rgba(0, 255, 255, 0.8)';
+            const colorAuraFade = 'rgba(0, 100, 255, 0.05)';
+
+            // Draw bottom ellipse (ground cap)
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rX, rY, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 220, 255, 0.05)';
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = `rgba(0, 220, 255, ${opacity * 0.4})`;
+            ctx.stroke();
+
+            // Cylindrical body wall (fading out vertically)
+            const grad = ctx.createLinearGradient(cx, cy, cx, cy - h);
+            grad.addColorStop(0, `rgba(0, 220, 255, ${opacity * 0.45})`);
+            grad.addColorStop(0.3, `rgba(0, 200, 255, ${opacity * 0.3})`);
+            grad.addColorStop(1, `rgba(0, 150, 255, 0.0)`);
+
+            ctx.beginPath();
+            ctx.moveTo(cx - rX, cy);
+            ctx.lineTo(cx - rX, cy - h);
+            ctx.ellipse(cx, cy - h, rX, rY, 0, Math.PI, 0, true);
+            ctx.lineTo(cx + rX, cy);
+            ctx.ellipse(cx, cy, rX, rY, 0, 0, Math.PI, false);
+            
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Side vertical outline glow lines (fading out vertically)
+            const sideGrad = ctx.createLinearGradient(cx, cy, cx, cy - h);
+            sideGrad.addColorStop(0, `rgba(0, 255, 255, ${opacity * 0.7})`);
+            sideGrad.addColorStop(1, `rgba(0, 255, 255, 0.0)`);
+
+            ctx.strokeStyle = sideGrad;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cx - rX, cy);
+            ctx.lineTo(cx - rX, cy - h);
+            ctx.moveTo(cx + rX, cy);
+            ctx.lineTo(cx + rX, cy - h);
+            ctx.stroke();
+
+            // Moving horizontal rings rising upwards
+            for (let i = 0; i < 3; i++) {
+                const ringProgress = ((time * 0.8 + i / 3) % 1.0) * progress;
+                const ringY = cy - fullHeight * ringProgress;
+                if (ringY > cy - h) {
+                    const ringOpacity = (1.0 - ringProgress) * opacity * 0.6;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, ringY, rX, rY, 0, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(0, 255, 255, ${ringOpacity})`;
+                    ctx.lineWidth = 1.0;
+                    ctx.stroke();
+                }
+            }
+
+            // Top ellipse cap
+            const topOpacity = (1.0 - progress * 0.3) * opacity * 0.8;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy - h, rX, rY, 0, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 255, 255, ${topOpacity * 0.1})`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(0, 255, 255, ${topOpacity})`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.restore();
+        };
+
+        const drawPlayer = (cx: number, cy: number, opacity: number, tScaleX = 1.0, tScaleY = 1.0) => {
             const stateKey = `${this.playerVertical}_${this.playerSide}`;
             const img = this.mageImages[stateKey];
             
@@ -7640,7 +7985,7 @@ export class Engine {
             // ==========================================
             // AJUSTE DE POSIÇÃO DA SOMBRA DO JOGADOR AQUI:
             // ==========================================
-            const shadowW = tileWidthHalf * 0.55;
+            const shadowW = tileWidthHalf * 0.55 * tScaleX;
             const shadowH = tileHeightHalf * 0.55;
             const shadowX = cx - tileWidthHalf * 0.12; // <--- Subtraia mais para ir mais para a ESQUERDA
             const shadowY = cy - tileHeightHalf * 0.12; // <--- Subtraia mais para ir mais para CIMA
@@ -7660,15 +8005,20 @@ export class Engine {
                 const imgW = drawSize;
                 const imgH = drawSize * (img.height / img.width);
                 
-                // AJUSTE O ALINHAMENTO VERTICAL VISUAL DO MAGO AQUI:
-                const offsetY = cy - imgH; // Mude para algo como: cy - imgH * 0.8 ou cy - imgH + 4 para ajustar
-                ctx.drawImage(img, cx - imgW / 2, offsetY, imgW, imgH);
+                // Translate to bottom center for scaling anchor
+                ctx.translate(cx, cy);
+                ctx.scale(tScaleX, tScaleY);
+                
+                const offsetY = -imgH; 
+                ctx.drawImage(img, -imgW / 2, offsetY, imgW, imgH);
                 ctx.restore();
             } else {
                 ctx.save();
                 ctx.globalAlpha = playerOpacity;
+                ctx.translate(cx, cy);
+                ctx.scale(tScaleX, tScaleY);
                 ctx.beginPath();
-                ctx.arc(cx, cy - 3, 5, 0, Math.PI * 2);
+                ctx.arc(0, -3, 5, 0, Math.PI * 2);
                 ctx.fillStyle = CONFIG.COLORS.PLAYER;
                 ctx.fill();
                 ctx.strokeStyle = CONFIG.COLORS.PLAYER_OUTLINE;
