@@ -24,6 +24,7 @@ import { Maze3D } from './maze3d.js';
 import { aStarDistance, aStarPath, proximeterDistance, findShortestPath } from './pathfinder.js';
 import { UIManager } from './ui.js';
 import { HunterManager } from './hunterManager.js';
+import { ThreeRenderer } from './threeRenderer.js';
 import { InputHandler } from './input.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
@@ -71,13 +72,10 @@ export class Engine {
     playerSquashY: number;
     player: { x: number; y: number; z: number; dir: number };
     hunters: Hunter[];
-    keyMeshes: any[];
-    exitMesh: any;
     keysCollected: number;
     totalKeys: number;
     manaCollected: number;
     totalMana: number;
-    manaMeshes: any[];
     totalPathfinders: number;
     pathfindersRemaining: number;
     activeMapFloor: number;
@@ -101,8 +99,7 @@ export class Engine {
     revealedPathSet: Set<string>;
     activePathReveal: any[];
     revealedPathProgress: number;
-    knownMeshes: any[];
-    gridMeshes: any[] | null;
+
     pathRevealInterval: any;
     pathfinderBlockedUntil: number;
     isMap3DActive: boolean;
@@ -128,8 +125,7 @@ export class Engine {
     isDestroyed: boolean;
     isIntroPlaying: boolean;
     isStoryActive: boolean;
-    pulsatingMaterials: any[];
-    hunterMeshes: any[];
+    threeRenderer!: ThreeRenderer;
     discoveredTeleports: Set<string>;
     visitedCells: Set<string>;
     lastSavePos: { x: number; y: number; z: number } | null;
@@ -148,12 +144,7 @@ export class Engine {
     staticMapCacheDirty!: boolean;
     zoomVisibleCells!: number;
     
-    // Three.js instances
-    scene!: THREE.Scene;
-    camera!: THREE.PerspectiveCamera;
-    renderer!: THREE.WebGLRenderer;
-    controls!: any;
-    teleportMeshes!: any[];
+
     inactiveTeleportPos!: { x: number; y: number; z: number } | null;
     teleportCooldownTicks!: number;
     
@@ -192,17 +183,46 @@ export class Engine {
     activeSkipHandler!: any;
     activeIntroTimer!: any;
     activeContinueTimer!: any;
-    raycaster!: THREE.Raycaster;
-    pointer!: THREE.Vector2;
+    get scene(): THREE.Scene { return this.threeRenderer.scene; }
+    set scene(val: THREE.Scene) { this.threeRenderer.scene = val; }
+    get camera(): THREE.PerspectiveCamera { return this.threeRenderer.camera; }
+    set camera(val: THREE.PerspectiveCamera) { this.threeRenderer.camera = val; }
+    get renderer(): THREE.WebGLRenderer { return this.threeRenderer.renderer; }
+    set renderer(val: THREE.WebGLRenderer) { this.threeRenderer.renderer = val; }
+    get controls(): any { return this.threeRenderer.controls; }
+    set controls(val: any) { this.threeRenderer.controls = val; }
+    get pulsatingMaterials(): any[] { return this.threeRenderer.pulsatingMaterials; }
+    set pulsatingMaterials(val: any[]) { this.threeRenderer.pulsatingMaterials = val; }
+    get hunterMeshes(): any[] { return this.threeRenderer.hunterMeshes; }
+    set hunterMeshes(val: any[]) { this.threeRenderer.hunterMeshes = val; }
+    get teleportMeshes(): any[] { return this.threeRenderer.teleportMeshes; }
+    set teleportMeshes(val: any[]) { this.threeRenderer.teleportMeshes = val; }
+    get knownMeshes(): any[] { return this.threeRenderer.knownMeshes; }
+    set knownMeshes(val: any[]) { this.threeRenderer.knownMeshes = val; }
+    get keyMeshes(): any[] { return this.threeRenderer.keyMeshes; }
+    set keyMeshes(val: any[]) { this.threeRenderer.keyMeshes = val; }
+    get manaMeshes(): any[] { return this.threeRenderer.manaMeshes; }
+    set manaMeshes(val: any[]) { this.threeRenderer.manaMeshes = val; }
+    get exitMesh(): any { return this.threeRenderer.exitMesh; }
+    set exitMesh(val: any) { this.threeRenderer.exitMesh = val; }
+    get gridMeshes(): any[] | null { return this.threeRenderer.gridMeshes; }
+    set gridMeshes(val: any[] | null) { this.threeRenderer.gridMeshes = val || []; }
+    get raycaster(): THREE.Raycaster { return this.threeRenderer.raycaster; }
+    set raycaster(val: THREE.Raycaster) { this.threeRenderer.raycaster = val; }
+    get pointer(): THREE.Vector2 { return this.threeRenderer.pointer; }
+    set pointer(val: THREE.Vector2) { this.threeRenderer.pointer = val; }
+    get handleCanvasClick(): any { return this.threeRenderer.handleCanvasClick; }
+    set handleCanvasClick(val: any) { this.threeRenderer.handleCanvasClick = val; }
+    get handlePointerDown(): any { return this.threeRenderer.handlePointerDown; }
+    set handlePointerDown(val: any) { this.threeRenderer.handlePointerDown = val; }
+    get handlePointerUp(): any { return this.threeRenderer.handlePointerUp; }
+    set handlePointerUp(val: any) { this.threeRenderer.handlePointerUp = val; }
     handleKeyDownExtra!: any;
     handleKeyboardDetection!: any;
     handleResize!: any;
     handleStoryKeyDown!: any;
     handleStoryClick!: any;
     handleStoryTouch!: any;
-    handleCanvasClick!: any;
-    handlePointerDown!: any;
-    handlePointerUp!: any;
     lastHunterMove!: number;
     lastLockedWarningTime!: number;
     prevGamepadButtons!: boolean[];
@@ -230,6 +250,7 @@ export class Engine {
         this.ui = new UIManager();
         this.input = new InputHandler(this);
         this.hunterManager = new HunterManager(this);
+        this.threeRenderer = new ThreeRenderer(this);
         this.input.setupTouch(() => this.isMap3DActive, () => this.isGameOver);
 
         this.canvas = document.getElementById('main-2d-canvas') as HTMLCanvasElement;
@@ -508,9 +529,6 @@ export class Engine {
         this.activeSkipHandler = null;
         this.activeIntroTimer = null;
         this.activeContinueTimer = null;
-
-        this.raycaster = new THREE.Raycaster();
-        this.pointer = new THREE.Vector2();
         
         this.exitPathfinderUnlocked = this.checkExitNeighborVisited();
 
@@ -599,20 +617,7 @@ export class Engine {
             storyEl.classList.add('hidden');
         }
         
-        if (this.controls) {
-            this.controls.dispose();
-        }
- 
-        if (this.renderer && this.renderer.domElement) {
-            this.renderer.domElement.removeEventListener('click', this.handleCanvasClick);
-            this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
-            this.renderer.domElement.removeEventListener('pointerup', this.handlePointerUp);
-        }
-        
-        if (this.renderer) {
-            this.renderer.dispose();
-            this.renderer.domElement.remove();
-        }
+        this.threeRenderer.destroy();
         
         // Clean up listeners on mobile buttons
         if (this.ui.uiMobileUp) this.ui.uiMobileUp.onclick = null;
@@ -1044,15 +1049,7 @@ export class Engine {
     }
 
     initThree() {
-        this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        if (this.ui.uiMap3dContainer) {
-            this.ui.uiMap3dContainer.appendChild(this.renderer.domElement);
-        }
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
+        this.threeRenderer.initThree();
     }
 
     init(savedState: any = null) {
@@ -1115,30 +1112,7 @@ export class Engine {
             };
         }
 
-        let isDragging = false;
-        let startX = 0;
-        let startY = 0;
-        this.handlePointerDown = (e: PointerEvent) => {
-            isDragging = false;
-            startX = e.clientX;
-            startY = e.clientY;
-        };
-        this.handlePointerUp = (e: PointerEvent) => {
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            if (Math.sqrt(dx*dx + dy*dy) > 5) {
-                isDragging = true;
-            }
-        };
-        this.handleCanvasClick = (e: MouseEvent) => {
-            if (isDragging) return;
-            if (Date.now() - this.lastTeleportCloseTime < 500) return;
-            this.onCanvasClick(e);
-        };
-        
-        this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
-        this.renderer.domElement.addEventListener('pointerup', this.handlePointerUp);
-        this.renderer.domElement.addEventListener('click', this.handleCanvasClick);
+
         
         this.resize();
         this.updateFloorUI();
@@ -1366,11 +1340,7 @@ export class Engine {
     }
 
     updateRendererSize() {
-        if (this.renderer) {
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-        }
+        this.threeRenderer.resize();
     }
 
     resize() {
@@ -1698,190 +1668,7 @@ export class Engine {
         }
 
         if (this.isMap3DActive) {
-            if (this.controls) this.controls.update();
-            const size = this.mazeGen.size;
-            const opFactor = this.isTeleportMode ? 0.25 : 1.0;
-            for (const hm of this.hunterMeshes) {
-                 const h = hm.hunter;
-                 const mesh = hm.mesh;
-                 if (h.state === 'DEAD_BY_JELLY') {
-                     mesh.visible = false;
-                     continue;
-                 }
-                 mesh.visible = true;
-                 if (h.visualX === null || h.visualZ === null || h.visualY === null) continue;
-                 
-                 // Base positioning
-                 mesh.position.set(h.visualX - size/2, (h.visualZ - size/2) * this.vScale, h.visualY - size/2);
-
-                 // Jelly shape deformation (slow skew / stretch scale) - contido
-                 const time = h.jellyTime;
-                 let scaleX = 1 + Math.sin(time * 1.2) * 0.07;
-                 let scaleY = 1 + Math.cos(time * 0.8) * 0.07;
-                 let scaleZ = 1 + Math.sin(time * 1.5) * 0.07;
-                 
-                 if (h.state === 'DYING') {
-                     const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
-                     const shrink = 1.0 - progress;
-                     scaleX *= shrink;
-                     scaleY *= shrink;
-                     scaleZ *= shrink;
-                     
-                     // Glitch tremor shake in 3D
-                     const shakeX = (Math.random() - 0.5) * 0.15;
-                     const shakeY = (Math.random() - 0.5) * 0.15;
-                     const shakeZ = (Math.random() - 0.5) * 0.15;
-                     mesh.position.add({ x: shakeX, y: shakeY, z: shakeZ } as any);
-                 }
-
-                 if (hm.coreMesh) {
-                     hm.coreMesh.scale.set(scaleX, scaleY, scaleZ);
-                     // Flashing/pulsing emissive light intensity
-                     if (hm.coreMesh.material) {
-                         let finalIntensity = (0.8 + 0.2 * Math.sin(time * 3) + (Math.random() < 0.1 ? (Math.random() - 0.5) * 0.4 : 0)) * opFactor;
-                         if (h.state === 'DYING') {
-                             const progress = Math.min(1.0, this.jellyPortalResetElapsed / this.jellyPortalResetDuration);
-                             finalIntensity *= (1.0 - progress);
-                         }
-                         hm.coreMesh.material.emissiveIntensity = finalIntensity;
-                     }
-                 }
-
-                 // Orbit and jitter the glitch particles (kept within cell block size)
-                 if (hm.particles) {
-                     hm.particles.forEach((p: any) => {
-                         const ud = p.userData;
-                         ud.angle += ud.speed * dt;
-                         
-                         const px = Math.cos(ud.angle) * ud.radius;
-                         const pz = Math.sin(ud.angle) * ud.radius;
-                         const py = Math.sin(ud.angle * 2 + ud.phaseY) * 0.25;
-                         
-                         let jitterX = 0, jitterY = 0, jitterZ = 0;
-                         // Glitch tremor displacements kept small to stay inside bounds
-                         if (Math.random() < 0.15) {
-                             jitterX = (Math.random() - 0.5) * 0.12;
-                             jitterY = (Math.random() - 0.5) * 0.12;
-                             jitterZ = (Math.random() - 0.5) * 0.12;
-                             p.scale.set(1.4 + Math.random() * 0.4, 0.6 + Math.random() * 0.3, 1.4 + Math.random() * 0.4);
-                         } else {
-                             p.scale.set(1.0, 1.0, 1.0);
-                         }
-                         p.position.set(px + jitterX, py + jitterY, pz + jitterZ);
-                     });
-                 }
-                
-                // Calcula o progresso p do passo atual (de 0 a 1) baseado na distância física
-                const dx = h.x - h.visualX;
-                const dy = h.y - h.visualY;
-                const stepDist = Math.sqrt(dx * dx + dy * dy);
-                const p = Math.max(0, Math.min(1, 1 - stepDist));
-
-                // 1. Rastro 1 (newest) na posição h.lastPos
-                if (h.lastPos && (h.lastPos.x !== h.x || h.lastPos.y !== h.y)) {
-                    hm.trail1.position.set(h.lastPos.x - size/2, (h.lastPos.z - size/2) * this.vScale, h.lastPos.y - size/2);
-                    hm.trail1.visible = true;
-                    
-                    const time1 = h.jellyTime - 0.2;
-                    const scale1 = 0.95 - p * 0.47;
-                    const scaleX1 = scale1 * (1 + Math.sin(time1 * 1.2) * 0.07);
-                    const scaleY1 = scale1 * (1 + Math.cos(time1 * 0.8) * 0.07);
-                    const scaleZ1 = scale1 * (1 + Math.sin(time1 * 1.5) * 0.07);
-                    hm.trail1.scale.set(scaleX1, scaleY1, scaleZ1);
-                    
-                    // Suaviza a opacidade do material
-                    if (hm.trail1.material) {
-                        hm.trail1.material.opacity = (0.40 - p * 0.20) * opFactor;
-                    }
-                } else {
-                    hm.trail1.visible = false;
-                }
-
-                // 2. Rastro 2 (oldest) na posição anterior do histórico (history[0]) apenas se houver 2 posições consecutivas
-                if (h.history && h.history.length === 2) {
-                    const oldestPos = h.history[0];
-                    hm.trail2.position.set(oldestPos.x - size/2, (oldestPos.z - size/2) * this.vScale, oldestPos.y - size/2);
-                    
-                    const scale2 = 0.48 * (1 - p);
-                    if (scale2 > 0.02) {
-                        hm.trail2.visible = true;
-                        
-                        const time2 = h.jellyTime - 0.4;
-                        const scaleX2 = scale2 * (1 + Math.sin(time2 * 1.2) * 0.07);
-                        const scaleY2 = scale2 * (1 + Math.cos(time2 * 0.8) * 0.07);
-                        const scaleZ2 = scale2 * (1 + Math.sin(time2 * 1.5) * 0.07);
-                        hm.trail2.scale.set(scaleX2, scaleY2, scaleZ2);
-                        
-                        if (hm.trail2.material) {
-                            hm.trail2.material.opacity = (0.20 * (1 - p)) * opFactor;
-                        }
-                    } else {
-                        hm.trail2.visible = false;
-                    }
-                } else {
-                    hm.trail2.visible = false;
-                }
-            }
-            if (this.keyMeshes) {
-                for (const km of this.keyMeshes) {
-                    km.rotation.y += 1.5 * dt;
-                    km.rotation.x += 0.5 * dt;
-                }
-            }
-            if (this.isTeleportMode && this.teleportMeshes && this.gamepadTeleportSelectedIndex !== undefined) {
-                const candidates = this.getTeleportCandidates();
-                const selected = candidates[this.gamepadTeleportSelectedIndex!];
-                this.teleportMeshes.forEach(mesh => {
-                    const { gridX, gridY, gridZ } = mesh.userData;
-                    const isSelected = selected && gridX === selected.x && gridY === selected.y && gridZ === selected.z;
-                    if (isSelected) {
-                        const scale = 1.3 + 0.25 * Math.sin(Date.now() / 100);
-                        mesh.scale.set(scale, scale, scale);
-                        if (mesh.material && mesh.material.emissive) {
-                            mesh.material.emissive.setHex(0xffaa00);
-                            mesh.material.emissiveIntensity = 3.5;
-                        }
-                    } else {
-                        const isPlayerHere = gridX === Math.floor(this.player.x) && gridY === Math.floor(this.player.y) && gridZ === this.player.z;
-                        const isInactive = this.teleportCooldownTicks > 0;
-                        
-                        let baseScale = 1.0;
-                        if (isPlayerHere) {
-                            baseScale = 1.4;
-                        }
-                        mesh.scale.set(baseScale, baseScale, baseScale);
-
-                        if (mesh.material && mesh.material.emissive) {
-                            if (isInactive) {
-                                mesh.material.color.setHex(0x444444);
-                                mesh.material.emissive.setHex(0x444444);
-                                mesh.material.emissiveIntensity = 0.0;
-                                mesh.material.opacity = 0.4;
-                            } else if (isPlayerHere) {
-                                mesh.material.color.setHex(0x00ffff);
-                                mesh.material.emissive.setHex(0x00ffff);
-                                mesh.material.emissiveIntensity = 3.0;
-                                mesh.material.opacity = 0.5;
-                            } else {
-                                const isStart = gridX === Math.floor(this.mazeGen.startPos.x) && gridY === Math.floor(this.mazeGen.startPos.y) && gridZ === this.mazeGen.startPos.z;
-                                if (isStart) {
-                                    mesh.material.color.setHex(CONFIG.COLORS.THREE_START);
-                                    mesh.material.emissive.setHex(CONFIG.COLORS.THREE_START);
-                                    mesh.material.emissiveIntensity = this.isTeleportMode ? 2.5 : 0.5;
-                                    mesh.material.opacity = this.isTeleportMode ? 0.95 : 0.8;
-                                } else {
-                                    const isJelly = this.maze.get(gridX, gridY, gridZ) === this.mazeGen.TYPES.JELLY_PORTAL;
-                                    const col = isJelly ? CONFIG.COLORS.THREE_JELLY_PORTAL : CONFIG.COLORS.THREE_TELEPORT;
-                                    mesh.material.color.setHex(col);
-                                    mesh.material.emissive.setHex(col);
-                                    mesh.material.emissiveIntensity = 2.5;
-                                    mesh.material.opacity = 0.95;
-                                }
-                            }
-                        }
-                    }
-                });
-            }
+            this.threeRenderer.update(dt);
         }
 
         if (!this.isMap3DActive && !this.isZoomTransitionActive) {
@@ -2372,519 +2159,7 @@ export class Engine {
     }
 
     build3DMap(isIntro = false) {
-        while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
-        dirLight.position.set(10, 20, 10);
-        this.scene.add(dirLight);
-
-        this.pulsatingMaterials = []; // Reset the array
-        this.hunterMeshes = []; // Reset the array
-        this.teleportMeshes = []; // Reset the array
-        this.knownMeshes = []; // Reset the array
-        this.keyMeshes = [];
-        this.manaMeshes = [];
-        this.exitMesh = null;
-        const size = this.mazeGen.size;
-        const isFloorVisited = (fx: number, fy: number, fz: number) => {
-            if (fz < 0 || fz >= size) return false;
-            const fVal = this.maze.get(fx, fy, fz);
-            return fVal === 2 || fVal === 3 || fVal === 4 || (fVal === this.mazeGen.TYPES.TELEPORT && this.discoveredTeleports.has(`${fx},${fy},${fz}`)) || this.visitedCells.has(`${fx},${fy},${fz}`);
-        };
-
-        this.gridMeshes = new Array(size * size * size).fill(null);
-
-        const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
-        
-        // Define opacity factor: make all other map elements more translucent during teleportation mode
-        const opFactor = this.isTeleportMode ? CONFIG.TELEPORT_MAP_OPACITY : 1.0;
-
-        const shaftGeomBottom = new THREE.BoxGeometry(0.9, 0.425, 0.9);
-        const shaftGeomTop = new THREE.BoxGeometry(0.9, 0.425, 0.9);
-        
-        const shaftGeom = new THREE.CylinderGeometry(0.35, 0.35, 2.0 * this.vScale, 8);
-        const shaftMat = new THREE.MeshPhongMaterial({
-            color: CONFIG.COLORS.THREE_VISITED,
-            transparent: true, opacity: 0.8 * opFactor
-        });
-
-        for (let x = 0; x < size; x++) {
-            for (let y = 0; y < size; y++) {
-                for (let z = 0; z < size; z++) {
-                    const val = this.maze.get(x, y, z);
-                    if (val === this.mazeGen.TYPES.WALL || val === this.mazeGen.TYPES.STATUE) {
-                        const isVisible = isIntro ||
-                            (val === this.mazeGen.TYPES.WALL && this.isWallVisible(x, y, z)) ||
-                            (val === this.mazeGen.TYPES.STATUE && (this.isNearVisited(x, y, z) || (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed)));
-
-                        if (isVisible) {
-                            const wallGeom = new THREE.BoxGeometry(0.35, 0.3 * this.vScale, 0.35);
-                            const wallMat = new THREE.MeshPhongMaterial({
-                                color: 0x5a14a0,
-                                emissive: 0x5a14a0,
-                                emissiveIntensity: 0.35 * opFactor,
-                                transparent: true,
-                                opacity: 0.8 * opFactor
-                            });
-
-                            const offsets = [
-                                { dx: -0.23, dy: -0.23 },
-                                { dx: 0.23, dy: -0.23 },
-                                { dx: -0.23, dy: 0.23 },
-                                { dx: 0.23, dy: 0.23 }
-                            ];
-
-                            for (const offset of offsets) {
-                                const subMesh = new THREE.Mesh(wallGeom, wallMat);
-                                subMesh.position.set(
-                                    (x + offset.dx) - size/2,
-                                    (z - size/2) * this.vScale - 0.3 * this.vScale,
-                                    (y + offset.dy) - size/2
-                                );
-                                this.scene.add(subMesh);
-                            }
-
-                            if (val === this.mazeGen.TYPES.STATUE) {
-                                const baseGeom = new THREE.BoxGeometry(0.5, 0.1 * this.vScale, 0.5);
-                                const baseMat = new THREE.MeshPhongMaterial({
-                                    color: 0x333333,
-                                    transparent: true,
-                                    opacity: 0.9 * opFactor
-                                });
-                                const baseMesh = new THREE.Mesh(baseGeom, baseMat);
-                                const base_Y = (z - size/2) * this.vScale - 0.4 * this.vScale;
-                                baseMesh.position.set(x - size/2, base_Y, y - size/2);
-                                this.scene.add(baseMesh);
-
-                                const bodyGeom = new THREE.CylinderGeometry(0.18, 0.22, 0.5 * this.vScale, 8);
-                                const bodyMat = new THREE.MeshPhongMaterial({
-                                    color: 0x777777,
-                                    transparent: true,
-                                    opacity: 0.9 * opFactor
-                                });
-                                const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
-                                bodyMesh.position.set(x - size/2, base_Y + 0.3 * this.vScale, y - size/2);
-                                this.scene.add(bodyMesh);
-                            }
-                        }
-                        continue;
-                    }
-
-                    // Render elevator shaft cells (even z index and not a wall)
-                    const isShaft = z % 2 === 0 && val !== 0;
-                    if (isShaft) {
-                        const key = `${x},${y},${z}`;
-                        const isRevealedPath = this.revealedPathSet.has(key);
-                        const isShaftVisited = val === this.mazeGen.TYPES.ELEVATOR_VISITED;
-                        const isShaftKnown = (val === 1) && (isFloorVisited(x, y, z - 1) || isFloorVisited(x, y, z + 1));
-
-                        if (isShaftVisited || isShaftKnown || isRevealedPath || isIntro) {
-                            let material;
-                            if (isRevealedPath) {
-                                material = new THREE.MeshPhongMaterial({
-                                    color: 0xffffff,
-                                    transparent: true,
-                                    opacity: 0.95 * opFactor,
-                                    emissive: 0xffffff,
-                                    emissiveIntensity: 2.0 * opFactor
-                                });
-                            } else if (isShaftVisited) {
-                                material = new THREE.MeshPhongMaterial({
-                                    color: CONFIG.COLORS.THREE_VISITED,
-                                    transparent: true,
-                                    opacity: 0.8 * opFactor
-                                });
-                            } else if (isShaftKnown || isIntro) {
-                                const color = isIntro ? CONFIG.COLORS.THREE_VISITED : CONFIG.COLORS.THREE_KNOWN;
-                                material = new THREE.MeshPhongMaterial({
-                                    color: color,
-                                    transparent: true,
-                                    opacity: isIntro ? 0.72 : (0.6 * opFactor),
-                                    emissive: color,
-                                    emissiveIntensity: isIntro ? 0 : (0.5 * opFactor)
-                                });
-                                if (!isIntro) this.pulsatingMaterials.push(material);
-                            }
-
-                            const mesh = new THREE.Mesh(shaftGeom, material);
-                            mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
-                            this.scene.add(mesh);
-                            this.gridMeshes[(x * size * size) + (y * size) + z] = mesh;
-
-                            if (isShaftKnown && !isRevealedPath) {
-                                mesh.userData = { gridX: x, gridY: y, gridZ: z };
-                                this.knownMeshes.push(mesh);
-                            }
-                        }
-                        continue;
-                    }
-
-                    const isJelly = val === this.mazeGen.TYPES.JELLY_PORTAL;
-                    const isTeleport = val === this.mazeGen.TYPES.TELEPORT || isJelly;
-                    const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
-                    const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
-                    const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
-
-                    if (isTeleportDiscovered) {
-                        const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) &&
-                                                y === Math.floor(this.mazeGen.startPos.y) &&
-                                                z === this.mazeGen.startPos.z;
-
-                        const isInactive = this.teleportCooldownTicks > 0;
-
-                        if (isStartTeleport) {
-                            const emissiveInt = isInactive ? 0.0 : (this.isTeleportMode ? 2.5 : 0.5);
-                            const color = isInactive ? 0x444444 : CONFIG.COLORS.THREE_START;
-                            const opacity = isInactive ? 0.4 : (this.isTeleportMode ? 0.95 : (0.8 * opFactor));
-                            
-                            const material = new THREE.MeshPhongMaterial({
-                                color: color,
-                                emissive: color,
-                                emissiveIntensity: emissiveInt * opFactor,
-                                transparent: true,
-                                opacity: opacity
-                            });
-                            const mesh = new THREE.Mesh(geometry, material);
-                            mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
-                            
-                            if (this.isTeleportMode) {
-                                mesh.scale.set(1.4, 1.4, 1.4);
-                            }
-                            
-                            mesh.userData = { isTeleport: true, gridX: x, gridY: y, gridZ: z };
-                            this.scene.add(mesh);
-                            this.teleportMeshes.push(mesh);
-                            continue;
-                        }
-
-                        const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
-                        
-                        // In teleport mode, spheres are larger (radius 0.9 instead of 0.45)
-                        // and have stronger emissive glow (intensity 2.5 instead of 0.8)
-                        let radius = this.isTeleportMode ? 0.9 : 0.45;
-                        let emissiveInt = this.isTeleportMode ? 2.5 : 0.8;
-                        let color = isJelly ? CONFIG.COLORS.THREE_JELLY_PORTAL : CONFIG.COLORS.THREE_TELEPORT;
-                        let opacity = 0.95;
-                        
-                        if (isInactive) {
-                            color = 0x444444; // Dark grey for inactive
-                            emissiveInt = 0.0; // No glow
-                            opacity = 0.4;     // Translucent/dimmed
-                        } else if (this.isTeleportMode && isPlayerHere) {
-                            color = 0x00ffff; // Cyan/blue glow for the current source portal
-                            opacity = 0.5;    // Translucent so the player sphere inside is visible
-                            emissiveInt = 3.0; // Extra bright/high emissivity
-                        }
-
-                        const teleportGeom = new THREE.SphereGeometry(radius, 16, 16);
-                        const teleportMat = new THREE.MeshPhongMaterial({
-                            color: color,
-                            emissive: color,
-                            emissiveIntensity: emissiveInt,
-                            transparent: true,
-                            opacity: opacity
-                        });
-                        const mesh = new THREE.Mesh(teleportGeom, teleportMat);
-                        mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
-                        mesh.userData = { isTeleport: true, gridX: x, gridY: y, gridZ: z };
-                        this.scene.add(mesh);
-                        this.teleportMeshes.push(mesh);
-                        continue;
-                    }
-
-                    const isKey = val === this.mazeGen.TYPES.KEY;
-                    if (isKey) {
-                        const keyGeom = new THREE.OctahedronGeometry(0.3, 0);
-                        const keyMat = new THREE.MeshPhongMaterial({
-                            color: CONFIG.COLORS.THREE_KEY,
-                            emissive: CONFIG.COLORS.THREE_KEY,
-                            emissiveIntensity: 0.6 * opFactor,
-                            shininess: 100
-                        });
-                        const mesh = new THREE.Mesh(keyGeom, keyMat);
-                        mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
-                        mesh.userData = { isKey: true, gridX: x, gridY: y, gridZ: z };
-                        this.scene.add(mesh);
-                        this.keyMeshes.push(mesh);
-                        this.pulsatingMaterials.push(keyMat);
-                        
-                        // If the key coordinate is not in visitedCells, skip rendering the floor tile
-                        const isVisitedKey = this.visitedCells.has(`${x},${y},${z}`);
-                        if (!isVisitedKey) {
-                            continue;
-                        }
-                    }
-
-                    const isMana = val === this.mazeGen.TYPES.MANA;
-                    if (isMana) {
-                        const manaGeom = new THREE.IcosahedronGeometry(0.22, 0);
-                        const manaMat = new THREE.MeshPhongMaterial({
-                            color: 0x00ffff,
-                            emissive: 0x00ffff,
-                            emissiveIntensity: 0.7 * opFactor,
-                            shininess: 120
-                        });
-                        const mesh = new THREE.Mesh(manaGeom, manaMat);
-                        mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
-                        mesh.userData = { isMana: true, gridX: x, gridY: y, gridZ: z };
-                        this.scene.add(mesh);
-                        this.manaMeshes.push(mesh);
-                        this.pulsatingMaterials.push(manaMat);
-
-                        // If the mana coordinate is not in visitedCells, skip rendering the floor tile
-                        const isVisitedMana = this.visitedCells.has(`${x},${y},${z}`);
-                        if (!isVisitedMana) {
-                            continue;
-                        }
-                    }
-
-                    const key = `${x},${y},${z}`;
-                    const isRevealedPath = this.revealedPathSet.has(key);
-
-                    // During intro: render every passable cell so BFS can reveal it
-                    const shouldRender = isIntro
-                        ? val !== this.mazeGen.TYPES.WALL
-                        : (isVisited || isKnown || isRevealedPath);
-
-                    if (shouldRender) {
-                        let color = isIntro ? CONFIG.COLORS.THREE_VISITED : CONFIG.COLORS.THREE_KNOWN;
-                        let material;
-
-                        if (isRevealedPath) {
-                            color = 0xffffff;
-                            material = new THREE.MeshPhongMaterial({
-                                color: color,
-                                transparent: true,
-                                opacity: 0.95 * opFactor,
-                                emissive: color,
-                                emissiveIntensity: 2.0 * opFactor
-                            });
-                        } else if (isVisited || isIntro) {
-                            color = CONFIG.COLORS.THREE_VISITED;
-                            if (val === 3) {
-                                color = CONFIG.COLORS.THREE_START;
-                            } else if (val === 4) {
-                                const isUnlocked = this.keysCollected === this.totalKeys;
-                                color = isUnlocked ? CONFIG.COLORS.THREE_EXIT : 0xff3300;
-                            }
-                            material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: isIntro ? 0.72 : (0.8 * opFactor) });
-                        } else if (isKnown) {
-                            material = new THREE.MeshPhongMaterial({ 
-                                color: color, 
-                                transparent: true, 
-                                opacity: 0.6 * opFactor, 
-                                emissive: color, 
-                                emissiveIntensity: 0.5 * opFactor 
-                            });
-                            this.pulsatingMaterials.push(material);
-                        }
-
-                        const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== 0;
-                        const hDown = z > 0 && this.maze.get(x, y, z - 1) !== 0;
-                        if (hUp || hDown) {
-                            // Remove do pulse caso tenha sido adicionado como isKnown
-                            const index = this.pulsatingMaterials.indexOf(material);
-                            if (index > -1) this.pulsatingMaterials.splice(index, 1);
-
-                            if (hUp && hDown) {
-                                let routeUsesUp = false;
-                                let routeUsesDown = false;
-                                if (isRevealedPath) {
-                                    if (this.activePathReveal) {
-                                        const idx = this.activePathReveal.findIndex(node => node.x === x && node.y === y && node.z === z);
-                                        if (idx !== -1 && idx < this.activePathReveal.length - 1) {
-                                            const nextNode = this.activePathReveal[idx + 1];
-                                            if (nextNode.z > z) routeUsesUp = true;
-                                            if (nextNode.z < z) routeUsesDown = true;
-                                        }
-                                    }
-                                    if (!routeUsesUp && !routeUsesDown) {
-                                        routeUsesUp = this.revealedPathSet.has(`${x},${y},${z + 1}`) || this.revealedPathSet.has(`${x},${y},${z + 2}`);
-                                        routeUsesDown = this.revealedPathSet.has(`${x},${y},${z - 1}`) || this.revealedPathSet.has(`${x},${y},${z - 2}`);
-                                    }
-                                }
-
-                                const paintUpWhite = isRevealedPath && (routeUsesUp || (!routeUsesUp && !routeUsesDown));
-                                const paintDownWhite = isRevealedPath && (routeUsesDown || (!routeUsesUp && !routeUsesDown));
-
-                                const colorDown = paintDownWhite ? 0xffffff : (isVisited ? CONFIG.COLORS.THREE_ELEVATOR_DOWN : CONFIG.COLORS.THREE_ELEVATOR_DOWN_UNUSED);
-                                const colorUp = paintUpWhite ? 0xffffff : (isVisited ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_UP_UNUSED);
-
-                                const matBottom = new THREE.MeshPhongMaterial({
-                                    color: colorDown,
-                                    transparent: true,
-                                    opacity: 0.9 * opFactor,
-                                    emissive: colorDown,
-                                    emissiveIntensity: (paintDownWhite ? 2.0 : 0.4) * opFactor
-                                });
-                                const matTop = new THREE.MeshPhongMaterial({
-                                    color: colorUp,
-                                    transparent: true,
-                                    opacity: 0.9 * opFactor,
-                                    emissive: colorUp,
-                                    emissiveIntensity: (paintUpWhite ? 2.0 : 0.4) * opFactor
-                                });
-
-                                const meshBottom = new THREE.Mesh(shaftGeomBottom, matBottom);
-                                const meshTop    = new THREE.Mesh(shaftGeomTop,    matTop);
-                                meshBottom.position.set(x - size/2, (z - size/2) * this.vScale - 0.2125, y - size/2);
-                                meshTop.position.set(   x - size/2, (z - size/2) * this.vScale + 0.2125, y - size/2);
-                                this.scene.add(meshBottom);
-                                this.scene.add(meshTop);
-                                this.gridMeshes[(x * size * size) + (y * size) + z] = meshTop; // Reference to one of them is enough
-                                if (isKnown && !isRevealedPath) {
-                                    meshBottom.userData = { gridX: x, gridY: y, gridZ: z };
-                                    meshTop.userData = { gridX: x, gridY: y, gridZ: z };
-                                    this.knownMeshes.push(meshBottom);
-                                    this.knownMeshes.push(meshTop);
-                                }
-                                continue;
-                            } else {
-                                const baseColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP : CONFIG.COLORS.THREE_ELEVATOR_DOWN;
-                                const unusedColor = hUp ? CONFIG.COLORS.THREE_ELEVATOR_UP_UNUSED : CONFIG.COLORS.THREE_ELEVATOR_DOWN_UNUSED;
-                                const elevatorColor = isRevealedPath ? 0xffffff : (isVisited ? baseColor : unusedColor);
-                                const intensity = isRevealedPath ? 2.0 : 0.4;
-                                material = new THREE.MeshPhongMaterial({
-                                    color: elevatorColor,
-                                    transparent: true,
-                                    opacity: 0.9 * opFactor,
-                                    emissive: elevatorColor,
-                                    emissiveIntensity: intensity * opFactor
-                                });
-                            }
-                        }
-
-                        const isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
-                        const isHunterHere = this.hunters.some(h => h.x === x && h.y === y && h.z === z);
-                        if (isPlayerHere || isHunterHere) {
-                            const floorGeom = new THREE.BoxGeometry(0.9, 0.05, 0.9);
-                            const mesh = new THREE.Mesh(floorGeom, material);
-                            mesh.position.set(x - size/2, (z - size/2) * this.vScale - 0.425, y - size/2);
-                            this.scene.add(mesh);
-                            this.gridMeshes[(x * size * size) + (y * size) + z] = mesh;
-                            continue;
-                        }
-
-                        const mesh = new THREE.Mesh(geometry, material);
-                        mesh.position.set(x - size/2, (z - size/2) * this.vScale, y - size/2);
-                        
-                        if (val === 4) {
-                            this.exitMesh = mesh;
-                            if (this.keysCollected < this.totalKeys) {
-                                const cageGeom = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-                                const cageMat = new THREE.MeshBasicMaterial({
-                                    color: 0xff0000,
-                                    wireframe: true
-                                });
-                                const cageMesh = new THREE.Mesh(cageGeom, cageMat);
-                                mesh.add(cageMesh);
-                            }
-                        }
-                        
-                        this.scene.add(mesh);
-                        this.gridMeshes[(x * size * size) + (y * size) + z] = mesh;
-                        if ((isKnown || val === this.mazeGen.TYPES.EXIT) && !isRevealedPath) {
-                            mesh.userData = { gridX: x, gridY: y, gridZ: z };
-                            this.knownMeshes.push(mesh);
-                        }
-                    }
-                }
-            }
-        }
-        // Skip player/hunter markers during intro (scene is clean)
-        if (isIntro) return;
-
-        const pGeom = new THREE.SphereGeometry(0.42, 16, 16);
-        const pMarkerMat = new THREE.MeshPhongMaterial({
-            color: 0xff0000,
-            emissive: 0xff0000,
-            emissiveIntensity: 0.8,
-            depthWrite: false
-        });
-        const pMarker = new THREE.Mesh(pGeom, pMarkerMat);
-        pMarker.position.set(
-            Math.floor(this.player.x) - size/2,
-            (this.player.z - size/2) * this.vScale + 0.05,
-            Math.floor(this.player.y) - size/2
-        );
-        this.scene.add(pMarker);
-        const hGeom = new THREE.SphereGeometry(0.4);
-        const hMat = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.8, depthWrite: false });
-        
-        // Trail materials with lower opacities and emissivities
-        const trailMat1 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.40, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.3, depthWrite: false });
-        const trailMat2 = new THREE.MeshPhongMaterial({ color: CONFIG.COLORS.THREE_HUNTER, transparent: true, opacity: 0.15, emissive: CONFIG.COLORS.THREE_HUNTER, emissiveIntensity: 0.1, depthWrite: false });
-        const trailGeom = hGeom; // Reutiliza a geometria esférica do monstro
-
-        for (let i = 0; i < this.hunters.length; i++) {
-            const h = this.hunters[i];
-            if (h.state === 'SLEEP') continue;
-            
-            // Create trail meshes
-            const tMesh2 = new THREE.Mesh(trailGeom, trailMat2); // Oldest
-            const tMesh1 = new THREE.Mesh(trailGeom, trailMat1); // Newest
-            
-            tMesh2.visible = false;
-            tMesh1.visible = false;
-            
-            tMesh2.renderOrder = 99;
-            tMesh1.renderOrder = 99;
-            
-            this.scene.add(tMesh2);
-            this.scene.add(tMesh1);
-
-            const hGroup = new THREE.Group();
-            hGroup.renderOrder = 99;
-            
-            // Core sphere (jelly nucleus)
-            const coreMesh = new THREE.Mesh(hGeom, hMat);
-            hGroup.add(coreMesh);
-            
-            // Orbital glitch/corruption particles (small cubes) that float and leak outside
-            const numParticles = 4;
-            const particles = [];
-            const partGeom = new THREE.BoxGeometry(0.18, 0.18, 0.18);
-            const partColors = [CONFIG.COLORS.THREE_HUNTER, 0xff00ff, 0x00ffff, 0xffff00];
-            
-            for (let p = 0; p < numParticles; p++) {
-                const pMat = new THREE.MeshPhongMaterial({
-                    color: partColors[p % partColors.length],
-                    transparent: true,
-                    opacity: 0.8,
-                    emissive: partColors[p % partColors.length],
-                    emissiveIntensity: 0.8,
-                    depthWrite: false
-                });
-                const pMesh = new THREE.Mesh(partGeom, pMat);
-                
-                // Orbit parameters
-                pMesh.userData = {
-                    angle: (p / numParticles) * Math.PI * 2,
-                    radius: 0.35 + Math.random() * 0.1, // Contido na célula
-                    speed: 1.0 + Math.random() * 1.5,
-                    phaseY: Math.random() * Math.PI * 2
-                };
-                
-                hGroup.add(pMesh);
-                particles.push(pMesh);
-            }
-            
-            hGroup.position.set(h.x! - size/2, (h.z! - size/2) * this.vScale, h.y! - size/2);
-            this.scene.add(hGroup);
-            
-            this.hunterMeshes.push({ 
-                hunter: h, 
-                mesh: hGroup,
-                coreMesh: coreMesh,
-                particles: particles,
-                trail1: tMesh1,
-                trail2: tMesh2
-            });
-
-        }
-        this.camera.position.set(size, size * this.vScale, size);
-        this.controls.target.set(0, 0, 0);
-        this.controls.update();
+        this.threeRenderer.build3DMap(isIntro);
     }    
     
     draw2DMap(dt = 0.016) {
@@ -4373,12 +3648,7 @@ export class Engine {
 
 
     updatePulse() {
-        if (!this.isMap3DActive || this.pulsatingMaterials.length === 0) return;
-
-        const pulseIntensity = 0.2 + 0.5 * Math.abs(Math.sin(Date.now() * 0.003));
-        this.pulsatingMaterials.forEach(material => {
-            material.emissiveIntensity = pulseIntensity;
-        });
+        this.threeRenderer.updatePulse();
     }
 
     loop() {
@@ -4391,14 +3661,14 @@ export class Engine {
         if (!this.isIntroPlaying) {
             this.update(clampedDt);
         } else {
-            this.controls.update(); // drive auto-rotate during intro
+            this.threeRenderer.update(clampedDt);
         }
 
         this.updateVortexAngles(clampedDt);
 
         if (this.isMap3DActive || this.isIntroPlaying) {
             if (this.isIntroPlaying) {
-                this.renderer.render(this.scene, this.camera);
+                this.threeRenderer.render();
             } else {
                 const lerpSpeed = 10;
                 const ease = 1 - Math.exp(-lerpSpeed * clampedDt);
@@ -4545,308 +3815,15 @@ export class Engine {
      * the camera, and then zooms in onto the player's current location before transitioning to 2D.
      */
     playContinueAnimation() {
-        this.isIntroPlaying = true;
-        const size = this.mazeGen.size;
-
-        // Ensure 3D canvas and instructions are visible, and isometric map canvas is hidden
-        if (this.renderer && this.renderer.domElement) {
-            this.renderer.domElement.style.display = 'block';
-        }
-        const instEl = document.getElementById('map3d-instructions');
-        if (instEl) instEl.style.display = 'block';
-        if (this.isometricCanvas) {
-            this.isometricCanvas.style.display = 'none';
-        }
-
-        this.ui.setMap3DVisible(true);
-        this.isMap3DActive = true;
-        this.updateRendererSize();
-
-        // 1. Build the static 3D map from current state (official colors, no lazy BFS)
-        this.build3DMap(false);
-
-        // 2. Center camera around the maze bounds
-        this.camera.position.set(size * 0.9, size * this.vScale * 0.6, size * 0.9);
-        this.controls.target.set(0, 0, 0);
-        this.controls.update();
-
-        this.hideCanvasInstant();
-
-        // 3. Set up camera rotation
-        this.controls.autoRotate = true;
-        this.controls.autoRotateSpeed = 2.0;
-        this.controls.enableZoom = false;
-        this.controls.enablePan = false;
-        this.controls.enableRotate = false;
-
-        const finishContinue = () => {
-            if (this.activeContinueTimer) { clearTimeout(this.activeContinueTimer); this.activeContinueTimer = null; }
-            if (this.activeSkipHandler) {
-                window.removeEventListener('keydown', this.activeSkipHandler);
-                window.removeEventListener('touchstart', this.activeSkipHandler);
-                this.activeSkipHandler = null;
-            }
-
-            this.controls.autoRotate = false;
-            this.animateCameraToPlayer(() => {
-                this._transitionToGame();
-            });
-        };
-
-        this.activeSkipHandler = () => finishContinue();
-        window.addEventListener('keydown', this.activeSkipHandler, { once: true });
-        window.addEventListener('touchstart', this.activeSkipHandler, { once: true });
-
-        // Spin for 2.5 seconds before starting zoom and transition
-        this.activeContinueTimer = setTimeout(finishContinue, 2500);
+        this.threeRenderer.playContinueAnimation();
     }
 
-    /**
-     * Smoothly interpolates (ease-in-out-cubic) the camera position and controls target
-     * towards the player's 3D grid location.
-     */
     animateCameraToPlayer(onComplete?: () => void) {
-        const size = this.mazeGen.size;
-        const playerX = this.player.x - size / 2;
-        const playerY = (this.player.z - size / 2) * this.vScale;
-        const playerZ = this.player.y - size / 2;
-
-        const startTarget = this.controls.target.clone();
-        const endTarget = new THREE.Vector3(playerX, playerY, playerZ);
-
-        const startCam = this.camera.position.clone();
-        const endCam = new THREE.Vector3(playerX + 4, playerY + 5, playerZ + 4);
-
-        const duration = 1100; // ~1 second zoom in
-        const startTime = performance.now();
-
-        const animate = (now: number) => {
-            if (this.isDestroyed) return;
-            const elapsed = now - startTime;
-            const progress = Math.min(elapsed / duration, 1.0);
-
-            // easeInOutCubic
-            const ease = progress < 0.5 
-                ? 4 * progress * progress * progress 
-                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-            this.controls.target.lerpVectors(startTarget, endTarget, ease);
-            this.camera.position.lerpVectors(startCam, endCam, ease);
-            this.controls.update();
-
-            if (progress < 1.0) {
-                requestAnimationFrame(animate);
-            } else {
-                if (onComplete) onComplete();
-            }
-        };
-
-        requestAnimationFrame(animate);
+        this.threeRenderer.animateCameraToPlayer(onComplete);
     }
 
-    /**
-     * Intro animation: dual-source BFS reveal from start + exit nodes,
-     * camera auto-rotate, glitch effect, then transition to 2D gameplay.
-     * Meshes are created lazily (one per step) to avoid synchronous freeze.
-     */
     playIntroAnimation() {
-        this.isIntroPlaying = true;
-
-        const size = this.mazeGen.size;
-
-        // Ensure 3D canvas and instructions are visible, and isometric map canvas is hidden
-        if (this.renderer && this.renderer.domElement) {
-            this.renderer.domElement.style.display = 'block';
-        }
-        const instEl = document.getElementById('map3d-instructions');
-        if (instEl) instEl.style.display = 'block';
-        if (this.isometricCanvas) {
-            this.isometricCanvas.style.display = 'none';
-        }
-
-        // --- 1. Set up minimal scene: lights + renderer only (no mesh bulk) ---
-        while (this.scene.children.length > 0) this.scene.remove(this.scene.children[0]);
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-        dirLight.position.set(10, 20, 10);
-        this.scene.add(dirLight);
-
-        this.ui.setMap3DVisible(true);
-        this.isMap3DActive = true;
-        this.updateRendererSize();
-        this.camera.position.set(size * 0.9, size * this.vScale * 0.6, size * 0.9);
-        this.controls.target.set(0, 0, 0);
-        this.controls.update();
-
-        this.hideCanvasInstant();
-
-        // --- 2. Place permanent start + exit markers ---
-        const startPos = this.mazeGen.startPos;
-        const exitPos  = this.getExitPos();
-        const markerGeom = new THREE.BoxGeometry(0.92, 0.92, 0.92);
-
-        const startMat = new THREE.MeshPhongMaterial({
-            color: CONFIG.COLORS.THREE_START, emissive: CONFIG.COLORS.THREE_START,
-            emissiveIntensity: 0.6, transparent: true, opacity: 0.95
-        });
-        const startMesh = new THREE.Mesh(markerGeom, startMat);
-        startMesh.position.set(
-            Math.floor(startPos.x) - size / 2,
-            (startPos.z - size / 2) * this.vScale,
-            Math.floor(startPos.y) - size / 2
-        );
-        this.scene.add(startMesh);
-
-        const exitMat = new THREE.MeshPhongMaterial({
-            color: 0xff3300, emissive: 0xff3300,
-            emissiveIntensity: 0.6, transparent: true, opacity: 0.95
-        });
-        const exitMesh = new THREE.Mesh(markerGeom, exitMat);
-        exitMesh.position.set(
-            exitPos.x - size / 2,
-            (exitPos.z - size / 2) * this.vScale,
-            exitPos.y - size / 2
-        );
-        const cageGeom = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-        const cageMat = new THREE.MeshBasicMaterial({
-            color: 0xff0000,
-            wireframe: true
-        });
-        const cageMesh = new THREE.Mesh(cageGeom, cageMat);
-        exitMesh.add(cageMesh);
-        this.scene.add(exitMesh);
-
-        // --- 3. BFS from start AND exit to build reveal order ---
-        const dirs3D = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-        const startKey = `${Math.floor(startPos.x)},${Math.floor(startPos.y)},${startPos.z}`;
-        const exitKey  = `${exitPos.x},${exitPos.y},${exitPos.z}`;
-        const visited  = new Set([startKey, exitKey]);
-
-        const qA = [{ x: Math.floor(startPos.x), y: Math.floor(startPos.y), z: startPos.z }];
-        const qB = [{ x: exitPos.x, y: exitPos.y, z: exitPos.z }];
-        let iA = 0, iB = 0;
-
-        const revealOrder: { x: number; y: number; z: number }[] = [];
-        while (iA < qA.length || iB < qB.length) {
-            // Process queue A
-            if (iA < qA.length) {
-                const { x, y, z } = qA[iA++];
-                for (const [dx, dy, dz] of dirs3D) {
-                    const nx = x + dx, ny = y + dy, nz = z + dz;
-                    const key = `${nx},${ny},${nz}`;
-                    if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size
-                        && !visited.has(key)
-                        && this.maze.get(nx, ny, nz) !== this.mazeGen.TYPES.WALL) {
-                        visited.add(key);
-                        qA.push({ x: nx, y: ny, z: nz });
-                        revealOrder.push({ x: nx, y: ny, z: nz });
-                    }
-                }
-            }
-            // Process queue B
-            if (iB < qB.length) {
-                const { x, y, z } = qB[iB++];
-                for (const [dx, dy, dz] of dirs3D) {
-                    const nx = x + dx, ny = y + dy, nz = z + dz;
-                    const key = `${nx},${ny},${nz}`;
-                    if (nx >= 0 && nx < size && ny >= 0 && ny < size && nz >= 0 && nz < size
-                        && !visited.has(key)
-                        && this.maze.get(nx, ny, nz) !== this.mazeGen.TYPES.WALL) {
-                        visited.add(key);
-                        qB.push({ x: nx, y: ny, z: nz });
-                        revealOrder.push({ x: nx, y: ny, z: nz });
-                    }
-                }
-            }
-        }
-
-        // --- 4. Enable auto-rotation ---
-        this.controls.autoRotate = true;
-        this.controls.autoRotateSpeed = 1.8;
-        this.controls.enableZoom = false;
-        this.controls.enablePan = false;
-        this.controls.enableRotate = false;
-
-        // --- 5. Batch reveal for consistent ~3-5s duration ---
-        const pathGeom = new THREE.BoxGeometry(0.88, 0.88, 0.88);
-        const pathMat  = new THREE.MeshPhongMaterial({
-            color: CONFIG.COLORS.THREE_VISITED, transparent: true, opacity: 0.72
-        });
-
-        const TICK_MS = 20;
-        const TARGET_TICKS = 200;
-        const totalSteps = revealOrder.length;
-        const batchSize = Math.max(1, Math.ceil(totalSteps / TARGET_TICKS));
-
-        let stepIndex = 0;
-        this.activeIntroTimer = null;
-        const revealedMeshes: THREE.Mesh[] = [];
-
-        const finishIntro = () => {
-            if (this.activeIntroTimer) { clearTimeout(this.activeIntroTimer); this.activeIntroTimer = null; }
-            if (this.activeSkipHandler) {
-                window.removeEventListener('keydown', this.activeSkipHandler);
-                window.removeEventListener('touchstart', this.activeSkipHandler);
-                this.activeSkipHandler = null;
-            }
-            this._playGlitchAndTransition(revealedMeshes);
-        };
-
-        this.activeSkipHandler = () => finishIntro();
-        window.addEventListener('keydown', this.activeSkipHandler, { once: true });
-        window.addEventListener('touchstart', this.activeSkipHandler, { once: true });
-
-        const revealNext = () => {
-            if (this.isDestroyed) return;
-            const end = Math.min(stepIndex + batchSize, revealOrder.length);
-            for (; stepIndex < end; stepIndex++) {
-                const { x, y, z } = revealOrder[stepIndex];
-                const isShaft = z % 2 === 0;
-                let geom;
-                if (isShaft) {
-                    geom = new THREE.CylinderGeometry(0.35, 0.35, 2.0 * this.vScale, 8);
-                } else {
-                    geom = pathGeom;
-                }
-                const mesh = new THREE.Mesh(geom, pathMat);
-                mesh.position.set(x - size / 2, (z - size / 2) * this.vScale, y - size / 2);
-                this.scene.add(mesh);
-                revealedMeshes.push(mesh);
-            }
-            if (stepIndex < revealOrder.length) {
-                this.activeIntroTimer = setTimeout(revealNext, TICK_MS);
-            } else {
-                if (this.activeSkipHandler) {
-                    window.removeEventListener('keydown', this.activeSkipHandler);
-                    window.removeEventListener('touchstart', this.activeSkipHandler);
-                    this.activeSkipHandler = null;
-                }
-                this._playGlitchAndTransition(revealedMeshes);
-            }
-        };
-
-        this.activeIntroTimer = setTimeout(revealNext, TICK_MS);
-    }
-
-    _playGlitchAndTransition(revealedMeshes: THREE.Mesh[]) {
-        if (this.isDestroyed) return;
-        const GLITCH_FLASHES = 5;
-        const FLASH_INTERVAL = 90;
-        let flash = 0;
-
-        const doFlash = () => {
-            if (this.isDestroyed) return;
-            const visible = flash % 2 === 0;
-            revealedMeshes.forEach(m => { if (m) m.visible = visible; });
-            flash++;
-            if (flash < GLITCH_FLASHES * 2) {
-                setTimeout(doFlash, FLASH_INTERVAL);
-            } else {
-                revealedMeshes.forEach(m => { if (m) m.visible = false; });
-                setTimeout(() => this._transitionToGame(), 400);
-            }
-        };
-        doFlash();
+        this.threeRenderer.playIntroAnimation();
     }
 
     _transitionToGame() {
@@ -5293,44 +4270,7 @@ export class Engine {
     }
 
     onCanvasClick(event: MouseEvent) {
-        if (!this.isMap3DActive) return;
-        
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        
-        this.raycaster.setFromCamera(this.pointer, this.camera);
-        
-        if (this.isTeleportMode) {
-            const intersects = this.raycaster.intersectObjects(this.teleportMeshes);
-            if (intersects.length > 0) {
-                const hitMesh = intersects[0].object;
-                const { gridX, gridY, gridZ } = hitMesh.userData;
-                const isTargetInactive = this.inactiveTeleportPos && 
-                                         this.inactiveTeleportPos.x === gridX && 
-                                         this.inactiveTeleportPos.y === gridY && 
-                                         this.inactiveTeleportPos.z === gridZ;
-                
-                const px = Math.floor(this.player.x);
-                const py = Math.floor(this.player.y);
-                const pz = this.player.z;
-                const isCurrentPos = gridX === px && gridY === py && gridZ === pz;
-
-                if (isCurrentPos) {
-                    this.toggleTeleportMap(false);
-                } else if (!isTargetInactive) {
-                    this.teleportTo(gridX, gridY, gridZ);
-                }
-            }
-        } else {
-            const intersects = this.raycaster.intersectObjects(this.knownMeshes);
-            if (intersects.length > 0) {
-                const hitMesh = intersects[0].object;
-                const { gridX, gridY, gridZ } = hitMesh.userData;
-                
-                this.triggerPathReveal(gridX, gridY, gridZ);
-            }
-        }
+        this.threeRenderer.onCanvasClick(event);
     }
 
     toggleZoom() {
