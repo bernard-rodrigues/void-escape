@@ -334,3 +334,49 @@ export function bfsNearestUnvisited(start: Point3D, visitedNodes: Set<string>, m
 
     return null;
 }
+
+/**
+ * Helper to build the pathfinder grid from the engine state and run A*.
+ */
+export function findShortestPath(engine: any, start: Point3D, end: Point3D, restrictToVisited = false): Point3D[] {
+    const size = engine.mazeGen.size;
+    const tempMaze = new Int8Array(size * size * size);
+    for (let x = 0; x < size; x++) {
+        for (let y = 0; y < size; y++) {
+            for (let z = 0; z < size; z++) {
+                const idx = x * size * size + y * size + z;
+                const val = engine.maze.get(x, y, z);
+                
+                const isPlayerStart = x === start.x && y === start.y && z === start.z;
+                const isTargetEnd = x === end.x && y === end.y && z === end.z;
+                const isClickedShaft = x === end.x && y === end.y && (z === end.z - 1 || z === end.z + 1) && z % 2 === 0;
+
+                const isWall = val === engine.mazeGen.TYPES.WALL;
+                if (isWall) {
+                    tempMaze[idx] = 0; // parede é sempre intransitável
+                    continue;
+                }
+
+                const isTeleport = val === engine.mazeGen.TYPES.TELEPORT;
+                const isTeleportDiscovered = isTeleport && engine.discoveredTeleports.has(`${x},${y},${z}`);
+                
+                const isVisited = val === engine.mazeGen.TYPES.VISITED || 
+                                  val === engine.mazeGen.TYPES.START || 
+                                  val === engine.mazeGen.TYPES.ELEVATOR_VISITED || 
+                                  isTeleportDiscovered;
+                
+                const isKnown = (val === engine.mazeGen.TYPES.PATH || (isTeleport && !isTeleportDiscovered)) && engine.isNearVisited(x, y, z);
+
+                let isPassable = false;
+                if (restrictToVisited) {
+                    isPassable = isVisited || isPlayerStart || isTargetEnd || isClickedShaft;
+                } else {
+                    isPassable = isVisited || isKnown || isPlayerStart || isTargetEnd || isClickedShaft;
+                }
+
+                tempMaze[idx] = isPassable ? 1 : 0;
+            }
+        }
+    }
+    return aStarPath(start, end, tempMaze, size, 0) ?? [];
+}

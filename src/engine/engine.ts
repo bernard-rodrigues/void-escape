@@ -21,7 +21,7 @@ export interface GameState {
 }
 
 import { Maze3D } from './maze3d.js';
-import { aStarDistance, aStarPath, proximeterDistance } from './pathfinder.js';
+import { aStarDistance, aStarPath, proximeterDistance, findShortestPath } from './pathfinder.js';
 import { UIManager } from './ui.js';
 import { InputHandler } from './input.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
@@ -5715,48 +5715,7 @@ export class Engine {
         return false;
     }
 
-    findShortestPath(start: { x: number; y: number; z: number }, end: { x: number; y: number; z: number }, restrictToVisited = false) {
-        const size = this.mazeGen.size;
-        const tempMaze = new Int8Array(size * size * size);
-        for (let x = 0; x < size; x++) {
-            for (let y = 0; y < size; y++) {
-                for (let z = 0; z < size; z++) {
-                    const idx = x * size * size + y * size + z;
-                    const val = this.maze.get(x, y, z);
-                    
-                    const isPlayerStart = x === start.x && y === start.y && z === start.z;
-                    const isTargetEnd = x === end.x && y === end.y && z === end.z;
-                    const isClickedShaft = x === end.x && y === end.y && (z === end.z - 1 || z === end.z + 1) && z % 2 === 0;
 
-                    const isWall = val === this.mazeGen.TYPES.WALL;
-                    if (isWall) {
-                        tempMaze[idx] = 0; // parede é sempre intransitável
-                        continue;
-                    }
-
-                    const isTeleport = val === this.mazeGen.TYPES.TELEPORT;
-                    const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
-                    
-                    const isVisited = val === this.mazeGen.TYPES.VISITED || 
-                                      val === this.mazeGen.TYPES.START || 
-                                      val === this.mazeGen.TYPES.ELEVATOR_VISITED || 
-                                      isTeleportDiscovered;
-                    
-                    const isKnown = (val === this.mazeGen.TYPES.PATH || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
-
-                    let isPassable = false;
-                    if (restrictToVisited) {
-                        isPassable = isVisited || isPlayerStart || isTargetEnd || isClickedShaft;
-                    } else {
-                        isPassable = isVisited || isKnown || isPlayerStart || isTargetEnd || isClickedShaft;
-                    }
-
-                    tempMaze[idx] = isPassable ? 1 : 0;
-                }
-            }
-        }
-        return aStarPath(start, end, tempMaze, size, 0) ?? [];
-    }
 
     triggerPathReveal(tx: number, ty: number, tz: number, bypassConfirm: boolean = false) {
         if (this.pathRevealInterval || (this.pathfinderBlockedUntil && Date.now() < this.pathfinderBlockedUntil)) {
@@ -5806,7 +5765,7 @@ export class Engine {
             z: this.player.z
         };
         const end = { x: tx, y: ty, z: targetZ };
-        const path = this.findShortestPath(start, end, isExitClicked);
+        const path = findShortestPath(this, start, end, isExitClicked);
 
         if (!path || path.length === 0) return;
 
