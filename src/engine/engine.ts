@@ -23,6 +23,7 @@ export interface GameState {
 import { Maze3D } from './maze3d.js';
 import { aStarDistance, aStarPath, proximeterDistance, findShortestPath } from './pathfinder.js';
 import { UIManager } from './ui.js';
+import { HunterManager } from './hunterManager.js';
 import { InputHandler } from './input.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
@@ -133,6 +134,7 @@ export class Engine {
     visitedCells: Set<string>;
     lastSavePos: { x: number; y: number; z: number } | null;
     suppressWakeHuntersBanner: boolean;
+    hunterManager!: HunterManager;
     allTeleports: { x: number; y: number; z: number }[];
     vortexAngles!: Map<string, number>;
     
@@ -227,6 +229,7 @@ export class Engine {
         // Initialize UI and Input handlers
         this.ui = new UIManager();
         this.input = new InputHandler(this);
+        this.hunterManager = new HunterManager(this);
         this.input.setupTouch(() => this.isMap3DActive, () => this.isGameOver);
 
         this.canvas = document.getElementById('main-2d-canvas') as HTMLCanvasElement;
@@ -323,7 +326,7 @@ export class Engine {
             }
             this.lastHunterMove = performance.now();
         } else {
-            this.initHunters(degree);
+            this.hunterManager.initHunters(degree);
         }
 
         this.keyMeshes = [];
@@ -647,152 +650,6 @@ export class Engine {
         }));
     }
 
-    initHunters(degree: number) {
-        const count = this.isSafeMode ? 0 : CONFIG.getHunterCount(degree);
-        if (count === 0) return;
-        
-        for (let i = 1; i <= count; i++) {
-            this.hunters.push(new Hunter(this.mazeGen, null, i));
-        }
-        this.lastHunterMove = performance.now();
-    }
-
-    wakeHunters() {
-        const size = this.mazeGen.size;
-        const candidates: { x: number; y: number; z: number }[] = [];
-        const px = Math.floor(this.player.x);
-        const py = Math.floor(this.player.y);
-        const pz = this.player.z;
-
-        const startX = Math.floor(this.mazeGen.startPos.x);
-        const startY = Math.floor(this.mazeGen.startPos.y);
-        const startZ = this.mazeGen.startPos.z;
-
-        // Gather all unvisited path cells (TYPES.PATH) on playable floors (odd z indices), excluding starting safe point
-        for (let x = 0; x < size; x++) {
-            for (let y = 0; y < size; y++) {
-                for (let z = 0; z < size; z++) {
-                    const isStartPos = (x === startX && y === startY && z === startZ);
-                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH && z % 2 !== 0 && !isStartPos) {
-                        candidates.push({ x, y, z });
-                    }
-                }
-            }
-        }
-
-        if (candidates.length === 0) {
-            // Fallback: if no unvisited path cells exist, use visited ones that are not the player cell, starting cell, and are on playable floors
-            for (let x = 0; x < size; x++) {
-                for (let y = 0; y < size; y++) {
-                    for (let z = 0; z < size; z++) {
-                        const val = this.maze.get(x, y, z);
-                        const isStartPos = (x === startX && y === startY && z === startZ);
-                        const isExit = (val === this.mazeGen.TYPES.EXIT);
-                        if (val !== this.mazeGen.TYPES.WALL && !isExit && z % 2 !== 0 && (x !== px || y !== py || z !== pz) && !isStartPos) {
-                            candidates.push({ x, y, z });
-                        }
-                    }
-                }
-            }
-        }
-
-        // Shuffle candidates using Math.random for runtime gameplay variance
-        for (let i = candidates.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            const temp = candidates[i];
-            candidates[i] = candidates[j];
-            candidates[j] = temp;
-        }
-
-        const getDist = (p1: { x: number; y: number; z: number }, p2: { x: number; y: number; z: number }) => Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y) + Math.abs(p1.z - p2.z);
-
-        // Find a valid position for each sleeping hunter
-        const spawnedPos: { x: number; y: number; z: number }[] = [];
-        const sleepingHunters = this.hunters.filter(h => h.state === 'SLEEP');
-
-        let minPlayerDist = Math.max(3, Math.floor(size * 0.45));
-        let minInterHunterDist = 4;
-
-        while (spawnedPos.length < sleepingHunters.length && minPlayerDist > 0) {
-            spawnedPos.length = 0;
-
-            const filteredCandidates = candidates.filter(c => {
-                const distToPlayer = getDist(c, { x: px, y: py, z: pz });
-                return distToPlayer >= minPlayerDist;
-            });
-
-            for (let i = 0; i < sleepingHunters.length; i++) {
-                let bestCand = null;
-                for (const c of filteredCandidates) {
-                    if (spawnedPos.some(s => s.x === c.x && s.y === c.y && s.z === c.z)) continue;
-
-                    let validInterHunter = true;
-                    for (const s of spawnedPos) {
-                        if (getDist(c, s) < minInterHunterDist) {
-                            validInterHunter = false;
-                            break;
-                        }
-                    }
-
-                    if (validInterHunter) {
-                        bestCand = c;
-                        break; // Since list is already shuffled, take the first valid one
-                    }
-                }
-
-                if (bestCand) {
-                    spawnedPos.push(bestCand);
-                } else {
-                    break;
-                }
-            }
-
-            if (spawnedPos.length < sleepingHunters.length) {
-                if (minInterHunterDist > 1) {
-                    minInterHunterDist--;
-                } else {
-                    minPlayerDist--;
-                }
-            }
-        }
-
-        // If even then we don't have enough, just assign whatever candidates we have
-        if (spawnedPos.length < sleepingHunters.length) {
-            for (const c of candidates) {
-                if (spawnedPos.length >= sleepingHunters.length) break;
-                if (!spawnedPos.some(s => s.x === c.x && s.y === c.y && s.z === c.z)) {
-                    spawnedPos.push(c);
-                }
-            }
-        }
-
-        // Apply coordinates and change state to WANDERING
-        for (let i = 0; i < sleepingHunters.length && i < spawnedPos.length; i++) {
-            const hunter = sleepingHunters[i];
-            const pos = spawnedPos[i];
-            
-            hunter.x = pos.x;
-            hunter.y = pos.y;
-            hunter.z = pos.z;
-            hunter.visualX = pos.x;
-            hunter.visualY = pos.y;
-            hunter.visualZ = pos.z;
-            hunter.lastPos = { x: pos.x, y: pos.y, z: pos.z };
-            hunter.state = 'WANDERING';
-            hunter.visitedNodes.clear();
-            hunter.visitedNodes.add(`${pos.x},${pos.y},${pos.z}`);
-            hunter.history = [];
-        }
-
-        if (!this.suppressWakeHuntersBanner) {
-            this.ui.showInfoBanner(getTranslation('msgVoidHuntersDetected'));
-        }
-        this.suppressWakeHuntersBanner = false;
-        this.staticMapCacheDirty = true;
-        if (this.isMap3DActive) {
-            this.build3DMap();
-        }
-    }
 
     getExitPos() {
         for (let x = 0; x < this.mazeGen.size; x++) {
@@ -961,7 +818,7 @@ export class Engine {
         }
 
         if (this.dyingHunters.length > 0) {
-            this.respawnDyingHunters();
+            this.hunterManager.respawnDyingHunters();
             this.dyingHunters = [];
         }
 
@@ -969,129 +826,7 @@ export class Engine {
         this.triggerSave();
     }
 
-    respawnSingleHunter(hunter: any) {
-        const size = this.mazeGen.size;
-        const candidates = [];
-        const px = Math.floor(this.player.x);
-        const py = Math.floor(this.player.y);
-        const pz = this.player.z;
 
-        const startX = Math.floor(this.mazeGen.startPos.x);
-        const startY = Math.floor(this.mazeGen.startPos.y);
-        const startZ = this.mazeGen.startPos.z;
-
-        for (let x = 0; x < size; x++) {
-            for (let y = 0; y < size; y++) {
-                for (let z = 0; z < size; z++) {
-                    const isStartPos = (x === startX && y === startY && z === startZ);
-                    const isExit = (this.maze.get(x, y, z) === this.mazeGen.TYPES.EXIT);
-                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH && z % 2 !== 0 && !isStartPos && !isExit) {
-                        if (z === pz && Math.abs(x - px) + Math.abs(y - py) <= 5) continue;
-                        candidates.push({ x, y, z });
-                    }
-                }
-            }
-        }
-
-        if (candidates.length === 0) {
-            for (let x = 0; x < size; x++) {
-                for (let y = 0; y < size; y++) {
-                    for (let z = 0; z < size; z++) {
-                        const val = this.maze.get(x, y, z);
-                        const isStartPos = (x === startX && y === startY && z === startZ);
-                        const isExit = (val === this.mazeGen.TYPES.EXIT);
-                        if (val !== this.mazeGen.TYPES.WALL && !isExit && z % 2 !== 0 && !isStartPos && (x !== px || y !== py || z !== pz)) {
-                            if (z === pz && Math.abs(x - px) + Math.abs(y - py) <= 5) continue;
-                            candidates.push({ x, y, z });
-                        }
-                    }
-                }
-            }
-        }
-
-        if (candidates.length > 0) {
-            const pos = candidates[Math.floor(Math.random() * candidates.length)];
-            hunter.x = pos.x;
-            hunter.y = pos.y;
-            hunter.z = pos.z;
-            hunter.visualX = pos.x;
-            hunter.visualY = pos.y;
-            hunter.visualZ = pos.z;
-            hunter.lastPos = { x: pos.x, y: pos.y, z: pos.z };
-            hunter.state = 'WANDERING';
-            hunter.visitedNodes.clear();
-            hunter.visitedNodes.add(`${pos.x},${pos.y},${pos.z}`);
-            hunter.history = [];
-            hunter.respawnThresholdPercentage = null;
-            this.staticMapCacheDirty = true;
-            this.triggerSave();
-        }
-    }
-
-    respawnDyingHunters() {
-        const size = this.mazeGen.size;
-        const candidates = [];
-        const px = Math.floor(this.player.x);
-        const py = Math.floor(this.player.y);
-        const pz = this.player.z;
-
-        const startX = Math.floor(this.mazeGen.startPos.x);
-        const startY = Math.floor(this.mazeGen.startPos.y);
-        const startZ = this.mazeGen.startPos.z;
-
-        for (let x = 0; x < size; x++) {
-            for (let y = 0; y < size; y++) {
-                for (let z = 0; z < size; z++) {
-                    const isStartPos = (x === startX && y === startY && z === startZ);
-                    const isExit = (this.maze.get(x, y, z) === this.mazeGen.TYPES.EXIT);
-                    if (this.maze.get(x, y, z) === this.mazeGen.TYPES.PATH && z % 2 !== 0 && !isStartPos && !isExit) {
-                        if (z === pz && Math.abs(x - px) + Math.abs(y - py) <= 5) continue;
-                        candidates.push({ x, y, z });
-                    }
-                }
-            }
-        }
-
-        if (candidates.length === 0) {
-            for (let x = 0; x < size; x++) {
-                for (let y = 0; y < size; y++) {
-                    for (let z = 0; z < size; z++) {
-                        const val = this.maze.get(x, y, z);
-                        const isStartPos = (x === startX && y === startY && z === startZ);
-                        const isExit = (val === this.mazeGen.TYPES.EXIT);
-                        if (val !== this.mazeGen.TYPES.WALL && !isExit && z % 2 !== 0 && !isStartPos && (x !== px || y !== py || z !== pz)) {
-                            if (z === pz && Math.abs(x - px) + Math.abs(y - py) <= 5) continue;
-                            candidates.push({ x, y, z });
-                        }
-                    }
-                }
-            }
-        }
-
-        for (let i = candidates.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-        }
-
-        let spawnIdx = 0;
-        for (const hunter of this.dyingHunters) {
-            if (spawnIdx < candidates.length) {
-                const pos = candidates[spawnIdx++];
-                hunter.x = pos.x;
-                hunter.y = pos.y;
-                hunter.z = pos.z;
-                hunter.visualX = pos.x;
-                hunter.visualY = pos.y;
-                hunter.visualZ = pos.z;
-                hunter.lastPos = { x: pos.x, y: pos.y, z: pos.z };
-                hunter.state = 'WANDERING';
-                hunter.visitedNodes.clear();
-                hunter.visitedNodes.add(`${pos.x},${pos.y},${pos.z}`);
-                hunter.history = [];
-                hunter.pathToTarget = [];
-            }
-        }
-    }
 
     triggerVictory() {
         this.isGameOver = true;
@@ -1300,62 +1035,6 @@ export class Engine {
         this.exitPathfinderUnlocked = this.checkExitNeighborVisited();
     }
 
-    /**
-     * Checks every frame whether any hunter occupies the same cell as the player.
-     * Must be called independently of the hunter-move tick so the player cannot
-     * "pass through" a stationary hunter between ticks.
-     */
-    checkHunterCollision() {
-        if (this.deathAnimation && this.deathAnimation.active) return;
-
-        const px = Math.floor(this.player.x);
-        const py = Math.floor(this.player.y);
-        const pz = this.player.z;
-
-        // Ignora colisão se o jogador estiver no ponto seguro de partida (a menos que esteja inativo)
-        const startGridX = Math.floor(this.mazeGen.startPos.x);
-        const startGridY = Math.floor(this.mazeGen.startPos.y);
-        const startGridZ = this.mazeGen.startPos.z;
-        const isStartInactive = this.inactiveTeleportPos && 
-                                this.inactiveTeleportPos.x === startGridX && 
-                                this.inactiveTeleportPos.y === startGridY && 
-                                this.inactiveTeleportPos.z === startGridZ;
-        if (px === startGridX && py === startGridY && pz === startGridZ && !isStartInactive) {
-            return;
-        }
-
-        for (const hunter of this.hunters) {
-            if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY') continue;
-            if (hunter.x === px && hunter.y === py && hunter.z === pz) {
-                // Trava o caçador na posição atual
-                hunter.visualX = hunter.x;
-                hunter.visualY = hunter.y;
-                hunter.visualZ = hunter.z;
-                this.isGameOver = true;
-                this.deathsCount++;
-                this.hideGameUI(); // Desativa o mapa 3D se ativo, controles etc.
-
-                this.ui.showInfoBanner(getTranslation('msgKeyDropped'));
-
-                this.deathAnimation = {
-                    active: true,
-                    hunter: hunter,
-                    playerPos: { x: this.player.x, y: this.player.y, z: this.player.z },
-                    elapsed: 0,
-                    duration: 1.8, // 1.8 segundos para a corrupção cobrir toda a tela
-                    screenFilled: false,
-                    reversing: false,
-                    delayElapsed: 0,
-                    delayDuration: 1.5, // 1.5s de delay com tela congelada antes da corrupção
-                    glitchElapsed: 0,
-                    glitchDuration: 1.5,
-                    uiFade: 0,
-                    uiTriggered: false
-                };
-                return;
-            }
-        }
-    }
 
     hideGameUI() {
         this.ui.hideGameUI();
@@ -1984,7 +1663,7 @@ export class Engine {
         if (this.hunters.some(h => h.state === 'SLEEP')) {
             const percent = this.getMapVisitedPercentage();
             if (percent >= 10) {
-                this.wakeHunters();
+                this.hunterManager.wakeHunters();
             }
         }
 
@@ -1998,7 +1677,7 @@ export class Engine {
         for (const hunter of this.hunters) {
             if (hunter.state === 'DEAD_BY_JELLY' && hunter.respawnThresholdPercentage !== null) {
                 if (!disableRespawn && currentPercent >= hunter.respawnThresholdPercentage) {
-                    this.respawnSingleHunter(hunter);
+                    this.hunterManager.respawnSingleHunter(hunter);
                     this.ui.showInfoBanner(getTranslation('msgHunterReturned'));
                 }
             }
@@ -2379,7 +2058,7 @@ export class Engine {
             }
 
             // Per-frame collision check: detects when the player walks into a hunter's cell.
-            this.checkHunterCollision();
+            this.hunterManager.checkHunterCollision();
             if (this.isGameOver) return;
 
             const playerIdxX = Math.floor(this.player.x), playerIdxY = Math.floor(this.player.y);
@@ -2518,7 +2197,7 @@ export class Engine {
                                  this.currentTutorialStage.hunterBehavior.static;
 
                 if (isStatic) {
-                    this.checkHunterCollision();
+                    this.hunterManager.checkHunterCollision();
                     if (this.isGameOver) return;
                     continue;
                 }
@@ -2550,7 +2229,7 @@ export class Engine {
                 if (isNear) {
                     nearbyCount++;
                 }
-                this.checkHunterCollision();
+                this.hunterManager.checkHunterCollision();
                 if (this.isGameOver) return;
             }
 
@@ -3334,7 +3013,7 @@ export class Engine {
                             }
                         }
                     } else {
-                        this.initHunters(this.degree);
+                        this.hunterManager.initHunters(this.degree);
                     }
                     this.suppressWakeHuntersBanner = true;
                     

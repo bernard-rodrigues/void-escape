@@ -81,7 +81,7 @@ test('Death Transition - Collision triggers non-blocking death loop', () => {
         assert.strictEqual(engine.suppressWakeHuntersBanner, false);
         
         // Run collision check
-        engine.checkHunterCollision();
+        engine.hunterManager.checkHunterCollision();
         
         // Verify death transition started
         assert.strictEqual(engine.isGameOver, true, 'isGameOver must be true to lock gameplay');
