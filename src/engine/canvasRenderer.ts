@@ -241,7 +241,7 @@ export class CanvasRenderer {
             ctx.drawImage(this.engine.floorTransition.canvasNew, -cx, -cy);
             ctx.restore();
         } else {
-            this.renderMapToContext(ctx, this.engine.activeMapFloor);
+            this.renderMapToContext(ctx, this.engine.player.z);
         }
 
         // Draw vignette gradient mask
@@ -1115,6 +1115,10 @@ export class CanvasRenderer {
                     drawCellWithFade(x, y, () => {
                         if (isElevator) {
                             this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, true, z);
+                            const isPlayerHere = x === Math.floor(px) && y === Math.floor(py);
+                            if (isPlayerHere) {
+                                hasActiveAnimations = true;
+                            }
                         } else {
                             ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
                             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
@@ -1122,91 +1126,125 @@ export class CanvasRenderer {
                     });
                 } else if (isVisited) {
                     drawCellWithFade(x, y, () => {
-                        if (isTeleportDiscovered) {
-                            const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
-                            const key = `${x},${y},${z}`;
-                            const isInactive = this.engine.teleportCooldownTicks > 0;
-                            if (isStartTeleport) {
-                                const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.engine.player.z;
-                                const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
-                                this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
-                            } else {
-                                const isJelly = val === this.engine.mazeGen.TYPES.JELLY_PORTAL;
-                                const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isJelly ? CONFIG.COLORS.JELLY_PORTAL : CONFIG.COLORS.TELEPORT);
-                                const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.engine.player.z;
-                                this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
-                            }
-                            hasActiveAnimations = true;
-                        } else if (isElevator) {
+                        if (isElevator) {
                             this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, false, z);
+                            const isPlayerHere = x === Math.floor(px) && y === Math.floor(py);
+                            if (isPlayerHere) {
+                                hasActiveAnimations = true;
+                            }
                         } else {
-                            if (val === 2 && this.engine.floorImage.complete && this.engine.floorImage.naturalWidth !== 0) {
-                                ctx.drawImage(this.engine.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
-                            } else {
-                                if (val === this.engine.mazeGen.TYPES.EXIT) {
-                                    const key = `${x},${y},${z}`;
-                                    this.drawVortex2D(ctx, x, y, cellSize, CONFIG.COLORS.EXIT, false, key);
-                                    hasActiveAnimations = true;
-                                    
-                                    if (this.engine.keysCollected < this.engine.totalKeys) {
-                                        const cx = x * cellSize + cellSize / 2;
-                                        const cy = y * cellSize + cellSize / 2;
-                                        
-                                        const w = cellSize * 0.45;
-                                        const h = cellSize * 0.38;
-                                        const arcWidth = w * 0.75;
-                                        const bodyX = cx - w / 2;
-                                        const bodyY = cy - h / 4;
-                                        const borderRadius = Math.max(3, cellSize * 0.06);
-
-                                        ctx.beginPath();
-                                        ctx.arc(cx, bodyY, arcWidth / 2, Math.PI, 0);
-                                        ctx.strokeStyle = '#ff3300';
-                                        ctx.lineWidth = Math.max(2.5, cellSize * 0.07);
-                                        ctx.lineCap = 'round';
-                                        ctx.stroke();
-
-                                        const grad = ctx.createLinearGradient(bodyX, bodyY, bodyX, bodyY + h);
-                                        grad.addColorStop(0, '#2e0808');
-                                        grad.addColorStop(1, '#140303');
-                                        
-                                        ctx.fillStyle = grad;
-                                        ctx.beginPath();
-                                        if (ctx.roundRect) {
-                                             ctx.roundRect(bodyX, bodyY, w, h, borderRadius);
-                                         } else if (ctx.rect) {
-                                             ctx.rect(bodyX, bodyY, w, h);
-                                         }
-                                        ctx.fill();
-
-                                        ctx.strokeStyle = '#ff3300';
-                                        ctx.lineWidth = Math.max(1.5, cellSize * 0.04);
-                                        ctx.stroke();
-
-                                        const text = String(this.engine.totalKeys - this.engine.keysCollected);
-                                        const fontSize = text.length > 1 ? Math.max(8, cellSize * 0.22) : Math.max(10, cellSize * 0.28);
-                                        
-                                        ctx.save();
-                                        ctx.fillStyle = '#ff8888';
-                                        ctx.font = `bold ${fontSize}px "Outfit", "Inter", sans-serif`;
-                                        ctx.textAlign = 'center';
-                                        ctx.textBaseline = 'middle';
-                                        
-                                        ctx.shadowColor = '#ff3300';
-                                        ctx.shadowBlur = Math.max(2, cellSize * 0.08);
-                                        ctx.fillText(text, cx, cy + h / 4);
-                                        ctx.restore();
-                                    }
+                            // Compute solid dark background color for special tiles (no black background, no brick texture showing)
+                            let specialBgColor: string | null = null;
+                            if (isTeleportDiscovered) {
+                                const isInactive = this.engine.teleportCooldownTicks > 0;
+                                const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
+                                if (isInactive) {
+                                    specialBgColor = '#222222';
+                                } else if (isStartTeleport) {
+                                    specialBgColor = '#2c2c00';
                                 } else {
-                                    if (val === 2) {
-                                        ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
-                                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                                    } else {
+                                    const isJelly = val === this.engine.mazeGen.TYPES.JELLY_PORTAL;
+                                    specialBgColor = isJelly ? '#20002c' : '#2e1700';
+                                }
+                            } else if (val === this.engine.mazeGen.TYPES.EXIT) {
+                                const isUnlocked = this.engine.keysCollected === this.engine.totalKeys;
+                                specialBgColor = isUnlocked ? '#002c00' : '#2c0000';
+                            } else if (val === 3) {
+                                specialBgColor = '#2c2c00';
+                            }
+
+                            // Draw the solid special background if set
+                            if (specialBgColor) {
+                                ctx.fillStyle = specialBgColor;
+                                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            }
+
+                            if (isTeleportDiscovered) {
+                                const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
+                                const key = `${x},${y},${z}`;
+                                const isInactive = this.engine.teleportCooldownTicks > 0;
+                                if (isStartTeleport) {
+                                    const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.engine.player.z;
+                                    const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
+                                    this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
+                                } else {
+                                    const isJelly = val === this.engine.mazeGen.TYPES.JELLY_PORTAL;
+                                    const baseColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isJelly ? CONFIG.COLORS.JELLY_PORTAL : CONFIG.COLORS.TELEPORT);
+                                    const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.engine.player.z;
+                                    this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere && !isInactive, key);
+                                }
+                                hasActiveAnimations = true;
+                            } else {
+                                if (val === 2 && this.engine.floorImage.complete && this.engine.floorImage.naturalWidth !== 0) {
+                                    ctx.drawImage(this.engine.floorImage, x * cellSize, y * cellSize, cellSize, cellSize);
+                                } else {
+                                    if (val === this.engine.mazeGen.TYPES.EXIT) {
                                         const key = `${x},${y},${z}`;
-                                        const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.engine.player.z;
-                                        const baseColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
-                                        this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere, key);
+                                        this.drawVortex2D(ctx, x, y, cellSize, CONFIG.COLORS.EXIT, false, key);
                                         hasActiveAnimations = true;
+                                        
+                                        if (this.engine.keysCollected < this.engine.totalKeys) {
+                                            const cx = x * cellSize + cellSize / 2;
+                                            const cy = y * cellSize + cellSize / 2;
+                                            
+                                            const w = cellSize * 0.45;
+                                            const h = cellSize * 0.38;
+                                            const arcWidth = w * 0.75;
+                                            const bodyX = cx - w / 2;
+                                            const bodyY = cy - h / 4;
+                                            const borderRadius = Math.max(3, cellSize * 0.06);
+
+                                            ctx.beginPath();
+                                            ctx.arc(cx, bodyY, arcWidth / 2, Math.PI, 0);
+                                            ctx.strokeStyle = '#ff3300';
+                                            ctx.lineWidth = Math.max(2.5, cellSize * 0.07);
+                                            ctx.lineCap = 'round';
+                                            ctx.stroke();
+
+                                            const grad = ctx.createLinearGradient(bodyX, bodyY, bodyX, bodyY + h);
+                                            grad.addColorStop(0, '#2e0808');
+                                            grad.addColorStop(1, '#140303');
+                                            
+                                            ctx.fillStyle = grad;
+                                            ctx.beginPath();
+                                            if (ctx.roundRect) {
+                                                 ctx.roundRect(bodyX, bodyY, w, h, borderRadius);
+                                             } else if (ctx.rect) {
+                                                 ctx.rect(bodyX, bodyY, w, h);
+                                             }
+                                            ctx.fill();
+
+                                            ctx.strokeStyle = '#ff3300';
+                                            ctx.lineWidth = Math.max(1.5, cellSize * 0.04);
+                                            ctx.stroke();
+
+                                            const text = String(this.engine.totalKeys - this.engine.keysCollected);
+                                            const fontSize = text.length > 1 ? Math.max(8, cellSize * 0.22) : Math.max(10, cellSize * 0.28);
+                                            
+                                            ctx.save();
+                                            ctx.fillStyle = '#ff8888';
+                                            ctx.font = `bold ${fontSize}px "Outfit", "Inter", sans-serif`;
+                                            ctx.textAlign = 'center';
+                                            ctx.textBaseline = 'middle';
+                                            
+                                            ctx.shadowColor = '#ff3300';
+                                            ctx.shadowBlur = Math.max(2, cellSize * 0.08);
+                                            ctx.fillText(text, cx, cy + h / 4);
+                                            ctx.restore();
+                                        }
+                                    } else {
+                                        if (specialBgColor) {
+                                            // Solid color already drawn as base
+                                        } else if (val === 2) {
+                                            ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
+                                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                                        } else {
+                                            const key = `${x},${y},${z}`;
+                                            const isPlayerHere = Math.floor(px) === x && Math.floor(py) === y && z === this.engine.player.z;
+                                            const baseColor = isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START;
+                                            this.drawVortex2D(ctx, x, y, cellSize, baseColor, isPlayerHere, key);
+                                            hasActiveAnimations = true;
+                                        }
                                     }
                                 }
                             }
