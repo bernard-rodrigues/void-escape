@@ -78,6 +78,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgWorldSaved: "World saved. What now?",
         msgKeyDropped: "Oh! Just dropped a key...",
         msgPlayerRespawn: "Ok.. ok.. guess I'm alive..",
+        msgLockedIn: "I'm locked in!",
+        msgFloorComplete: "Floor complete!",
 
         // Hunter Status Panel Marquee
         statusLabel: "HUNTER STATUS:",
@@ -215,6 +217,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgWorldSaved: "Salvei o mundo. E agora?",
         msgKeyDropped: "Ih... Derrubei uma chave...",
         msgPlayerRespawn: "Ok.. ok.. sobrevivi..",
+        msgLockedIn: "Estou trancada!",
+        msgFloorComplete: "Andar completo!",
 
         // Hunter Status Panel Marquee
         statusLabel: "STATUS DO CAÇADOR:",
@@ -352,6 +356,8 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgWorldSaved: "世界を救っちゃった。さて、次は?",
         msgKeyDropped: "あ、鍵落としちゃった…",
         msgPlayerRespawn: "よしよし…どうやらまだ生きてるな…",
+        msgLockedIn: "閉じ込められちゃった！",
+        msgFloorComplete: "フロア完了！",
 
         // Hunter Status Panel Marquee
         statusLabel: "ハンターの状態:",
@@ -490,6 +496,8 @@ es: {
         msgWorldSaved: "Salvé el mundo. ¿Y ahora qué?",
         msgKeyDropped: "¡Ah! Se me cayó una llave...",
         msgPlayerRespawn: "Vale.. vale.. parece que sigo viva..",
+        msgLockedIn: "¡Estoy encerrada!",
+        msgFloorComplete: "¡Piso completado!",
 
         // Hunter Status Panel Marquee
         statusLabel: "ESTADO DEL CAZADOR:",

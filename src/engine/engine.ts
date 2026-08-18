@@ -124,11 +124,29 @@ export class Engine {
     jellyPortalResetElapsed!: number;
     dyingHunters!: any[];
     pathfinderConfirmTarget!: { x: number; y: number; z: number } | null;
+    isJellyChallengeActive: boolean = false;
+    completedFloors: Set<number> = new Set();
+    jellyProjectiles: {
+        x: number;
+        y: number;
+        z: number;
+        dirX: number;
+        dirY: number;
+        threeMesh?: any;
+    }[] = [];
+    jellyStatueStates: Map<string, {
+        shotsFired: number;
+        state: 'IDLE' | 'CHARGING' | 'COOLDOWN';
+        chargeTimer: number;
+        initialDelay: number;
+    }> = new Map();
+    previouslyDeadHuntersInfo: { threshold: number }[] = [];
     isDestroyed: boolean;
     isIntroPlaying: boolean;
     isStoryActive: boolean;
     pulsatingMaterials: any[];
     hunterMeshes: any[];
+    statueMeshes: Map<string, { base: any; body: any }> = new Map();
     discoveredTeleports: Set<string>;
     visitedCells: Set<string>;
     lastSavePos: { x: number; y: number; z: number } | null;
@@ -415,6 +433,11 @@ export class Engine {
         this.jellyPortalResetDuration = 1.5;
         this.jellyPortalResetElapsed = 0;
         this.dyingHunters = [];
+
+        this.isJellyChallengeActive = false;
+        this.completedFloors = new Set();
+        this.jellyProjectiles = [];
+        this.jellyStatueStates = new Map();
 
         this.ui.initGameUI(this.isSafeMode);
         this.ui.onInfoBanner = (msg) => this.queueNotification(msg);
@@ -1764,30 +1787,57 @@ export class Engine {
                     routeUsesDown = this.revealedPathSet.has(`${x},${y},${z - 1}`) || this.revealedPathSet.has(`${x},${y},${z - 2}`);
                 }
 
-                // Se nenhuma direção for detectada na rota (fallback), ambas acendem em branco
                 const paintUpWhite = routeUsesUp || (!routeUsesUp && !routeUsesDown);
                 const paintDownWhite = routeUsesDown || (!routeUsesUp && !routeUsesDown);
 
-                ctx.fillStyle = paintUpWhite ? CONFIG.COLORS.REVEALED_PATH : (upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED);
+                let fillUp = paintUpWhite ? CONFIG.COLORS.REVEALED_PATH : (upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED);
+                let fillDown = paintDownWhite ? CONFIG.COLORS.REVEALED_PATH : (downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED);
+                
+                if (this.isJellyChallengeActive) {
+                    fillUp = 'rgba(100, 100, 100, 0.8)';
+                    fillDown = 'rgba(80, 80, 80, 0.8)';
+                }
+
+                ctx.fillStyle = fillUp;
                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize / 2);
                 
-                ctx.fillStyle = paintDownWhite ? CONFIG.COLORS.REVEALED_PATH : (downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED);
+                ctx.fillStyle = fillDown;
                 ctx.fillRect(x * cellSize, y * cellSize + cellSize / 2, cellSize, cellSize / 2);
             } else {
-                ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
+                let fill = CONFIG.COLORS.REVEALED_PATH;
+                if (this.isJellyChallengeActive) {
+                    fill = 'rgba(90, 90, 90, 0.8)';
+                }
+                ctx.fillStyle = fill;
                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
             }
         } else {
             if (hUp && hDown) {
-                ctx.fillStyle = upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED;
+                let fillUp = upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED;
+                let fillDown = downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED;
+                
+                if (this.isJellyChallengeActive) {
+                    fillUp = 'rgba(100, 100, 100, 0.8)';
+                    fillDown = 'rgba(80, 80, 80, 0.8)';
+                }
+
+                ctx.fillStyle = fillUp;
                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize / 2);
-                ctx.fillStyle = downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED;
+                ctx.fillStyle = fillDown;
                 ctx.fillRect(x * cellSize, y * cellSize + cellSize / 2, cellSize, cellSize / 2);
             } else if (hUp) {
-                ctx.fillStyle = upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED;
+                let fill = upVisited ? CONFIG.COLORS.NEON_UP : CONFIG.COLORS.NEON_UP_UNUSED;
+                if (this.isJellyChallengeActive) {
+                    fill = 'rgba(90, 90, 90, 0.8)';
+                }
+                ctx.fillStyle = fill;
                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
             } else {
-                ctx.fillStyle = downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED;
+                let fill = downVisited ? CONFIG.COLORS.NEON_DOWN : CONFIG.COLORS.NEON_DOWN_UNUSED;
+                if (this.isJellyChallengeActive) {
+                    fill = 'rgba(90, 90, 90, 0.8)';
+                }
+                ctx.fillStyle = fill;
                 ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
             }
         }
@@ -1953,6 +2003,12 @@ export class Engine {
 
         // Check for pathfinder rewards!
         this.checkPathfinderRewards(percent);
+
+        // Check floor completion for the Jelly Statue Challenge
+        const floorPercent = this.getFloorVisitedPercentage(currentZ);
+        if (floorPercent === 100 && !this.completedFloors.has(currentZ)) {
+            this.triggerFloorCompletion(currentZ);
+        }
     }
 
     checkPathfinderRewards(percent: number) {
@@ -2556,6 +2612,7 @@ export class Engine {
 
         if (!this.isPaused && !this.isIntroPlaying && !this.isStoryActive) {
             this.elapsedTime += dt;
+            this.updateJellyChallenge(dt);
             
             // Animate teleport aura height and time
             const px = Math.floor(this.player.x);
@@ -2993,7 +3050,9 @@ export class Engine {
                 }
                 
                 if (finalVal === this.mazeGen.TYPES.EXIT) {
-                    this.triggerVictory();
+                    if (!this.isJellyChallengeActive) {
+                        this.triggerVictory();
+                    }
                 }
             }
 
@@ -3209,7 +3268,7 @@ export class Engine {
     }
 
     changeFloor(delta: number) {
-        if (this.isGameOver || this.floorTransition) return;
+        if (this.isGameOver || this.floorTransition || this.isJellyChallengeActive) return;
         this.skipCellAnimations = true;
         const currentX = Math.floor(this.player.x);
         const currentY = Math.floor(this.player.y);
@@ -3324,6 +3383,7 @@ export class Engine {
 
         this.pulsatingMaterials = []; // Reset the array
         this.hunterMeshes = []; // Reset the array
+        this.statueMeshes.clear(); // Reset the map
         this.teleportMeshes = []; // Reset the array
         this.knownMeshes = []; // Reset the array
         this.keyMeshes = [];
@@ -3409,6 +3469,9 @@ export class Engine {
                                 const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
                                 bodyMesh.position.set(x - size/2, base_Y + 0.3 * this.vScale, y - size/2);
                                 this.scene.add(bodyMesh);
+
+                                // Salva a referência das malhas da estátua para efeitos de mutação visual no desafio
+                                this.statueMeshes.set(`${x},${y},${z}`, { base: baseMesh, body: bodyMesh });
                             }
                         }
                         continue;
@@ -3909,6 +3972,12 @@ export class Engine {
                     this.lastPlayerCell = { x: Math.floor(targetX), y: Math.floor(targetY), z: targetZ };
                     
                     // 3. Re-initialize / Reset Hunters
+                    this.isJellyChallengeActive = false;
+                    this.jellyProjectiles.forEach(p => {
+                        if (p.threeMesh) this.scene.remove(p.threeMesh);
+                    });
+                    this.jellyProjectiles = [];
+                    this.jellyStatueStates.clear();
                     this.hunters = [];
                     if (this.isTutorialMode) {
                         const useFixed = this.currentTutorialStage &&
@@ -4480,6 +4549,33 @@ export class Engine {
                 drawFlatAura(cx, cy, auraHeight, playerOpacity * tOpacity, 'FRONT');
             }
 
+            // Desenhar Projéteis do Desafio das Estátuas do Deus Geléia
+            this.jellyProjectiles.forEach(proj => {
+                if (proj.z === z) {
+                    const projX = proj.x * cellSize;
+                    const projY = proj.y * cellSize;
+                    
+                    ctx.save();
+                    const rad = cellSize * 0.28;
+                    const gradient = ctx.createRadialGradient(projX, projY, 2, projX, projY, rad);
+                    gradient.addColorStop(0, '#ffffff');
+                    gradient.addColorStop(0.3, '#ff3333');
+                    gradient.addColorStop(1, 'rgba(255, 51, 51, 0)');
+                    
+                    ctx.beginPath();
+                    ctx.arc(projX, projY, rad, 0, Math.PI * 2);
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.arc(projX, projY, cellSize * 0.1, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    
+                    ctx.restore();
+                }
+            });
+
             if (CONFIG.SHOW_COLLISION_DEBUG) {
                 ctx.save();
                 ctx.strokeStyle = '#ff0000';
@@ -4924,6 +5020,18 @@ export class Engine {
                             const targetHeight = targetWidth / aspect;
                             const cx = x * cellSize + cellSize / 2;
                             const bottomY = (y + 1) * cellSize - cellSize * 0.05; // slightly offset from cell bottom border
+
+                            ctx.save();
+                            const state = this.jellyStatueStates.get(`${x},${y},${z}`);
+                            if (state && state.state === 'CHARGING') {
+                                const jitterX = (Math.random() - 0.5) * cellSize * 0.06;
+                                const jitterY = (Math.random() - 0.5) * cellSize * 0.06;
+                                ctx.translate(jitterX, jitterY);
+                                
+                                const flash = Math.floor(performance.now() / 80) % 2 === 0;
+                                ctx.filter = flash ? 'sepia(1) saturate(10) hue-rotate(320deg) brightness(1.2)' : 'sepia(1) saturate(10) hue-rotate(350deg) brightness(1.5)';
+                            }
+
                             ctx.drawImage(
                                 this.statueImage,
                                 cx - targetWidth / 2,
@@ -4931,6 +5039,7 @@ export class Engine {
                                 targetWidth,
                                 targetHeight
                             );
+                            ctx.restore();
                         } else {
                             // Fallback
                             ctx.fillStyle = '#555555';
@@ -5414,6 +5523,9 @@ export class Engine {
     }
 
     drawVortex2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, baseColor: string, isPlayerOnCell: boolean, cellKey: string) {
+        if (this.isJellyChallengeActive) {
+            baseColor = '#555555';
+        }
         const cx = x * cellSize + cellSize / 2;
         const cy = y * cellSize + cellSize / 2;
         
@@ -6176,6 +6288,7 @@ export class Engine {
     }
 
     toggleTeleportMap(show: boolean) {
+        if (show && this.isJellyChallengeActive) return;
         this.isMap3DActive = show;
         this.isTeleportMode = show;
         
@@ -6496,6 +6609,7 @@ export class Engine {
     }
 
     teleportTo(x: number, y: number, z: number) {
+        if (this.isJellyChallengeActive) return;
         this.toggleTeleportMap(false);
 
         this.teleportAnim = {
@@ -7573,7 +7687,15 @@ export class Engine {
                             const subW = tileWidthHalf * 0.45;
                             const subH = tileHeightHalf * 0.45;
                             const boxH = tileHeight * 0.25;
-                            const color = 'rgba(90, 20, 160, 0.8)'; // dark purple neon
+                            let color = 'rgba(90, 20, 160, 0.8)'; // dark purple neon
+
+                            if (val === TYPES.STATUE) {
+                                const state = this.jellyStatueStates.get(`${x},${y},${z}`);
+                                if (state && state.state === 'CHARGING') {
+                                    const flash = Math.floor(performance.now() / 100) % 2 === 0;
+                                    color = flash ? CONFIG.COLORS.JELLY_MUTATION : '#ff3333';
+                                }
+                            }
 
                             const offsets = [
                                 { dx: -0.23, dy: -0.23 },
@@ -7724,6 +7846,18 @@ export class Engine {
                         if (auraHeight > 0) {
                             drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'FRONT');
                         }
+
+                        // Desenha projéteis sobre esta célula específica (x, y) no andar z
+                        this.jellyProjectiles.forEach(proj => {
+                            if (proj.z === z) {
+                                const pxGrid = Math.floor(proj.x);
+                                const pyGrid = Math.floor(proj.y);
+                                if (pxGrid === x && pyGrid === y) {
+                                    const projCoords = getIsoCoords(proj.x, proj.y, z);
+                                    drawProjectile2D(projCoords.x, projCoords.y - H, opacity);
+                                }
+                            }
+                        });
                     }
                 }
             }
@@ -8024,6 +8158,31 @@ export class Engine {
             ctx.strokeStyle = `rgba(0, 255, 255, ${topOpacity})`;
             ctx.lineWidth = 1.5;
             ctx.stroke();
+
+            ctx.restore();
+        };
+
+        const drawProjectile2D = (cx: number, cy: number, opacity: number) => {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+
+            // Sombra translúcida
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + 5, tileWidthHalf * 0.18, tileHeightHalf * 0.18, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.fill();
+
+            // Rastro brilhante (glow)
+            const rad = tileWidthHalf * 0.22;
+            const gradient = ctx.createRadialGradient(cx, cy, 1, cx, cy, rad);
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.3, '#ff3333');
+            gradient.addColorStop(1, 'rgba(255, 51, 51, 0)');
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
 
             ctx.restore();
         };
@@ -8864,6 +9023,246 @@ export class Engine {
                 drawModalButton(btnCancelX, btnCancelY, getTranslation('teleportCancel'), 'cancel');
             }
         }
+    }
+
+    getFloorVisitedPercentage(z: number): number {
+        let totalEligible = 0;
+        let visitedCount = 0;
+        const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                const val = this.maze.get(x, y, z);
+                if (val === TYPES.WALL || val === TYPES.EXIT || val === TYPES.STATUE) {
+                    continue;
+                }
+                if (val === TYPES.TELEPORT && !this.discoveredTeleports.has(`${x},${y},${z}`)) {
+                    continue;
+                }
+                totalEligible++;
+
+                const isVisited = val === TYPES.VISITED ||
+                                  val === TYPES.START ||
+                                  val === TYPES.ELEVATOR_VISITED ||
+                                  (val === TYPES.TELEPORT && this.discoveredTeleports.has(`${x},${y},${z}`)) ||
+                                  val === TYPES.JELLY_PORTAL;
+
+                if (isVisited) {
+                    visitedCount++;
+                }
+            }
+        }
+
+        if (totalEligible === 0) return 0;
+        return Math.floor((visitedCount / totalEligible) * 100);
+    }
+
+    triggerFloorCompletion(z: number) {
+        if (this.completedFloors.has(z)) return;
+
+        let walkableCellsCount = 0;
+        let statueCount = 0;
+        const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                const val = this.maze.get(x, y, z);
+                if (val === TYPES.STATUE) {
+                    statueCount++;
+                }
+                const isWalkableAndVisited = val === TYPES.VISITED ||
+                                            val === TYPES.START ||
+                                            val === TYPES.ELEVATOR_VISITED ||
+                                            (val === TYPES.TELEPORT && this.discoveredTeleports.has(`${x},${y},${z}`)) ||
+                                            val === TYPES.JELLY_PORTAL;
+                if (isWalkableAndVisited) {
+                    walkableCellsCount++;
+                }
+            }
+        }
+
+        if (walkableCellsCount > CONFIG.JELLY_CHALLENGE_MIN_FREE_CELLS && statueCount >= 1 && !this.isSafeMode) {
+            this.isJellyChallengeActive = true;
+            this.completedFloors.add(z);
+
+            // Purga de Hunters
+            this.previouslyDeadHuntersInfo = this.hunters
+                .filter(h => h.state === 'DEAD_BY_JELLY')
+                .map(h => ({ threshold: h.respawnThresholdPercentage || 0 }));
+
+            this.hunterMeshes.forEach(hm => {
+                this.scene.remove(hm.mesh);
+                if (hm.trail1) this.scene.remove(hm.trail1);
+                if (hm.trail2) this.scene.remove(hm.trail2);
+            });
+            this.hunterMeshes = [];
+            this.hunters = [];
+            this.dyingHunters = [];
+
+            this.ui.showInfoBanner(getTranslation('msgLockedIn'));
+
+            this.jellyStatueStates.clear();
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val === TYPES.STATUE) {
+                        const initialDelay = 0.5 + Math.random() * 2.5;
+                        this.jellyStatueStates.set(`${x},${y},${z}`, {
+                            shotsFired: 0,
+                            state: 'IDLE',
+                            chargeTimer: initialDelay,
+                            initialDelay: initialDelay
+                        });
+                    }
+                }
+            }
+        } else {
+            this.completedFloors.add(z);
+            this.ui.showInfoBanner(getTranslation('msgFloorComplete'));
+        }
+    }
+
+    updateJellyChallenge(dt: number) {
+        // 1. Atualizar projéteis
+        const size = this.mazeGen.size;
+        for (let i = this.jellyProjectiles.length - 1; i >= 0; i--) {
+            const proj = this.jellyProjectiles[i];
+            
+            proj.x += proj.dirX * CONFIG.JELLY_PROJECTILE_SPEED * dt;
+            proj.y += proj.dirY * CONFIG.JELLY_PROJECTILE_SPEED * dt;
+
+            if (proj.threeMesh) {
+                proj.threeMesh.position.set(proj.x - size / 2, (proj.z - size / 2) * this.vScale, proj.y - size / 2);
+            }
+
+            // Colisão com o jogador
+            if (proj.z === this.player.z && !this.isGameOver) {
+                const dx = proj.x - this.player.x;
+                const dy = proj.y - this.player.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 0.4) {
+                    this.triggerDeath();
+                }
+            }
+
+            const px = Math.floor(proj.x);
+            const py = Math.floor(proj.y);
+            const isOutOfBounds = px < 0 || px >= size || py < 0 || py >= size;
+
+            if (isOutOfBounds) {
+                if (proj.threeMesh) {
+                    this.scene.remove(proj.threeMesh);
+                    if (proj.threeMesh.geometry) proj.threeMesh.geometry.dispose();
+                    if (proj.threeMesh.material) proj.threeMesh.material.dispose();
+                }
+                this.jellyProjectiles.splice(i, 1);
+            }
+        }
+
+        if (!this.isJellyChallengeActive) return;
+        this.staticMapCacheDirty = true;
+
+        // 2. Atualizar estátuas
+        let activeStatues = 0;
+        let finishedStatues = 0;
+
+        for (const [key, state] of this.jellyStatueStates.entries()) {
+            activeStatues++;
+            const coords = key.split(',').map(Number);
+            const sx = coords[0], sy = coords[1], sz = coords[2];
+
+            if (state.shotsFired >= 2) {
+                finishedStatues++;
+                continue;
+            }
+
+            if (state.state === 'IDLE') {
+                state.chargeTimer -= dt;
+                if (state.chargeTimer <= 0) {
+                    state.state = 'CHARGING';
+                    state.chargeTimer = CONFIG.JELLY_STATUE_CHARGE_TIME;
+                }
+            } else if (state.state === 'CHARGING') {
+                state.chargeTimer -= dt;
+                if (state.chargeTimer <= 0) {
+                    const targetX = this.player.x;
+                    const targetY = this.player.y;
+                    const dx = targetX - (sx + 0.5);
+                    const dy = targetY - (sy + 0.5);
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+
+                    let dirX = 0, dirY = 0;
+                    if (dist > 0.001) {
+                        dirX = dx / dist;
+                        dirY = dy / dist;
+                    } else {
+                        dirX = 1;
+                        dirY = 0;
+                    }
+
+                    const projX = sx + 0.5;
+                    const projY = sy + 0.5;
+
+                    let threeMesh: any = null;
+                    if (this.scene) {
+                        const geom = new THREE.SphereGeometry(0.12, 16, 16);
+                        const mat = new THREE.MeshBasicMaterial({
+                            color: CONFIG.COLORS.THREE_JELLY_PROJECTILE
+                        });
+                        threeMesh = new THREE.Mesh(geom, mat);
+                        threeMesh.position.set(projX - size / 2, (sz - size / 2) * this.vScale, projY - size / 2);
+                        this.scene.add(threeMesh);
+                    }
+
+                    this.jellyProjectiles.push({
+                        x: projX,
+                        y: projY,
+                        z: sz,
+                        dirX,
+                        dirY,
+                        threeMesh
+                    });
+
+                    state.shotsFired++;
+                    if (state.shotsFired >= 2) {
+                        state.state = 'COOLDOWN';
+                        state.chargeTimer = 0;
+                    } else {
+                        state.state = 'IDLE';
+                        state.chargeTimer = 0.5 + Math.random() * 1.5;
+                    }
+                }
+            }
+        }
+
+        if (finishedStatues === activeStatues && this.jellyProjectiles.length === 0) {
+            this.endJellyChallenge();
+        }
+    }
+
+    endJellyChallenge() {
+        this.isJellyChallengeActive = false;
+
+        // 1. Respawn de Hunters
+        if (!this.isSafeMode) {
+            this.hunters = [];
+            this.initHunters(this.degree);
+
+            for (let i = 0; i < this.previouslyDeadHuntersInfo.length && i < this.hunters.length; i++) {
+                const h = this.hunters[i];
+                h.state = 'DEAD_BY_JELLY';
+                h.respawnThresholdPercentage = this.previouslyDeadHuntersInfo[i].threshold;
+                h.x = null;
+                h.y = null;
+                h.z = null;
+                h.visualX = null;
+                h.visualY = null;
+                h.visualZ = null;
+            }
+        }
+
+        this.ui.showInfoBanner(getTranslation('msgFloorComplete'));
     }
 }
 
