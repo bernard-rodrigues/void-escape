@@ -26,6 +26,9 @@ export interface Config {
   VORTEX_SPEED_NORMAL: number;
   VORTEX_SPEED_FAST: number;
   JELLY_PORTAL_COUNT: number;
+  JELLY_STATUE_CHARGE_TIME: number;
+  JELLY_PROJECTILE_SPEED: number;
+  JELLY_CHALLENGE_MIN_FREE_CELLS: number;
   getHunterCount: (degree: number) => number;
   getTeleportCount: (degree: number) => number;
   getPathfinderCount: (degree: number) => number;
@@ -59,6 +62,9 @@ export const CONFIG: Config = {
     VORTEX_SPEED_NORMAL: 1.5, // Default slow rotation speed for the vortex (rad/s)
     VORTEX_SPEED_FAST: 6.0,   // Fast rotation speed when player is on the vortex tile (rad/s)
     JELLY_PORTAL_COUNT: 0,
+    JELLY_STATUE_CHARGE_TIME: 1.5,
+    JELLY_PROJECTILE_SPEED: 3.0,
+    JELLY_CHALLENGE_MIN_FREE_CELLS: 3,
     getHunterCount(degree: number) {
         if (degree >= 16) return 4;
         if (degree >= 12) return 3;
@@ -100,6 +106,8 @@ export const CONFIG: Config = {
         REVEALED_PATH: '#ffffff',           // cell lit up by the Pathfinder ability
         ELEVATOR_BIDIRECTIONAL: '#ffffff',  // ↕ symbol when elevator goes both ways
         JELLY_PORTAL: '#a020f0',
+        JELLY_PROJECTILE: '#ff3333',
+        JELLY_MUTATION: '#ff5500',
         // 3D Specific (Hex codes for Three.js)
         THREE_PLAYER: 0xff0000,
         THREE_HUNTER: 0xaa00ff,
@@ -114,6 +122,8 @@ export const CONFIG: Config = {
         THREE_TELEPORT: 0xff8c00,
         THREE_KEY: 0xffd700,
         THREE_JELLY_PORTAL: 0xa020f0,
+        THREE_JELLY_PROJECTILE: 0xff3333,
+        THREE_JELLY_MUTATION: 0xff5500,
         // Vertical shaft rendered between floors the player connected via elevator.
         // Visually split: bottom half = DOWN color (magenta), top half = UP color (cyan).
         THREE_ELEVATOR_SHAFT: { bottom: 0xff00ff, top: 0x00ffff }
