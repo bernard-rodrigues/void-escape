@@ -11,7 +11,6 @@ export class UIManager {
     uiProximeterCells: NodeListOf<HTMLElement>;
     uiProximeterBar: HTMLElement | null;
     uiVictoryScreen: HTMLElement | null;
-    uiGameOverScreen: HTMLElement | null;
     uiMobileUp: HTMLButtonElement | null;
     uiMobileDown: HTMLButtonElement | null;
     uiMobileMap: HTMLButtonElement | null;
@@ -49,7 +48,6 @@ export class UIManager {
         this.uiProximeterCells = document.querySelectorAll('.proximeter-cell');
         this.uiProximeterBar = document.querySelector('.proximeter-bar');
         this.uiVictoryScreen = document.getElementById('victory-screen');
-        this.uiGameOverScreen = document.getElementById('game-over-screen');
         this.uiMobileUp = document.getElementById('mobile-up') as HTMLButtonElement;
         this.uiMobileDown = document.getElementById('mobile-down') as HTMLButtonElement;
         this.uiMobileMap = document.getElementById('mobile-map') as HTMLButtonElement;
@@ -187,20 +185,6 @@ export class UIManager {
         }
     }
 
-    /**
-     * Show game over overlay and hide game controls.
-     * @param {boolean} hasSavePoint - Whether to show the Continue button.
-     */
-    showDeath(hasSavePoint = false) {
-        this.hideGameUI();
-        if (this.uiGameOverScreen) {
-            this.uiGameOverScreen.classList.remove('hidden');
-        }
-        const continueBtn = document.getElementById('continue-btn-death');
-        if (continueBtn) {
-            continueBtn.style.display = hasSavePoint ? '' : 'none';
-        }
-    }
 
     /**
      * Hide all HUD elements and mobile interfaces.
