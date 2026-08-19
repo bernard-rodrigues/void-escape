@@ -1147,7 +1147,26 @@ export class Engine {
 
     triggerDeath() {
         this.isGameOver = true;
-        this.ui.showDeath(this.hasSavePoint);
+        this.deathsCount++;
+        this.hideGameUI();
+
+        this.ui.showInfoBanner(getTranslation('msgKeyDropped'));
+
+        this.deathAnimation = {
+            active: true,
+            hunter: null,
+            playerPos: { x: this.player.x, y: this.player.y, z: this.player.z },
+            elapsed: 0,
+            duration: 1.8,
+            screenFilled: false,
+            reversing: false,
+            delayElapsed: 0,
+            delayDuration: 1.5,
+            glitchElapsed: 0,
+            glitchDuration: 1.5,
+            uiFade: 0,
+            uiTriggered: false
+        };
     }
 
     collectKey(x: number, y: number, z: number) {
@@ -4702,8 +4721,8 @@ export class Engine {
         // Draw death animation corruption / glitch overlay
         if (this.deathAnimation && this.deathAnimation.active) {
             const h = this.deathAnimation.hunter;
-            let centerGridX = h.visualX + 0.5;
-            let centerGridY = h.visualY + 0.5;
+            let centerGridX = h ? h.visualX + 0.5 : this.deathAnimation.playerPos.x;
+            let centerGridY = h ? h.visualY + 0.5 : this.deathAnimation.playerPos.y;
             if (this.deathAnimation.reversing) {
                 centerGridX = this.player.x;
                 centerGridY = this.player.y;
@@ -9082,7 +9101,51 @@ export class Engine {
             }
         }
 
-        if (walkableCellsCount > CONFIG.JELLY_CHALLENGE_MIN_FREE_CELLS && statueCount >= 1 && !this.isSafeMode) {
+        // BFS starting from player's cell to determine the connected walkable area size on floor z
+        const startX = Math.floor(this.player.x);
+        const startY = Math.floor(this.player.y);
+        const visited = new Set<string>();
+        const queue: [number, number][] = [[startX, startY]];
+        visited.add(`${startX},${startY}`);
+
+        const uniqueX = new Set<number>();
+        const uniqueY = new Set<number>();
+        uniqueX.add(startX);
+        uniqueY.add(startY);
+
+        while (queue.length > 0) {
+            const [cx, cy] = queue.shift()!;
+            const neighbors = [
+                [cx + 1, cy],
+                [cx - 1, cy],
+                [cx, cy + 1],
+                [cx, cy - 1]
+            ];
+
+            for (const [nx, ny] of neighbors) {
+                if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                    const key = `${nx},${ny}`;
+                    if (!visited.has(key)) {
+                        const val = this.maze.get(nx, ny, z);
+                        const isWalkable = val !== TYPES.WALL &&
+                                           val !== TYPES.EXIT &&
+                                           val !== TYPES.STATUE &&
+                                           (val !== TYPES.TELEPORT || this.discoveredTeleports.has(`${nx},${ny},${z}`));
+
+                        if (isWalkable) {
+                            visited.add(key);
+                            uniqueX.add(nx);
+                            uniqueY.add(ny);
+                            queue.push([nx, ny]);
+                        }
+                    }
+                }
+            }
+        }
+
+        const hasEnoughSpace = uniqueX.size >= 2 && uniqueY.size >= 2;
+
+        if (walkableCellsCount > CONFIG.JELLY_CHALLENGE_MIN_FREE_CELLS && statueCount >= 1 && !this.isSafeMode && hasEnoughSpace) {
             this.isJellyChallengeActive = true;
             this.completedFloors.add(z);
 

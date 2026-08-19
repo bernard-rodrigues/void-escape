@@ -432,7 +432,6 @@
         window.addEventListener('keydown', (e) => {
             const isMenuVisible = !currentGame || currentGame.isPaused || 
                                  (document.getElementById('victory-screen') && !document.getElementById('victory-screen').classList.contains('hidden')) || 
-                                 (document.getElementById('game-over-screen') && !document.getElementById('game-over-screen').classList.contains('hidden')) ||
                                  (document.getElementById('pathfinder-confirm-modal') && !document.getElementById('pathfinder-confirm-modal').classList.contains('hidden'));
 
             if (isMenuVisible) {
@@ -478,7 +477,6 @@
             if (gp) {
                 const isMenuVisible = !currentGame || currentGame.isPaused || 
                                      (document.getElementById('victory-screen') && !document.getElementById('victory-screen').classList.contains('hidden')) || 
-                                     (document.getElementById('game-over-screen') && !document.getElementById('game-over-screen').classList.contains('hidden')) ||
                                      (document.getElementById('pathfinder-confirm-modal') && !document.getElementById('pathfinder-confirm-modal').classList.contains('hidden'));
 
                 if (isMenuVisible) {
@@ -691,17 +689,6 @@
     </div>
 </section>
 
-<section id="game-over-screen" class="hidden">
-    <div class="popup-container death">
-        <h1 data-i18n="gameOverTitle">Terminated</h1>
-        <p data-i18n="gameOverText">You were caught by the void hunters.</p>
-        <div class="end-game-btns">
-            <button id="continue-btn-death" class="end-btn continue-highlight" data-i18n="continue">CONTINUE</button>
-            <button id="retry-btn-death" class="end-btn" data-i18n="playAgain">PLAY AGAIN</button>
-            <button id="menu-btn-death" class="end-btn" data-i18n="mainMenu">MAIN MENU</button>
-        </div>
-    </div>
-</section>
 
 <section id="pause-screen" class="hidden">
     <div class="popup-container pause">
