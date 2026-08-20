@@ -125,6 +125,7 @@ export class Engine {
     dyingHunters!: any[];
     pathfinderConfirmTarget!: { x: number; y: number; z: number } | null;
     isJellyChallengeActive: boolean = false;
+    isHunterTracking: boolean = false;
     completedFloors: Set<number> = new Set();
     jellyProjectiles: {
         x: number;
@@ -435,6 +436,8 @@ export class Engine {
         this.dyingHunters = [];
 
         this.isJellyChallengeActive = false;
+        this.isHunterTracking = false;
+        this.updateGameContainerBackground();
         this.completedFloors = new Set();
         this.jellyProjectiles = [];
         this.jellyStatueStates = new Map();
@@ -581,6 +584,8 @@ export class Engine {
 
     destroy() {
         this.isDestroyed = true;
+        this.isJellyChallengeActive = false;
+        this.updateGameContainerBackground();
         this.hideGameUI();
         
         this.input.destroy();
@@ -3256,6 +3261,7 @@ export class Engine {
             }
 
             const isTracking = trackingCount > 0;
+            this.isHunterTracking = isTracking;
             this.ui.updateHazardWarning(isTracking, this.teleportCooldownTicks, this.isSafeMode, isSleeping);
             if (isTracking) {
                 this.canvas.classList.add('hunted-map-effect');
@@ -3992,6 +3998,7 @@ export class Engine {
                     
                     // 3. Re-initialize / Reset Hunters
                     this.isJellyChallengeActive = false;
+                    this.updateGameContainerBackground();
                     this.jellyProjectiles.forEach(p => {
                         if (p.threeMesh) this.scene.remove(p.threeMesh);
                     });
@@ -4130,7 +4137,7 @@ export class Engine {
     }
 
     renderMapToContext(ctx: CanvasRenderingContext2D, z: number) {
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        this.drawVoidBackground(ctx, ctx.canvas.width, ctx.canvas.height, z);
 
         const size = this.mazeGen.size;
         const useZoom = size > 11;
@@ -7309,14 +7316,12 @@ export class Engine {
         const width = canvas.width = window.innerWidth;
         const height = canvas.height = window.innerHeight;
 
-        ctx.clearRect(0, 0, width, height);
-
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, width, height);
-
-        const size = this.mazeGen.size;
         const activeZ = this.activeMapFloor;
         const visualZ = this.visualActiveFloor;
+
+        this.drawVoidBackground(ctx, width, height, activeZ);
+
+        const size = this.mazeGen.size;
 
         let baseTileWidth = (width * 0.7) / size;
         baseTileWidth = Math.max(20, Math.min(48, baseTileWidth));
@@ -9147,6 +9152,7 @@ export class Engine {
 
         if (walkableCellsCount > CONFIG.JELLY_CHALLENGE_MIN_FREE_CELLS && statueCount >= 1 && !this.isSafeMode && hasEnoughSpace) {
             this.isJellyChallengeActive = true;
+            this.updateGameContainerBackground();
             this.completedFloors.add(z);
 
             // Purga de Hunters
@@ -9306,6 +9312,7 @@ export class Engine {
 
     endJellyChallenge() {
         this.isJellyChallengeActive = false;
+        this.updateGameContainerBackground();
 
         // 1. Respawn de Hunters
         if (!this.isSafeMode) {
@@ -9326,6 +9333,56 @@ export class Engine {
         }
 
         this.ui.showInfoBanner(getTranslation('msgFloorComplete'));
+    }
+
+    updateGameContainerBackground() {
+        const gameContainer = document.getElementById('game-container');
+        if (gameContainer) {
+            if (this.isJellyChallengeActive) {
+                gameContainer.classList.add('jelly-challenge-bg');
+            } else {
+                gameContainer.classList.remove('jelly-challenge-bg');
+            }
+        }
+    }
+
+    drawVoidBackground(ctx: CanvasRenderingContext2D, width: number, height: number, z: number) {
+        ctx.save();
+        if (this.isJellyChallengeActive) {
+            ctx.clearRect(0, 0, width, height);
+            ctx.restore();
+            return;
+        }
+
+        const hasHunter = this.hunters.some(h => h.z === z && h.state !== 'SLEEP' && h.state !== 'DEAD' && h.state !== 'DEAD_BY_JELLY');
+        const isTracking = this.isHunterTracking;
+
+        const cx = width / 2;
+        const cy = height / 2;
+        const radius = Math.max(width, height) * 0.6;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+
+        if (isTracking && hasHunter) {
+            const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 250);
+            const r = Math.floor(40 + pulse * 25);
+            grad.addColorStop(0, `rgb(${r}, 0, 0)`);
+            grad.addColorStop(0.85, '#000000');
+            grad.addColorStop(1, '#000000');
+        } else if (hasHunter) {
+            const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 450);
+            const purpleInt = Math.floor(20 + pulse * 35);
+            grad.addColorStop(0, `rgb(${Math.floor(purpleInt * 0.5)}, 0, ${purpleInt})`);
+            grad.addColorStop(0.85, '#000000');
+            grad.addColorStop(1, '#000000');
+        } else {
+            grad.addColorStop(0, '#1c1c1c');
+            grad.addColorStop(0.85, '#000000');
+            grad.addColorStop(1, '#000000');
+        }
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
     }
 }
 

@@ -602,6 +602,18 @@ body {
     border-color: var(--clr-hazard) !important;
 }
 
+@keyframes jelly-void-bg-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.jelly-challenge-bg {
+    background: linear-gradient(135deg, #090011 0%, #030006 40%, #150024 70%, #05000a 100%) !important;
+    background-size: 400% 400% !important;
+    animation: jelly-void-bg-flow 12s ease infinite !important;
+}
+
 #game-container {
     position: relative;
     width: 100vw;
@@ -613,6 +625,7 @@ body {
     gap: calc(var(--h-unit) * 2);
     gap: calc(var(--d-h-unit) * 2);
     background-color: var(--clr-bg-alt);
+    transition: background 1.0s ease, background-color 1.0s ease;
 }
 
 #map-area-container {
@@ -768,7 +781,7 @@ body {
     max-width: calc(var(--d-h-unit) * 75);
     max-height: calc(var(--h-unit) * 75);
     max-height: calc(var(--d-h-unit) * 75);
-    background-color: #000;
+    background-color: transparent;
     border: calc(var(--h-unit) * 0.3) solid #333;
     border: calc(var(--d-h-unit) * 0.3) solid #333;
     image-rendering: pixelated;
