@@ -7311,7 +7311,11 @@ export class Engine {
 
         ctx.clearRect(0, 0, width, height);
 
-        ctx.fillStyle = '#000000';
+        const grad = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) * 0.6);
+        grad.addColorStop(0, '#222222');
+        grad.addColorStop(0.8, '#000000');
+        grad.addColorStop(1, '#000000');
+        ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
 
         const size = this.mazeGen.size;

@@ -768,7 +768,7 @@ body {
     max-width: calc(var(--d-h-unit) * 75);
     max-height: calc(var(--h-unit) * 75);
     max-height: calc(var(--d-h-unit) * 75);
-    background-color: #000;
+    background: radial-gradient(circle, #222222 0%, #000000 80%);
     border: calc(var(--h-unit) * 0.3) solid #333;
     border: calc(var(--d-h-unit) * 0.3) solid #333;
     image-rendering: pixelated;
