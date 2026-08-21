@@ -949,6 +949,7 @@ export class Engine {
         this.triggerSave();
 
         this.jellyPortalFreezeTimer = 1.5;
+        this.updateGameContainerBackground(); // Ativa instantaneamente o background roxo do portal
         this.jellyPortalResetElapsed = 0;
         this.jellyPortalResetCells.clear();
 
@@ -2652,6 +2653,7 @@ export class Engine {
             this.jellyPortalResetElapsed += dt;
             if (this.jellyPortalFreezeTimer <= 0) {
                 this.jellyPortalFreezeTimer = 0;
+                this.updateGameContainerBackground(); // Inicia o retorno lento da cor do background
                 this.executeJellyPortalReset(Math.floor(this.player.x), Math.floor(this.player.y), this.player.z);
                 this.jellyPortalResetCells.clear();
             }
@@ -9382,6 +9384,13 @@ export class Engine {
                 gameContainer.classList.add('jelly-challenge-bg');
             } else {
                 gameContainer.classList.remove('jelly-challenge-bg');
+            }
+
+            // Gerencia classe do background dinâmico do portal do deus geléia
+            if (this.jellyPortalFreezeTimer > 0) {
+                gameContainer.classList.add('jelly-portal-active-bg');
+            } else {
+                gameContainer.classList.remove('jelly-portal-active-bg');
             }
         }
     }

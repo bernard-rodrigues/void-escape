@@ -625,7 +625,13 @@ body {
     gap: calc(var(--h-unit) * 2);
     gap: calc(var(--d-h-unit) * 2);
     background-color: var(--clr-bg-alt);
-    transition: background 1.0s ease, background-color 1.0s ease;
+    transition: background 3.5s ease-out, background-color 3.5s ease-out; /* Retorno lento da cor após efeitos do portal */
+}
+
+.jelly-portal-active-bg {
+    background-color: #17002b !important;
+    background-image: radial-gradient(circle at center, #2e004a 0%, #000000 80%) !important;
+    transition: none !important; /* Entrada instantânea do efeito */
 }
 
 #map-area-container {
