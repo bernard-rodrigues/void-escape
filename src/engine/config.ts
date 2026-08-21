@@ -42,7 +42,7 @@ export const CONFIG: Config = {
     MAZE_DEGREE: 4,
     MIN_MAZE_DEGREE: 4,
     MAX_MAZE_DEGREE: 16,
-    BRANCHING_FACTOR: 0.10,
+    BRANCHING_FACTOR: 0.10, // Controls Growing Tree branching behavior (0.0 to 1.0). Higher values produce frequent forks and short branches (Prim-like behavior), while lower values produce long, linear corridors (DFS-like behavior).
     BRAID_FACTOR: 0.10, // Fraction of eligible walls to turn into paths (0.0 to 1.0)
     SHADOW_SIZE_FACTOR: 0.075, // Proportional width/height of wall-projected shadows in 2D minimap
     TELEPORT_MAP_OPACITY: 0.25, // Opacity of non-teleport meshes when choosing teleport destination
