@@ -78,6 +78,7 @@ export function saveGame(engine: any): void {
             matrix: encodeMatrix(engine.mazeGen.matrix),
             // Player
             player: { ...engine.player },
+            lastSavePos: engine.lastSavePos ? { ...engine.lastSavePos } : null,
             // Hunters
             hunters: engine.hunters.map(serialiseHunter),
             // Teleport state

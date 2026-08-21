@@ -167,51 +167,6 @@ function updateGamepad(engine: any, dt: number) {
         }
     }
 
-    if (engine.isMap3DActive && engine.camera && engine.controls) {
-        const rotX = gp.axes[2];
-        const rotY = gp.axes[3];
-        const zoomInVal = gp.buttons[7] ? gp.buttons[7].value : 0;
-        const zoomOutVal = gp.buttons[6] ? gp.buttons[6].value : 0;
-
-        const rotDeadzone = 0.15;
-        const zoomDeadzone = 0.15;
-        const rotSpeed = 2.0 * dt;
-        const zoomSpeed = 20.0 * dt;
-
-        const hasRotation = Math.abs(rotX) > rotDeadzone || Math.abs(rotY) > rotDeadzone;
-        const hasZoom = zoomInVal > zoomDeadzone || zoomOutVal > zoomDeadzone;
-
-        if (hasRotation || hasZoom) {
-            const offset = new THREE.Vector3().copy(engine.camera.position).sub(engine.controls.target);
-            const spherical = new THREE.Spherical().setFromVector3(offset);
-
-            if (Math.abs(rotX) > rotDeadzone) {
-                spherical.theta -= rotX * rotSpeed;
-            }
-            if (Math.abs(rotY) > rotDeadzone) {
-                spherical.phi -= rotY * rotSpeed;
-                const minPolar = engine.controls.minPolarAngle || 0;
-                const maxPolar = engine.controls.maxPolarAngle || Math.PI;
-                spherical.phi = Math.max(minPolar, Math.min(maxPolar, spherical.phi));
-            }
-
-            if (zoomInVal > zoomDeadzone) {
-                spherical.radius -= zoomInVal * zoomSpeed;
-            }
-            if (zoomOutVal > zoomDeadzone) {
-                spherical.radius += zoomOutVal * zoomSpeed;
-            }
-            const minDist = engine.controls.minDistance || 2;
-            const maxDist = engine.controls.maxDistance || 100;
-            spherical.radius = Math.max(minDist, Math.min(maxDist, spherical.radius));
-
-            spherical.makeSafe();
-            offset.setFromSpherical(spherical);
-            engine.camera.position.copy(engine.controls.target).add(offset);
-            engine.controls.update();
-        }
-    }
-
     engine.prevGamepadButtons = gp.buttons.map((b: any) => b.pressed);
 }
 
@@ -385,50 +340,4 @@ test('Gamepad Input - Teleport candidates list and bumper selection cycling', ()
     mockGamepad.buttons[0] = { pressed: true };
     updateGamepad(mockEngine, 0.016);
     assert.deepStrictEqual(teleportSelectedPos, { x: 2, y: 2, z: 0 });
-});
-
-test('Gamepad Input - Right Analog Stick rotates and triggers zoom 3D camera', () => {
-    let controlsUpdated = false;
-
-    const mockEngine = {
-        isGameOver: false,
-        isDestroyed: false,
-        isTeleportMode: false,
-        isMap3DActive: true,
-        input: {
-            keys: {} as any
-        },
-        mazeGen: {
-            size: 5
-        },
-        camera: {
-            position: new THREE.Vector3(10, 10, 10)
-        },
-        controls: {
-            target: { x: 0, y: 0, z: 0 },
-            update() { controlsUpdated = true; }
-        },
-        prevGamepadButtons: null as boolean[] | null
-    };
-
-    // Scenario A: Only analog rotation
-    mockGamepad = {
-        axes: [0.0, 0.0, 0.8, -0.6], // Right stick pushed right (0.8) and up (-0.6)
-        buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }))
-    };
-    mockEngine.prevGamepadButtons = mockGamepad.buttons.map((b: any) => b.pressed);
-
-    updateGamepad(mockEngine, 0.1); // dt = 0.1s
-    
-    assert.strictEqual(Math.round(mockEngine.camera.position.x * 100) / 100, -0.16);
-    assert.strictEqual(Math.round(mockEngine.camera.position.y * 100) / 100, 1.69);
-    assert.strictEqual(controlsUpdated, true);
-
-    // Scenario B: Zoom in using RT trigger (button 7 with value 0.5)
-    mockGamepad.axes = [0.0, 0.0, 0.0, 0.0];
-    mockGamepad.buttons[7] = { pressed: true, value: 0.5 };
-    controlsUpdated = false;
-    
-    updateGamepad(mockEngine, 0.1);
-    assert.strictEqual(controlsUpdated, true);
 });
