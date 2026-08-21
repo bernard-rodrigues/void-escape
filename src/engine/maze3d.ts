@@ -12,6 +12,7 @@ export type MazeMatrix = Omit<Int8Array, 'set'> & {
 export class Maze3D {
     n!: number;
     branchingFactor!: number;
+    verticalBias!: number;
     size!: number;
     seed!: string | number | null;
     random!: () => number;
@@ -25,6 +26,7 @@ export class Maze3D {
         const bf = branchingFactor !== undefined ? branchingFactor : (CONFIG.BRANCHING_FACTOR !== undefined ? CONFIG.BRANCHING_FACTOR : 0.2);
         this.n = Math.max(3, Math.min(16, d));
         this.branchingFactor = Math.max(0, Math.min(1, bf));
+        this.verticalBias = CONFIG.MAZE_VERTICAL_BIAS !== undefined ? CONFIG.MAZE_VERTICAL_BIAS : 0.15;
         this.size = 2 * this.n + 1;
 
         if (seed !== null && seed !== undefined) {
@@ -71,7 +73,7 @@ export class Maze3D {
     }
 
     generate(): Int8Array {
-        const cells = [];
+        const cells: Point3D[] = [];
         const startX = 1 + 2 * Math.floor(this.random() * this.n);
         const startY = 1 + 2 * Math.floor(this.random() * this.n);
         const startZ = 1 + 2 * Math.floor(this.random() * this.n);
@@ -85,7 +87,18 @@ export class Maze3D {
             const neighbors = this.getUnvisitedNeighbors(cell.x, cell.y, cell.z);
 
             if (neighbors.length > 0) {
-                const neighbor = neighbors[Math.floor(this.random() * neighbors.length)];
+                const horizontalNeighbors = neighbors.filter(n => n.z === cell.z);
+                const verticalNeighbors = neighbors.filter(n => n.z !== cell.z);
+                
+                let neighbor;
+                if (verticalNeighbors.length > 0 && (horizontalNeighbors.length === 0 || this.random() < this.verticalBias)) {
+                    neighbor = verticalNeighbors[Math.floor(this.random() * verticalNeighbors.length)];
+                } else if (horizontalNeighbors.length > 0) {
+                    neighbor = horizontalNeighbors[Math.floor(this.random() * horizontalNeighbors.length)];
+                } else {
+                    neighbor = verticalNeighbors[Math.floor(this.random() * verticalNeighbors.length)];
+                }
+
                 this.matrix[this._idx(neighbor.x, neighbor.y, neighbor.z)] = this.TYPES.PATH;
                 this.matrix[this._idx((cell.x + neighbor.x) / 2, (cell.y + neighbor.y) / 2, (cell.z + neighbor.z) / 2)] = this.TYPES.PATH;
                 cells.push(neighbor);

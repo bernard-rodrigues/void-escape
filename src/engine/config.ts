@@ -29,6 +29,7 @@ export interface Config {
   JELLY_STATUE_CHARGE_TIME: number;
   JELLY_PROJECTILE_SPEED: number;
   JELLY_CHALLENGE_MIN_FREE_CELLS: number;
+  MAZE_VERTICAL_BIAS: number;
   getHunterCount: (degree: number) => number;
   getTeleportCount: (degree: number) => number;
   getPathfinderCount: (degree: number) => number;
@@ -65,6 +66,7 @@ export const CONFIG: Config = {
     JELLY_STATUE_CHARGE_TIME: 1.5,
     JELLY_PROJECTILE_SPEED: 3.0,
     JELLY_CHALLENGE_MIN_FREE_CELLS: 3,
+    MAZE_VERTICAL_BIAS: 0.15, // Probability factor (0.0 to 1.0) of generating a vertical path (elevator) if horizontal neighbors are still available. Lower values force wider horizontal floor exploration before going up/down.
     getHunterCount(degree: number) {
         if (degree >= 16) return 4;
         if (degree >= 12) return 3;
