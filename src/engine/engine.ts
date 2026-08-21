@@ -4912,13 +4912,15 @@ export class Engine {
         const now = Date.now();
         let hasActiveAnimations = false;
 
-        const drawCellWithFade = (x: number, y: number, drawFn: () => void) => {
+        const drawCellWithFade = (x: number, y: number, drawFn: () => void, drawBg = true) => {
             const key = `${x},${y},${z}`;
 
-            // Insere um bloco preto sólido de fundo para que o background com estrelas
-            // não apareça por trás de elementos pulsantes ou translúcidos do labirinto
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            if (drawBg) {
+                // Insere um bloco preto sólido de fundo para que o background com estrelas
+                // não apareça por trás de elementos pulsantes ou translúcidos do labirinto
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            }
 
             if (this.skipCellAnimations || this.fullyRevealedCells.has(key)) {
                 drawFn();
@@ -5291,7 +5293,7 @@ export class Engine {
                             ctx.fill();
                         }
                         this.drawCellShadow2D(ctx, x, y, cellSize, size, val, z);
-                    });
+                    }, false);
                     hasActiveAnimations = true;
                 } else if (isMana) {
                     drawCellWithFade(x, y, () => {
@@ -5334,7 +5336,7 @@ export class Engine {
                             ctx.fill();
                         }
                         this.drawCellShadow2D(ctx, x, y, cellSize, size, val, z);
-                    });
+                    }, false);
                     hasActiveAnimations = true;
                 } else if (isKnown) { 
                     drawCellWithFade(x, y, () => {
