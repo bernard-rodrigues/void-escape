@@ -1975,6 +1975,10 @@ export class Engine {
     drawCellShadow2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, size: number, val: number, z: number) {
         if (val === 4) return; // Exclude exit cell
 
+        // Não emite sombra de paredes em nós conhecidos/pulsantes (não visitados)
+        const isVisited = this.visitedCells.has(`${x},${y},${z}`);
+        if (!isVisited) return;
+
         const isWallVisible = (wx: number, wy: number) => {
             if (wx < 0 || wx >= size || wy < 0 || wy >= size) return false;
             return this.isWallVisible(wx, wy, z);
@@ -4909,6 +4913,11 @@ export class Engine {
         const drawCellWithFade = (x: number, y: number, drawFn: () => void) => {
             const key = `${x},${y},${z}`;
 
+            // Insere um bloco preto sólido de fundo para que o background com estrelas
+            // não apareça por trás de elementos pulsantes ou translúcidos do labirinto
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+
             if (this.skipCellAnimations || this.fullyRevealedCells.has(key)) {
                 drawFn();
                 if (this.skipCellAnimations) {
@@ -4951,6 +4960,10 @@ export class Engine {
                         animProgress = Math.min(1.0, (elapsed - holdTime) / 0.9);
                     }
                     
+                    // Garante fundo preto opaco para a animação do portal de geléia
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+
                     ctx.save();
                     const invertPercent = Math.round(100 * (1.0 - animProgress));
                     ctx.filter = `invert(${invertPercent}%)`;
@@ -9387,7 +9400,7 @@ export class Engine {
         const isJellyPortalActive = this.jellyPortalFreezeTimer > 0;
         const isVictoryState = this.isVictory;
 
-        let targetBg = [0, 0, 0]; // Cor padrão de fundo do canvas (preto puro)
+        const targetBg = [0, 0, 0]; // Fundo sempre preto puro, conforme feedback do usuário
         let targetStar = [200, 200, 200]; // Cor padrão das estrelas (branco/cinza claro)
         let isCollapse = false;
         let isExpanse = false;
@@ -9397,36 +9410,30 @@ export class Engine {
         if (isVictoryState) {
             // Vitória: animação de expansão com partículas brancas
             isExpanse = true;
-            targetBg = [0, 0, 0];
             targetStar = [255, 255, 255];
             speedMultiplier = 0.5;
         } else if (isJellyPortalActive) {
             // Portal do deus geléia: roxo e colapso estendido na tela inteira
             isCollapse = true;
-            targetBg = [45, 10, 55];
             targetStar = [160, 32, 240];
             speedMultiplier = 12.0; // Velocidade de rotação orbital acelerada bastante
             collapseScale = 2.2;
         } else if (isTracking && hasHunter) {
             // Caçador no mesmo andar AND em caça ativa: vermelho e colapso rápido
             isCollapse = true;
-            targetBg = [60, 10, 10];
             targetStar = [255, 51, 51];
             speedMultiplier = 4.5;
         } else if (isTracking) {
             // Caçador em caça ativa, mas em outro andar: vermelho e animação padrão
-            targetBg = [40, 10, 10];
             targetStar = [200, 30, 30];
             speedMultiplier = 1.0;
         } else if (hasHunter) {
             // Caçador no mesmo andar patrulhando: roxo e colapso
             isCollapse = true;
-            targetBg = [35, 10, 45];
             targetStar = [160, 32, 240];
             speedMultiplier = 2.5;
         } else {
             // Estado normal: preto puro e animação padrão
-            targetBg = [0, 0, 0];
             targetStar = [200, 200, 200];
             speedMultiplier = 1.0;
         }
@@ -9493,12 +9500,13 @@ export class Engine {
         }
 
         // 6. Desenhar os 5 grupos de estrelas com apenas 5 chamadas de stroke()
+        const isIsoMap = ctx === this.isometricCtx;
         for (let g = 0; g < 5; g++) {
             const groupStars = opacityGroups[g];
             if (groupStars.length === 0) continue;
 
             ctx.beginPath();
-            const groupAlpha = (g + 0.6) / 5; // opacidade média da faixa
+            const groupAlpha = ((g + 0.6) / 5) * (isIsoMap ? 0.15 : 1.0); // Reduz bastante no mapa isométrico para não poluir visualmente
             ctx.strokeStyle = `rgba(${Math.floor(this.starColor[0])}, ${Math.floor(this.starColor[1])}, ${Math.floor(this.starColor[2])}, ${groupAlpha})`;
             ctx.lineWidth = 1.2;
 
