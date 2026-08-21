@@ -65,7 +65,7 @@ export const CONFIG: Config = {
     VORTEX_SPEED_FAST: 6.0,   // Fast rotation speed when player is on the vortex tile (rad/s)
     JELLY_PORTAL_COUNT: 0,
     JELLY_STATUE_CHARGE_TIME: 1.5,
-    JELLY_STATUE_MAX_SHOTS: 2,
+    JELLY_STATUE_MAX_SHOTS: 3,
     JELLY_PROJECTILE_SPEED: 5.0,
     JELLY_CHALLENGE_MIN_FREE_CELLS: 3,
     MAZE_VERTICAL_BIAS: 0.15, // Probability factor (0.0 to 1.0) of generating a vertical path (elevator) if horizontal neighbors are still available. Lower values force wider horizontal floor exploration before going up/down.
