@@ -21,7 +21,6 @@ export interface Config {
   PLAYER_SHADOW_HEIGHT_FACTOR: number;
   SHOW_COLLISION_DEBUG: boolean;
   MOVE_SPEED_FACTOR: number;
-  ROT_SPEED: number;
   HUNTER_SPEED: number;
   VORTEX_SPEED_NORMAL: number;
   VORTEX_SPEED_FAST: number;
@@ -59,7 +58,6 @@ export const CONFIG: Config = {
     PLAYER_SHADOW_HEIGHT_FACTOR: 0.25, // Height factor (vertical radius multiplier) of the player shadow relative to cell size
     SHOW_COLLISION_DEBUG: false, // Set to true to draw the player's red collision boundary on the 2D map
     MOVE_SPEED_FACTOR: 2, // player is 2x faster than hunter speed
-    ROT_SPEED: 3.0, // radians per second
     HUNTER_SPEED: 500, // ms per move
     VORTEX_SPEED_NORMAL: 1.5, // Default slow rotation speed for the vortex (rad/s)
     VORTEX_SPEED_FAST: 6.0,   // Fast rotation speed when player is on the vortex tile (rad/s)
@@ -108,12 +106,9 @@ export const CONFIG: Config = {
         TELEPORT: '#ff8c00',
         TELEPORT_INACTIVE: '#555555',       // teleport node consumed / on cooldown
         REVEALED_PATH: '#ffffff',           // cell lit up by the Pathfinder ability
-        ELEVATOR_BIDIRECTIONAL: '#ffffff',  // ↕ symbol when elevator goes both ways
         JELLY_PORTAL: '#a020f0',
-        JELLY_PROJECTILE: '#ff3333',
         JELLY_MUTATION: '#ff5500',
         // 3D Specific (Hex codes for Three.js)
-        THREE_PLAYER: 0xff0000,
         THREE_HUNTER: 0xaa00ff,
         THREE_START: 0xffff00,
         THREE_EXIT: 0x00ff00,
@@ -126,10 +121,6 @@ export const CONFIG: Config = {
         THREE_TELEPORT: 0xff8c00,
         THREE_KEY: 0xffd700,
         THREE_JELLY_PORTAL: 0xa020f0,
-        THREE_JELLY_PROJECTILE: 0xff3333,
-        THREE_JELLY_MUTATION: 0xff5500,
-        // Vertical shaft rendered between floors the player connected via elevator.
-        // Visually split: bottom half = DOWN color (magenta), top half = UP color (cyan).
-        THREE_ELEVATOR_SHAFT: { bottom: 0xff00ff, top: 0x00ffff }
+        THREE_JELLY_PROJECTILE: 0xff3333
     }
 };

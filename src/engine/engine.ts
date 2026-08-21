@@ -844,7 +844,6 @@ export class Engine {
         if (this.isTutorialMode) return;
         saveGame(this);
         this.hasSavePoint = true;
-        this.lastSavePos = { x: this.player.x, y: this.player.y, z: this.player.z };
         this.ui.showSavingIndicator();
     }
 
@@ -894,6 +893,11 @@ export class Engine {
         this.ui.showInfoBanner(getTranslation('msgJellyPortalActivated'));
 
         // Salva imediatamente, definindo esta célula como o novo ponto de respawn
+        this.lastSavePos = {
+            x: px + CONFIG.PLAYER_START_X,
+            y: py + (CONFIG.PLAYER_START_Y % 1.0),
+            z: pz
+        };
         this.triggerSave();
 
         this.jellyPortalFreezeTimer = 1.5;
@@ -1336,7 +1340,9 @@ export class Engine {
         this.elapsedTime = snapshot.elapsedTime !== undefined ? snapshot.elapsedTime : 0;
 
         this.populateVisitedCells();
-        this.lastSavePos = { x: snapshot.player.x, y: snapshot.player.y, z: snapshot.player.z };
+        this.lastSavePos = snapshot.lastSavePos !== undefined && snapshot.lastSavePos !== null 
+            ? { x: snapshot.lastSavePos.x, y: snapshot.lastSavePos.y, z: snapshot.lastSavePos.z } 
+            : null;
         this.hunterOnSameFloorDetected = snapshot.hunterOnSameFloorDetected || false;
 
         // Mark that this session was loaded from a save (so Continue remains available
@@ -2474,52 +2480,6 @@ export class Engine {
             this.tryActivateJellyPortal();
         }
 
-        // 4. Right Analog Stick (axes 2 & 3): Rotate 3D Camera / Triggers (LT/RT): Zoom 3D Camera
-        if (this.isMap3DActive && this.controls) {
-            const rotX = gp.axes[2];
-            const rotY = gp.axes[3];
-            const zoomInVal = gp.buttons[7] ? gp.buttons[7].value : 0;  // RT
-            const zoomOutVal = gp.buttons[6] ? gp.buttons[6].value : 0; // LT
-            
-            const rotDeadzone = 0.15;
-            const zoomDeadzone = 0.15;
-            const rotSpeed = (CONFIG.ROT_SPEED !== undefined ? CONFIG.ROT_SPEED : 2.0) * dt;
-            const zoomSpeed = 20.0 * dt;
-
-            const hasRotation = Math.abs(rotX) > rotDeadzone || Math.abs(rotY) > rotDeadzone;
-            const hasZoom = zoomInVal > zoomDeadzone || zoomOutVal > zoomDeadzone;
-
-            if (hasRotation || hasZoom) {
-                const offset = new THREE.Vector3().copy(this.camera.position).sub(this.controls.target);
-                const spherical = new THREE.Spherical().setFromVector3(offset);
-
-                if (Math.abs(rotX) > rotDeadzone) {
-                    spherical.theta -= rotX * rotSpeed;
-                }
-                if (Math.abs(rotY) > rotDeadzone) {
-                    spherical.phi -= rotY * rotSpeed;
-                    const minPolar = this.controls.minPolarAngle || 0;
-                    const maxPolar = this.controls.maxPolarAngle || Math.PI;
-                    spherical.phi = Math.max(minPolar, Math.min(maxPolar, spherical.phi));
-                }
-
-                if (zoomInVal > zoomDeadzone) {
-                    spherical.radius -= zoomInVal * zoomSpeed;
-                }
-                if (zoomOutVal > zoomDeadzone) {
-                    spherical.radius += zoomOutVal * zoomSpeed;
-                }
-                const minDist = this.controls.minDistance || 2;
-                const maxDist = this.controls.maxDistance || 100;
-                spherical.radius = Math.max(minDist, Math.min(maxDist, spherical.radius));
-
-                spherical.makeSafe();
-                offset.setFromSpherical(spherical);
-                this.camera.position.copy(this.controls.target).add(offset);
-                this.controls.update();
-            }
-        }
-
         this.prevGamepadButtons = gp.buttons.map(b => b.pressed);
     }
 
@@ -2610,6 +2570,19 @@ export class Engine {
                     this.updateFloorUI();
                     this.staticMapCacheDirty = true;
                     
+                    this.lastSavePos = {
+                        x: this.player.x,
+                        y: this.player.y,
+                        z: this.player.z
+                    };
+                    this.triggerSave();
+                    const destVal = this.maze.get(tx, ty, tz);
+                    if (destVal === this.mazeGen.TYPES.JELLY_PORTAL) {
+                        this.ui.showInfoBanner(getTranslation('msgJellyPortalNotSafe'));
+                    } else {
+                        this.ui.showInfoBanner(getTranslation('msgSafePointTeleport'));
+                    }
+
                     this.teleportAnim.stage = 'IN';
                     this.teleportAnim.elapsed = 0;
                 } else {
@@ -3109,6 +3082,11 @@ export class Engine {
                     if (!wasOnThisTeleport && !isInactive) {
                         this.discoveredTeleports.add(key);
                         this.staticMapCacheDirty = true;
+                        this.lastSavePos = {
+                            x: playerIdxX + CONFIG.PLAYER_START_X,
+                            y: playerIdxY + (CONFIG.PLAYER_START_Y % 1.0),
+                            z: playerIdxZ
+                        };
                         if (isJellyPortal) {
                             this.triggerSave();
                             this.ui.showInfoBanner(getTranslation('msgJellyPortalNotSafe'));
