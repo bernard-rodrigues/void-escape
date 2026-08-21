@@ -155,6 +155,25 @@ export class Engine {
     allTeleports: { x: number; y: number; z: number }[];
     vortexAngles!: Map<string, number>;
     
+    // Efeito dinâmico de Buraco Negro (Blackhole) de fundo
+    stars: {
+        orbitalFactor: number;
+        currentOrbitalFactor: number;
+        speed: number;
+        rotation: number;
+        prevR: number;
+        px: number;
+        py: number;
+        x: number;
+        y: number;
+        colorBase: number[];
+        currentColor: number[];
+        id: number;
+    }[] = [];
+    starBgColor: number[] = [25, 25, 25];
+    starColor: number[] = [255, 255, 255];
+    isVictory: boolean = false;
+    
     // Additional properties set in other methods
     isTouchDevice!: boolean;
     isMouseOrTouchDetected!: boolean;
@@ -467,6 +486,35 @@ export class Engine {
         this.visitedCells = new Set();
         this.lastSavePos = null;
         this.suppressWakeHuntersBanner = false;
+        
+        // Inicializar estrelas do background dinâmico (Blackhole)
+        this.isVictory = false;
+        this.starBgColor = [0, 0, 0];
+        this.starColor = [200, 200, 200];
+        this.stars = [];
+        const numStars = 800;
+        for (let i = 0; i < numStars; i++) {
+            const rand1 = Math.random() * 0.5 + 0.01;
+            const rand2 = Math.random() * 0.5 + 0.49;
+            const orbitalFactor = (rand1 + rand2) / 2;
+            const rotation = Math.random() * Math.PI * 2;
+            
+            this.stars.push({
+                orbitalFactor,
+                currentOrbitalFactor: orbitalFactor,
+                speed: (Math.random() * 0.08 + 0.05) * Math.PI,
+                rotation,
+                prevR: rotation,
+                px: 0,
+                py: 0,
+                x: 0,
+                y: 0,
+                colorBase: [255, 255, 255],
+                currentColor: [255, 255, 255],
+                id: i
+            });
+        }
+
         const startGridX = Math.floor(this.player.x);
         const startGridY = Math.floor(this.player.y);
         const startGridZ = this.player.z;
@@ -1131,6 +1179,7 @@ export class Engine {
 
     triggerVictory() {
         this.isGameOver = true;
+        this.isVictory = true;
         if (!this.isTutorialMode) {
             clearSave(); // Victory clears the save so "Continue" is no longer offered
         }
@@ -4110,12 +4159,12 @@ export class Engine {
             this.ctx.drawImage(this.floorTransition.canvasNew, -cx, -cy);
             this.ctx.restore();
         } else {
-            this.renderMapToContext(this.ctx!, this.player.z);
+            this.renderMapToContext(this.ctx!, this.player.z, dt);
         }
     }
 
-    renderMapToContext(ctx: CanvasRenderingContext2D, z: number) {
-        this.drawVoidBackground(ctx, ctx.canvas.width, ctx.canvas.height, z);
+    renderMapToContext(ctx: CanvasRenderingContext2D, z: number, dt: number = 0.016) {
+        this.drawVoidBackground(ctx, ctx.canvas.width, ctx.canvas.height, z, dt);
 
         const size = this.mazeGen.size;
         const useZoom = size > 11;
@@ -5463,7 +5512,7 @@ export class Engine {
                 if (Math.abs(this.activeMapFloor - this.visualActiveFloor) < 0.001) {
                     this.visualActiveFloor = this.activeMapFloor;
                 }
-                this.drawIsometricMap();
+                this.drawIsometricMap(clampedDt);
             }
         } else {
             this.draw2DMap(clampedDt);
@@ -7285,7 +7334,7 @@ export class Engine {
         return elements;
     }
 
-    drawIsometricMap() {
+    drawIsometricMap(dt = 0.016) {
         if (!this.isMap3DActive || this.isIntroPlaying) return;
 
         const canvas = this.isometricCanvas;
@@ -7297,7 +7346,7 @@ export class Engine {
         const activeZ = this.activeMapFloor;
         const visualZ = this.visualActiveFloor;
 
-        this.drawVoidBackground(ctx, width, height, activeZ);
+        this.drawVoidBackground(ctx, width, height, activeZ, dt);
 
         const size = this.mazeGen.size;
 
@@ -9324,7 +9373,7 @@ export class Engine {
         }
     }
 
-    drawVoidBackground(ctx: CanvasRenderingContext2D, width: number, height: number, z: number) {
+    drawVoidBackground(ctx: CanvasRenderingContext2D, width: number, height: number, z: number, dt: number = 0.016) {
         ctx.save();
         if (this.isJellyChallengeActive) {
             ctx.clearRect(0, 0, width, height);
@@ -9332,34 +9381,135 @@ export class Engine {
             return;
         }
 
+        // 1. Determinar o estado atual do buraco negro
         const hasHunter = this.hunters.some(h => h.z === z && h.state !== 'SLEEP' && h.state !== 'DEAD' && h.state !== 'DEAD_BY_JELLY');
         const isTracking = this.isHunterTracking;
+        const isJellyPortalActive = this.jellyPortalFreezeTimer > 0;
+        const isVictoryState = this.isVictory;
 
-        const cx = width / 2;
-        const cy = height / 2;
-        const radius = Math.max(width, height) * 0.6;
-        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        let targetBg = [0, 0, 0]; // Cor padrão de fundo do canvas (preto puro)
+        let targetStar = [200, 200, 200]; // Cor padrão das estrelas (branco/cinza claro)
+        let isCollapse = false;
+        let isExpanse = false;
+        let speedMultiplier = 1.0;
+        let collapseScale = 1.0;
 
-        if (isTracking && hasHunter) {
-            const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 250);
-            const r = Math.floor(40 + pulse * 25);
-            grad.addColorStop(0, `rgb(${r}, 0, 0)`);
-            grad.addColorStop(0.85, '#000000');
-            grad.addColorStop(1, '#000000');
+        if (isVictoryState) {
+            // Vitória: animação de expansão com partículas brancas
+            isExpanse = true;
+            targetBg = [0, 0, 0];
+            targetStar = [255, 255, 255];
+            speedMultiplier = 0.5;
+        } else if (isJellyPortalActive) {
+            // Portal do deus geléia: roxo e colapso estendido na tela inteira
+            isCollapse = true;
+            targetBg = [45, 10, 55];
+            targetStar = [160, 32, 240];
+            speedMultiplier = 12.0; // Velocidade de rotação orbital acelerada bastante
+            collapseScale = 2.2;
+        } else if (isTracking && hasHunter) {
+            // Caçador no mesmo andar AND em caça ativa: vermelho e colapso rápido
+            isCollapse = true;
+            targetBg = [60, 10, 10];
+            targetStar = [255, 51, 51];
+            speedMultiplier = 4.5;
+        } else if (isTracking) {
+            // Caçador em caça ativa, mas em outro andar: vermelho e animação padrão
+            targetBg = [40, 10, 10];
+            targetStar = [200, 30, 30];
+            speedMultiplier = 1.0;
         } else if (hasHunter) {
-            const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 450);
-            const purpleInt = Math.floor(20 + pulse * 35);
-            grad.addColorStop(0, `rgb(${Math.floor(purpleInt * 0.5)}, 0, ${purpleInt})`);
-            grad.addColorStop(0.85, '#000000');
-            grad.addColorStop(1, '#000000');
+            // Caçador no mesmo andar patrulhando: roxo e colapso
+            isCollapse = true;
+            targetBg = [35, 10, 45];
+            targetStar = [160, 32, 240];
+            speedMultiplier = 2.5;
         } else {
-            grad.addColorStop(0, '#1c1c1c');
-            grad.addColorStop(0.85, '#000000');
-            grad.addColorStop(1, '#000000');
+            // Estado normal: preto puro e animação padrão
+            targetBg = [0, 0, 0];
+            targetStar = [200, 200, 200];
+            speedMultiplier = 1.0;
         }
 
-        ctx.fillStyle = grad;
+        // 2. Interpolar suavemente as cores globais de fundo e partículas
+        this.starBgColor[0] += (targetBg[0] - this.starBgColor[0]) * 4.0 * dt;
+        this.starBgColor[1] += (targetBg[1] - this.starBgColor[1]) * 4.0 * dt;
+        this.starBgColor[2] += (targetBg[2] - this.starBgColor[2]) * 4.0 * dt;
+
+        this.starColor[0] += (targetStar[0] - this.starColor[0]) * 4.0 * dt;
+        this.starColor[1] += (targetStar[1] - this.starColor[1]) * 4.0 * dt;
+        this.starColor[2] += (targetStar[2] - this.starColor[2]) * 4.0 * dt;
+
+        // 3. Pintar o fundo de forma 100% sólida (elimina o borrão em outros elementos do jogo)
+        ctx.fillStyle = `rgb(${Math.floor(this.starBgColor[0])}, ${Math.floor(this.starBgColor[1])}, ${Math.floor(this.starBgColor[2])})`;
         ctx.fillRect(0, 0, width, height);
+
+        // 4. Parâmetros de órbita do buraco negro
+        const cx = width / 2;
+        const cy = height / 2;
+        const maxorbit = Math.min(width, height) * 0.42;
+
+        // 5. Agrupar estrelas em 5 faixas de opacidade para renderização ultra rápida
+        const opacityGroups = Array.from({ length: 5 }, () => [] as any[]);
+
+        for (let i = 0; i < this.stars.length; i++) {
+            const star = this.stars[i];
+            let targetFactor = star.orbitalFactor;
+
+            if (isExpanse) {
+                // Expansão na vitória
+                targetFactor = star.orbitalFactor + 5.0;
+            } else if (isCollapse) {
+                // Colapso no hover / caçador / portal
+                const collapseBonus = star.orbitalFactor - 0.7;
+                const bonusVal = collapseBonus > 0 ? collapseBonus * 0.5 : 0;
+                targetFactor = (0.28 + bonusVal) * collapseScale;
+            }
+
+            // Lerp para suavizar a transição da órbita de cada partícula
+            const prevFactor = star.currentOrbitalFactor;
+            star.currentOrbitalFactor += (targetFactor - star.currentOrbitalFactor) * 5.0 * dt;
+
+            // Atualizar rotação angular da partícula
+            star.prevR = star.rotation;
+            star.rotation += star.speed * dt * speedMultiplier;
+
+            // Calcular coordenadas polares convertidas para 2D cartesiano
+            const currentDist = star.currentOrbitalFactor * maxorbit;
+
+            // O rastro agora é desenhado como uma cauda de cometa angular no próprio frame
+            const tailMultiplier = isJellyPortalActive ? 2.5 : (isCollapse ? 1.8 : 1.2);
+            const tailRot = star.rotation - star.speed * 0.18 * tailMultiplier;
+
+            star.px = cx - currentDist * Math.sin(tailRot);
+            star.py = cy + currentDist * Math.cos(tailRot);
+            star.x = cx - currentDist * Math.sin(star.rotation);
+            star.y = cy + currentDist * Math.cos(star.rotation);
+
+            // Determinar o canal de opacidade da estrela baseada no orbitalFactor (mais longe = mais escuro)
+            const alpha = Math.max(0, Math.min(1.0, 1.0 - star.orbitalFactor));
+            const groupIdx = Math.min(4, Math.floor(alpha * 5));
+            opacityGroups[groupIdx].push(star);
+        }
+
+        // 6. Desenhar os 5 grupos de estrelas com apenas 5 chamadas de stroke()
+        for (let g = 0; g < 5; g++) {
+            const groupStars = opacityGroups[g];
+            if (groupStars.length === 0) continue;
+
+            ctx.beginPath();
+            const groupAlpha = (g + 0.6) / 5; // opacidade média da faixa
+            ctx.strokeStyle = `rgba(${Math.floor(this.starColor[0])}, ${Math.floor(this.starColor[1])}, ${Math.floor(this.starColor[2])}, ${groupAlpha})`;
+            ctx.lineWidth = 1.2;
+
+            for (let i = 0; i < groupStars.length; i++) {
+                const star = groupStars[i];
+                ctx.moveTo(star.px, star.py);
+                ctx.lineTo(star.x, star.y);
+            }
+            ctx.stroke();
+        }
+
         ctx.restore();
     }
 }
