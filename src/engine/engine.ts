@@ -9241,7 +9241,7 @@ export class Engine {
             const coords = key.split(',').map(Number);
             const sx = coords[0], sy = coords[1], sz = coords[2];
 
-            if (state.shotsFired >= 2) {
+            if (state.shotsFired >= CONFIG.JELLY_STATUE_MAX_SHOTS) {
                 finishedStatues++;
                 continue;
             }
@@ -9294,7 +9294,7 @@ export class Engine {
                     });
 
                     state.shotsFired++;
-                    if (state.shotsFired >= 2) {
+                    if (state.shotsFired >= CONFIG.JELLY_STATUE_MAX_SHOTS) {
                         state.state = 'COOLDOWN';
                         state.chargeTimer = 0;
                     } else {
