@@ -58,7 +58,7 @@ test('Maze3D - Braid constraints (no 2x2 wide path corridors)', () => {
         for (let y = 1; y < mazeGen.size - 1; y++) {
             for (let z = 1; z < mazeGen.size - 1; z++) {
                 // If it is a path cell, assert it does not violate wide connection rules
-                if (matrix.get(x, y, z) !== mazeGen.TYPES.WALL) {
+                if (matrix.get(x, y, z) !== mazeGen.TYPES.WALL && matrix.get(x, y, z) !== mazeGen.TYPES.STATUE) {
                     const isWide = mazeGen.isWideConnection(x, y, z);
                     assert.strictEqual(isWide, false, `Cell at ${x},${y},${z} should not form a 2x2 wide corridor`);
                 }
@@ -101,15 +101,31 @@ test('Maze3D - Statue placement in Z dead-ends and solvability', () => {
                 if (matrix.get(x, y, z) === mazeGen.TYPES.STATUE) {
                     statuesCount++;
                     
-                    // Verify it was indeed a horizontal dead-end (surrounded by walls)
+                    // Verify it is either a dead-end statue (surrounded by walls) or a square statue (surrounded by passable paths)
                     const horizontalDirs = [
                         { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
                         { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
                     ];
+                    let isDeadEndStatue = true;
                     for (const d of horizontalDirs) {
                         const nx = x + d.dx, ny = y + d.dy;
                         if (nx >= 0 && nx < mazeGen.size && ny >= 0 && ny < mazeGen.size) {
-                            assert.strictEqual(matrix.get(nx, ny, z), mazeGen.TYPES.WALL, 'Statue cell must be horizontally surrounded by walls');
+                            if (matrix.get(nx, ny, z) !== mazeGen.TYPES.WALL) {
+                                isDeadEndStatue = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!isDeadEndStatue) {
+                        const neighbors = [
+                            { x: x - 1, y: y - 1 }, { x: x, y: y - 1 }, { x: x + 1, y: y - 1 },
+                            { x: x - 1, y: y },                         { x: x + 1, y: y },
+                            { x: x - 1, y: y + 1 }, { x: x, y: y + 1 }, { x: x + 1, y: y + 1 }
+                        ];
+                        for (const n of neighbors) {
+                            const val = matrix.get(n.x, n.y, z);
+                            assert.ok(val !== mazeGen.TYPES.WALL && val !== mazeGen.TYPES.STATUE, 'Square statue neighbors must be passable');
                         }
                     }
                     
@@ -197,3 +213,46 @@ test('Maze3D - Reachability of all playable corridor/path cells', () => {
         }
     }
 });
+
+test('Maze3D - Square statue placement rule', () => {
+    const mazeGen = new Maze3D(4, 0.2);
+    const size = mazeGen.size;
+    const TYPES = mazeGen.TYPES;
+    
+    // Clear whole maze matrix to WALL
+    for (let i = 0; i < mazeGen.matrix.length; i++) {
+        mazeGen.matrix[i] = TYPES.WALL;
+    }
+    
+    // Enrich with get/set for test usage
+    const matrix = mazeGen.matrix;
+    matrix.size = size;
+    matrix.get = (x: number, y: number, z: number) => matrix[(x * size * size) + (y * size) + z];
+    
+    // Create a 3x3 square of PATH around center (2, 2, 1) on floor 1
+    // (except center itself which is WALL to start with)
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (dx !== 0 || dy !== 0) {
+                mazeGen.matrix[mazeGen._idx(2 + dx, 2 + dy, 1)] = TYPES.PATH;
+            }
+        }
+    }
+    
+    // Configure startPos at (1, 1, 1) and exit at (1, 2, 1) to ensure isSolvable passes
+    mazeGen.startPos = { x: 1.5, y: 1.5, z: 1 };
+    mazeGen.matrix[mazeGen._idx(1, 1, 1)] = TYPES.TELEPORT;
+    mazeGen.matrix[mazeGen._idx(1, 2, 1)] = TYPES.EXIT;
+    
+    // Call placeSquareStatues()
+    const placed = mazeGen.placeSquareStatues();
+    
+    // Check that one statue was placed
+    assert.strictEqual(placed, 1, 'Should place exactly 1 statue at center of 3x3 ring');
+    assert.strictEqual(matrix.get(2, 2, 1), TYPES.STATUE, 'Center (2,2,1) must be a statue');
+    
+    // Check that vertical shaft columns below (0) and above (2) are set to WALL
+    assert.strictEqual(matrix.get(2, 2, 0), TYPES.WALL, 'Below cell should be wall');
+    assert.strictEqual(matrix.get(2, 2, 2), TYPES.WALL, 'Above cell should be wall');
+});
+

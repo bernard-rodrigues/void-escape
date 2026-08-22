@@ -60,6 +60,7 @@ export class Engine {
     keyImage: HTMLImageElement;
     manaImage: HTMLImageElement;
     statueImage: HTMLImageElement;
+    statueIsoImage: HTMLImageElement;
     mageImages: Record<string, HTMLImageElement>;
     playerSide: string;
     playerVertical: string;
@@ -321,6 +322,12 @@ export class Engine {
             this.staticMapCacheDirty = true;
         };
         this.statueImage.src = 'assets/images/statue.png';
+        
+        this.statueIsoImage = new Image();
+        this.statueIsoImage.onload = () => {
+            this.staticMapCacheDirty = true;
+        };
+        this.statueIsoImage.src = 'assets/images/statue-iso.png';
 
         this.mageImages = {
             down_left: new Image(),
@@ -2881,6 +2888,48 @@ export class Engine {
                     km.rotation.x += 0.5 * dt;
                 }
             }
+            if (this.teleportMeshes) {
+                this.teleportMeshes.forEach(mesh => {
+                    const { gridX, gridY, gridZ } = mesh.userData;
+                    const isInactive = this.teleportCooldownTicks > 0;
+                    const particles = mesh.userData.particles;
+                    if (particles) {
+                        particles.forEach((p: any) => {
+                            const ud = p.userData;
+                            ud.angle += ud.speed * dt;
+                            
+                            const px = Math.cos(ud.angle) * ud.radius;
+                            const pz = Math.sin(ud.angle) * ud.radius;
+                            const py = Math.sin(ud.angle * 2 + ud.phaseY) * 0.2;
+                            
+                            p.position.set(
+                                gridX - size/2 + px,
+                                (gridZ - size/2) * this.vScale + py,
+                                gridY - size/2 + pz
+                            );
+                            
+                            p.rotation.y += dt * 2.0;
+                            p.rotation.x += dt * 1.0;
+                            
+                            if (p.material) {
+                                if (isInactive) {
+                                    p.material.color.setHex(0x444444);
+                                    p.material.emissive.setHex(0x444444);
+                                    p.material.opacity = 0.05;
+                                    p.material.emissiveIntensity = 0.0;
+                                } else {
+                                    if (mesh.material && mesh.material.color) {
+                                        p.material.color.copy(mesh.material.color);
+                                        p.material.emissive.copy(mesh.material.color);
+                                    }
+                                    p.material.opacity = 0.7;
+                                    p.material.emissiveIntensity = 0.8 + 0.3 * Math.sin(performance.now() / 150);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
             if (this.isTeleportMode && this.teleportMeshes && this.gamepadTeleportSelectedIndex !== undefined) {
                 const candidates = this.getTeleportCandidates();
                 const selected = candidates[this.gamepadTeleportSelectedIndex!];
@@ -3477,7 +3526,7 @@ export class Engine {
                     if (val === this.mazeGen.TYPES.WALL || val === this.mazeGen.TYPES.STATUE) {
                         const isVisible = isIntro ||
                             (val === this.mazeGen.TYPES.WALL && this.isWallVisible(x, y, z)) ||
-                            (val === this.mazeGen.TYPES.STATUE && (this.isNearVisited(x, y, z) || (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed)));
+                            (val === this.mazeGen.TYPES.STATUE && this.isStatueVisible(x, y, z));
 
                         if (isVisible) {
                             const wallGeom = new THREE.BoxGeometry(0.35, 0.3 * this.vScale, 0.35);
@@ -3592,8 +3641,8 @@ export class Engine {
 
                     if (isTeleportDiscovered) {
                         const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) &&
-                                                y === Math.floor(this.mazeGen.startPos.y) &&
-                                                z === this.mazeGen.startPos.z;
+                                                 y === Math.floor(this.mazeGen.startPos.y) &&
+                                                 z === this.mazeGen.startPos.z;
 
                         const isInactive = this.teleportCooldownTicks > 0;
 
@@ -5436,6 +5485,34 @@ export class Engine {
         return this.isNearVisited(x, y, z) || 
                this.isAdjacentToStatue(x, y, z) || 
                (isTutorialRevealed && this.isAdjacentToNonWall(x, y, z));
+     }
+
+    isStatueVisible(x: number, y: number, z: number): boolean {
+        if (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed) {
+            return true;
+        }
+
+        if (this.isNearVisited(x, y, z)) {
+            return true;
+        }
+
+        // A statue is visible if any of its adjacent walls are visible
+        const size = this.mazeGen.size;
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                    const neighborVal = this.maze.get(nx, ny, z);
+                    if (neighborVal === 0 && this.isWallVisible(nx, ny, z)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     isNearVisited(x: number, y: number, z: number) {
@@ -5663,6 +5740,45 @@ export class Engine {
         }
         
         ctx.restore();
+
+        // Draw glowing particle orbits on top of the static vortex body
+        const isInactive = baseColor === '#555555' || baseColor === '#555' || baseColor === CONFIG.COLORS.TELEPORT_INACTIVE;
+        if (!isInactive) {
+            const time = performance.now() / 1000;
+            const numParticles = 8;
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            for (let p = 0; p < numParticles; p++) {
+                let hash = 0;
+                const seedStr = cellKey + p;
+                for (let i = 0; i < seedStr.length; i++) {
+                    hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+                    hash |= 0;
+                }
+                const absHash = Math.abs(hash);
+                
+                const speed = 1.2 + (absHash % 10) * 0.15;
+                const radius = cellSize * (0.15 + (absHash % 6) * 0.05);
+                const phase = (absHash % 100) * 0.1;
+                const angle = time * speed + phase;
+                
+                const px = Math.cos(angle) * radius;
+                const py = Math.sin(angle) * radius;
+                
+                const sizeVal = 1.0 + (absHash % 3) * 0.5 + 0.3 * Math.sin(time * 5 + absHash);
+                const colorVar = this.getHexColorVariation(baseColor, 50 + (absHash % 30));
+                
+                ctx.fillStyle = colorVar;
+                ctx.shadowColor = colorVar;
+                ctx.shadowBlur = 4;
+                
+                ctx.beginPath();
+                ctx.arc(px, py, sizeVal, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
     }
 
     /**
@@ -7553,6 +7669,44 @@ export class Engine {
                 ctx.stroke();
             }
 
+            // Draw glowing particle orbits on top of the spiral arms (already under isometric translation/scaling)
+            const isInactive = baseColor === '#555555' || baseColor === '#555' || baseColor === CONFIG.COLORS.TELEPORT_INACTIVE;
+            if (!isInactive) {
+                const time = performance.now() / 1000;
+                const numParticles = 8;
+                
+                for (let p = 0; p < numParticles; p++) {
+                    let hash = 0;
+                    const seedStr = cellKey + p;
+                    for (let i = 0; i < seedStr.length; i++) {
+                        hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+                        hash |= 0;
+                    }
+                    const absHash = Math.abs(hash);
+                    
+                    const speed = 1.2 + (absHash % 10) * 0.15;
+                    const radius = w * (0.15 + (absHash % 6) * 0.05);
+                    const phase = (absHash % 100) * 0.1;
+                    const angle = time * speed + phase;
+                    
+                    const px = Math.cos(angle) * radius;
+                    const py = Math.sin(angle) * radius;
+                    
+                    const sizeVal = 1.0 + (absHash % 3) * 0.5 + 0.3 * Math.sin(time * 5 + absHash);
+                    const colorVar = this.getHexColorVariation(baseColor, 50 + (absHash % 30));
+                    
+                    ctx.save();
+                    ctx.fillStyle = colorVar;
+                    ctx.shadowColor = colorVar;
+                    ctx.shadowBlur = 4;
+                    
+                    ctx.beginPath();
+                    ctx.arc(px, py, sizeVal, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
             ctx.restore();
         };
 
@@ -7655,38 +7809,184 @@ export class Engine {
 
         const drawFloorCells = (z: number, opacity: number) => {
             const TYPES = this.mazeGen.TYPES;
+
+            // PASS 1: Ground / Floor Tiles (Pisos, chaves, manas, portais)
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
                     const val = this.maze.get(x, y, z);
                     const coords = getIsoCoords(x, y, z);
 
-                    // Jelly Portal Animation Inversion Effect (Isometric)
+                    // Jelly Portal Inversion (Ground)
                     const isUnderJellyPortal = this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`) && z === this.player.z;
                     if (isUnderJellyPortal) {
-                        const elapsed = 1.5 - this.jellyPortalFreezeTimer;
-                        const holdTime = 0.6;
-                        let animProgress = 0;
-                        if (elapsed > holdTime) {
-                            animProgress = Math.min(1.0, (elapsed - holdTime) / 0.9);
+                        if (val !== TYPES.WALL && val !== TYPES.STATUE) {
+                            const isCenter = x === Math.floor(this.player.x) && y === Math.floor(this.player.y);
+                            let color = '#444444';
+                            let isVortex = false;
+                            let vortexColor = '';
+                            if (isCenter) {
+                                vortexColor = CONFIG.COLORS.JELLY_PORTAL;
+                                isVortex = true;
+                            } else if (val === TYPES.TELEPORT) {
+                                vortexColor = CONFIG.COLORS.TELEPORT_INACTIVE;
+                                isVortex = true;
+                            } else if (val === TYPES.EXIT) {
+                                vortexColor = CONFIG.COLORS.EXIT;
+                                isVortex = true;
+                            }
+
+                            ctx.save();
+                            const elapsed = 1.5 - this.jellyPortalFreezeTimer;
+                            const holdTime = 0.6;
+                            let animProgress = 0;
+                            if (elapsed > holdTime) {
+                                animProgress = Math.min(1.0, (elapsed - holdTime) / 0.9);
+                            }
+                            const invertPercent = Math.round(100 * (1.0 - animProgress));
+                            ctx.filter = `invert(${invertPercent}%)`;
+                            
+                            const shouldFadeOut = !isCenter;
+                            if (shouldFadeOut) {
+                                ctx.globalAlpha = (1.0 - animProgress) * opacity;
+                            } else {
+                                ctx.globalAlpha = opacity;
+                            }
+
+                            if (isVortex) {
+                                drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, vortexColor, false, `${x},${y},${z}`, opacity);
+                            } else {
+                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, color, opacity);
+                            }
+
+                            if (val === TYPES.KEY) {
+                                drawKey(coords.x, coords.y - 1.5, opacity);
+                            } else if (val === TYPES.MANA) {
+                                drawMana(coords.x, coords.y - 1.5, opacity);
+                            }
+                            ctx.restore();
                         }
-                        
-                        ctx.save();
-                        const invertPercent = Math.round(100 * (1.0 - animProgress));
-                        ctx.filter = `invert(${invertPercent}%)`;
-                        
-                        const isCenter = x === Math.floor(this.player.x) && y === Math.floor(this.player.y);
-                        const isStatue = val === TYPES.STATUE;
-                        const shouldFadeOut = !isCenter && !isStatue;
-                        
-                        if (shouldFadeOut) {
-                            ctx.globalAlpha = (1.0 - animProgress) * opacity;
-                        } else {
-                            ctx.globalAlpha = opacity;
-                        }
-                        
-                        if (val === TYPES.WALL || isStatue) {
+                        continue;
+                    }
+
+                    const isJelly = val === TYPES.JELLY_PORTAL;
+                    const isTeleport = val === TYPES.TELEPORT || isJelly;
+                    const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
+                    const isVisited = val === TYPES.VISITED || val === TYPES.START || val === TYPES.ELEVATOR_VISITED || isTeleportDiscovered;
+                    const isKnown = (val === TYPES.PATH || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
+                    const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
+
+                    const isKey = val === TYPES.KEY;
+                    const isMana = val === TYPES.MANA;
+                    const isExit = val === TYPES.EXIT;
+
+                    if (val !== TYPES.WALL && val !== TYPES.STATUE) {
+                        const isVisible = isVisited || isKnown || isRevealedPath || isKey || isMana || isExit;
+                        if (isVisible) {
                             const H = 1.5;
-                            if (isStatue) {
+                            const hUp = z < size - 1 && 
+                                        this.maze.get(x, y, z + 1) !== TYPES.WALL && 
+                                        this.maze.get(x, y, z + 1) !== TYPES.STATUE;
+                            const hDown = z > 0 && 
+                                          this.maze.get(x, y, z - 1) !== TYPES.WALL && 
+                                          this.maze.get(x, y, z - 1) !== TYPES.STATUE;
+                            const isElevator = isVisited && (hUp || hDown);
+
+                            if (isElevator) {
+                                drawElevatorBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, hUp, hDown, isVisited, isRevealedPath, opacity);
+                            } else {
+                                let color = '#222222';
+                                let isVortex = false;
+                                let vortexColor = '';
+                                const isPlayerHere = Math.floor(this.player.x) === x && Math.floor(this.player.y) === y && z === this.player.z;
+                                const key = `${x},${y},${z}`;
+
+                                if (isRevealedPath) {
+                                    color = '#ffffff';
+                                } else if (isExit) {
+                                    const isUnlocked = this.keysCollected === this.totalKeys;
+                                    vortexColor = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
+                                    isVortex = true;
+                                } else if (isTeleportDiscovered) {
+                                    const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
+                                    const isInactive = this.teleportCooldownTicks > 0;
+                                    if (isStartTeleport) {
+                                        vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
+                                    } else {
+                                        vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isJelly ? CONFIG.COLORS.JELLY_PORTAL : CONFIG.COLORS.TELEPORT);
+                                    }
+                                    isVortex = true;
+                                } else if (isVisited) {
+                                    if (val === TYPES.START) {
+                                        const isInactive = this.teleportCooldownTicks > 0;
+                                        vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
+                                        isVortex = true;
+                                    } else {
+                                        color = '#444444';
+                                    }
+                                } else if (isKnown) {
+                                    const isCursorOnCell = this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z;
+                                    if (isCursorOnCell) {
+                                        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120);
+                                        color = `rgb(${Math.floor(31 + 224 * pulse)}, ${Math.floor(58 + 197 * pulse)}, ${Math.floor(82 + 173 * pulse)})`;
+                                    } else {
+                                        color = '#1f3a52';
+                                    }
+                                } else if (isKey || isMana) {
+                                    color = '#111111';
+                                }
+
+                                if (isVortex) {
+                                    drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, vortexColor, isPlayerHere, key, opacity);
+                                } else {
+                                    drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity);
+                                }
+                            }
+
+                            if (isKey) {
+                                drawKey(coords.x, coords.y - H, opacity);
+                            }
+                            if (isMana) {
+                                drawMana(coords.x, coords.y - H, opacity);
+                            }
+                            if (isTeleportDiscovered) {
+                                const isInactive = this.inactiveTeleportPos && 
+                                                   this.inactiveTeleportPos.x === x && 
+                                                   this.inactiveTeleportPos.y === y && 
+                                                   this.inactiveTeleportPos.z === z;
+                                let teleportColor = CONFIG.COLORS.TELEPORT;
+                                if (isInactive) {
+                                    teleportColor = CONFIG.COLORS.TELEPORT_INACTIVE;
+                                }
+                                drawTeleport(coords.x, coords.y - H, teleportColor, opacity, this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // PASS 2: Walls, Statues, Player, Hunters, Projectiles, Auras (vertical elements and entities)
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const val = this.maze.get(x, y, z);
+                    const coords = getIsoCoords(x, y, z);
+
+                    // Jelly Portal Inversion (Walls/Statues)
+                    const isUnderJellyPortal = this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`) && z === this.player.z;
+                    if (isUnderJellyPortal) {
+                        if (val === TYPES.WALL || val === TYPES.STATUE) {
+                            ctx.save();
+                            const elapsed = 1.5 - this.jellyPortalFreezeTimer;
+                            const holdTime = 0.6;
+                            let animProgress = 0;
+                            if (elapsed > holdTime) {
+                                animProgress = Math.min(1.0, (elapsed - holdTime) / 0.9);
+                            }
+                            const invertPercent = Math.round(100 * (1.0 - animProgress));
+                            ctx.filter = `invert(${invertPercent}%)`;
+                            ctx.globalAlpha = opacity;
+
+                            const H = 1.5;
+                            if (val === TYPES.STATUE) {
                                 drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, '#444444', opacity);
                                 drawStatue(coords.x, coords.y, opacity);
                             } else {
@@ -7705,82 +8005,103 @@ export class Engine {
                                     drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, opacity);
                                 }
                             }
-                        } else {
-                            let color = '#444444';
-                            let isVortex = false;
-                            let vortexColor = '';
-                            if (isCenter) {
-                                vortexColor = CONFIG.COLORS.JELLY_PORTAL;
-                                isVortex = true;
-                            } else if (val === TYPES.TELEPORT) {
-                                vortexColor = CONFIG.COLORS.TELEPORT_INACTIVE;
-                                isVortex = true;
-                            } else if (val === TYPES.EXIT) {
-                                vortexColor = CONFIG.COLORS.EXIT;
-                                isVortex = true;
-                            }
-                            
-                            if (isVortex) {
-                                drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, vortexColor, false, `${x},${y},${z}`, opacity);
-                            } else {
-                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, color, opacity);
-                            }
-                            
-                            if (val === TYPES.KEY) {
-                                drawKey(coords.x, coords.y - 1.5, opacity);
-                            } else if (val === TYPES.MANA) {
-                                drawMana(coords.x, coords.y - 1.5, opacity);
-                            }
+                            ctx.restore();
                         }
-                        
-                        ctx.restore();
                         continue;
                     }
-
-                    const isJelly = val === TYPES.JELLY_PORTAL;
-                    const isTeleport = val === TYPES.TELEPORT || isJelly;
-                    const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
-                    const isVisited = val === TYPES.VISITED || val === TYPES.START || val === TYPES.ELEVATOR_VISITED || isTeleportDiscovered;
-                    const isKnown = (val === TYPES.PATH || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
-                    const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
-
-                    const isKey = val === TYPES.KEY;
-                    const isMana = val === TYPES.MANA;
-                    const isExit = val === TYPES.EXIT;
 
                     if (val === TYPES.WALL || val === TYPES.STATUE) {
                         const isVisible = (val === TYPES.WALL && this.isWallVisible(x, y, z)) ||
-                                          (val === TYPES.STATUE && (this.isNearVisited(x, y, z) || (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed)));
+                                          (val === TYPES.STATUE && this.isStatueVisible(x, y, z));
                         if (isVisible) {
-                            const subW = tileWidthHalf * 0.45;
-                            const subH = tileHeightHalf * 0.45;
-                            const boxH = tileHeight * 0.25;
-                            let color = 'rgba(90, 20, 160, 0.8)'; // dark purple neon
-
                             if (val === TYPES.STATUE) {
+                                drawStatue(coords.x, coords.y, opacity);
+
                                 const state = this.jellyStatueStates.get(`${x},${y},${z}`);
                                 if (state && state.state === 'CHARGING') {
-                                    const flash = Math.floor(performance.now() / 100) % 2 === 0;
-                                    color = flash ? CONFIG.COLORS.JELLY_MUTATION : '#ff3333';
+                                    const auraHeight = 0.8;
+                                    drawCylinderAura(coords.x, coords.y, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity, 'BACK');
+                                    drawCylinderAura(coords.x, coords.y, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity, 'FRONT');
+                                }
+                            } else {
+                                const subW = tileWidthHalf * 0.45;
+                                const subH = tileHeightHalf * 0.45;
+                                const boxH = tileHeight * 0.25;
+                                const color = 'rgba(90, 20, 160, 0.8)';
+
+                                const offsets = [
+                                    { dx: -0.23, dy: -0.23 },
+                                    { dx: 0.23, dy: -0.23 },
+                                    { dx: -0.23, dy: 0.23 },
+                                    { dx: 0.23, dy: 0.23 }
+                                ];
+
+                                for (const offset of offsets) {
+                                    const subCoords = getIsoCoords(x + offset.dx, y + offset.dy, z);
+                                    drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, opacity);
+                                }
+                            }
+                        }
+                    } else {
+                        const isTeleportDiscovered = val === TYPES.TELEPORT && this.discoveredTeleports.has(`${x},${y},${z}`);
+                        const isVisited = val === TYPES.VISITED || val === TYPES.START || val === TYPES.ELEVATOR_VISITED || isTeleportDiscovered;
+                        const isKnown = (val === TYPES.PATH || (val === TYPES.TELEPORT && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
+                        const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
+                        const isKey = val === TYPES.KEY;
+                        const isMana = val === TYPES.MANA;
+                        const isExit = val === TYPES.EXIT;
+                        const isVisible = isVisited || isKnown || isRevealedPath || isKey || isMana || isExit;
+
+                        if (isVisible) {
+                            const H = 1.5;
+                            let isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
+                            let tScaleX = 1.0;
+                            let tScaleY = 1.0;
+                            let tOpacity = 1.0;
+
+                            if (this.teleportAnim && this.teleportAnim.active) {
+                                const anim = this.teleportAnim;
+                                const progress = Math.min(1.0, anim.elapsed / anim.duration);
+                                if (anim.stage === 'OUT') {
+                                    isPlayerHere = x === Math.floor(anim.startX) && y === Math.floor(anim.startY) && z === anim.startZ;
+                                    tScaleX = 1.0 - progress * 0.9;
+                                    tScaleY = 1.0 + progress * 2.0;
+                                    tOpacity = 1.0 - progress;
+                                } else {
+                                    isPlayerHere = x === Math.floor(anim.targetX) && y === Math.floor(anim.targetY) && z === anim.targetZ;
+                                    tScaleX = progress;
+                                    tScaleY = 3.0 - progress * 2.0;
+                                    tOpacity = progress;
                                 }
                             }
 
-                            const offsets = [
-                                { dx: -0.23, dy: -0.23 },
-                                { dx: 0.23, dy: -0.23 },
-                                { dx: -0.23, dy: 0.23 },
-                                { dx: 0.23, dy: 0.23 }
-                            ];
-
-                            for (const offset of offsets) {
-                                const subCoords = getIsoCoords(x + offset.dx, y + offset.dy, z);
-                                drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, opacity);
+                            const auraHeight = this.getAuraHeightAt(x, y, z);
+                            if (auraHeight > 0) {
+                                drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'BACK');
                             }
+
+                            if (isPlayerHere) {
+                                drawPlayer(coords.x, coords.y - H, opacity * tOpacity, tScaleX, tScaleY);
+                            }
+
+                            if (auraHeight > 0) {
+                                drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'FRONT');
+                            }
+
+                            this.jellyProjectiles.forEach(proj => {
+                                if (proj.z === z) {
+                                    const pxGrid = Math.floor(proj.x);
+                                    const pyGrid = Math.floor(proj.y);
+                                    if (pxGrid === x && pyGrid === y) {
+                                        const projCoords = getIsoCoords(proj.x, proj.y, z);
+                                        drawProjectile2D(projCoords.x, projCoords.y - H, opacity);
+                                    }
+                                }
+                            });
                         }
-                        continue;
                     }
 
-                    // Draw hunters in real-time even on unvisited corridors
+                    // Draw hunters at their exact floating position coords
                     for (const h of this.hunters) {
                         if (h.state === 'SLEEP' || h.state === 'DEAD_BY_JELLY') continue;
                         const hz = h.visualZ !== null ? h.visualZ : h.z;
@@ -7794,138 +8115,6 @@ export class Engine {
                             const hCoords = getIsoCoords(hx, hy, hz);
                             drawHunter(h, hCoords.x, hCoords.y - 1.5, opacity);
                         }
-                    }
-
-                    const isVisible = isVisited || isKnown || isRevealedPath || isKey || isMana || isExit;
-
-                    if (isVisible) {
-                        const H = 1.5;
-                        const hUp = z < size - 1 && 
-                                    this.maze.get(x, y, z + 1) !== TYPES.WALL && 
-                                    this.maze.get(x, y, z + 1) !== TYPES.STATUE;
-                        const hDown = z > 0 && 
-                                      this.maze.get(x, y, z - 1) !== TYPES.WALL && 
-                                      this.maze.get(x, y, z - 1) !== TYPES.STATUE;
-                        
-                        const isCursorOnCell = this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z;
-                        const showSpecial = isVisited || isRevealedPath;
-                        const isElevator = showSpecial && (hUp || hDown);
-
-                        if (isElevator) {
-                            drawElevatorBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, hUp, hDown, isVisited, isRevealedPath, opacity);
-                        } else {
-                            let color = '#222222';
-                            let isVortex = false;
-                            let vortexColor = '';
-                            const isPlayerHere = Math.floor(this.player.x) === x && Math.floor(this.player.y) === y && z === this.player.z;
-                            const key = `${x},${y},${z}`;
-
-                            if (isRevealedPath) {
-                                color = '#ffffff';
-                            } else if (isExit) {
-                                const isUnlocked = this.keysCollected === this.totalKeys;
-                                vortexColor = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
-                                isVortex = true;
-                            } else if (isTeleportDiscovered) {
-                                const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
-                                const isInactive = this.teleportCooldownTicks > 0;
-                                if (isStartTeleport) {
-                                    vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
-                                } else {
-                                    vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isJelly ? CONFIG.COLORS.JELLY_PORTAL : CONFIG.COLORS.TELEPORT);
-                                }
-                                isVortex = true;
-                            } else if (isVisited) {
-                                if (val === TYPES.START) {
-                                    const isInactive = this.teleportCooldownTicks > 0;
-                                    vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
-                                    isVortex = true;
-                                } else {
-                                    color = '#444444';
-                                }
-                            } else if (isKnown) {
-                                if (isCursorOnCell) {
-                                    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120);
-                                    color = `rgb(${Math.floor(31 + 224 * pulse)}, ${Math.floor(58 + 197 * pulse)}, ${Math.floor(82 + 173 * pulse)})`;
-                                } else {
-                                    color = '#1f3a52';
-                                }
-                            } else if (isKey || isMana) {
-                                color = '#111111'; // dark tile under unvisited keys and mana
-                            }
-
-                            if (isVortex) {
-                                drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, vortexColor, isPlayerHere, key, opacity);
-                            } else {
-                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity);
-                            }
-                        }
-
-                        if (isKey) {
-                            drawKey(coords.x, coords.y - H, opacity);
-                        }
-
-                        if (isMana) {
-                            drawMana(coords.x, coords.y - H, opacity);
-                        }
-
-                        if (isTeleportDiscovered) {
-                            const isInactive = this.inactiveTeleportPos && 
-                                               this.inactiveTeleportPos.x === x && 
-                                               this.inactiveTeleportPos.y === y && 
-                                               this.inactiveTeleportPos.z === z;
-                            let teleportColor = CONFIG.COLORS.TELEPORT;
-                            if (isInactive) {
-                                teleportColor = CONFIG.COLORS.TELEPORT_INACTIVE;
-                            }
-                            drawTeleport(coords.x, coords.y - H, teleportColor, opacity, isCursorOnCell);
-                        }
-
-                        let isPlayerHere = x === Math.floor(this.player.x) && y === Math.floor(this.player.y) && z === this.player.z;
-                        let tScaleX = 1.0;
-                        let tScaleY = 1.0;
-                        let tOpacity = 1.0;
-
-                        if (this.teleportAnim && this.teleportAnim.active) {
-                            const anim = this.teleportAnim;
-                            const progress = Math.min(1.0, anim.elapsed / anim.duration);
-                            if (anim.stage === 'OUT') {
-                                isPlayerHere = x === Math.floor(anim.startX) && y === Math.floor(anim.startY) && z === anim.startZ;
-                                tScaleX = 1.0 - progress * 0.9;
-                                tScaleY = 1.0 + progress * 2.0;
-                                tOpacity = 1.0 - progress;
-                            } else {
-                                isPlayerHere = x === Math.floor(anim.targetX) && y === Math.floor(anim.targetY) && z === anim.targetZ;
-                                tScaleX = progress;
-                                tScaleY = 3.0 - progress * 2.0;
-                                tOpacity = progress;
-                            }
-                        }
-
-                        const auraHeight = this.getAuraHeightAt(x, y, z);
-                        if (auraHeight > 0) {
-                            drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'BACK');
-                        }
-
-                        if (isPlayerHere) {
-                            drawPlayer(coords.x, coords.y - H, opacity * tOpacity, tScaleX, tScaleY);
-                        }
-
-                        if (auraHeight > 0) {
-                            drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'FRONT');
-                        }
-
-                        // Desenha projéteis sobre esta célula específica (x, y) no andar z
-                        this.jellyProjectiles.forEach(proj => {
-                            if (proj.z === z) {
-                                const pxGrid = Math.floor(proj.x);
-                                const pyGrid = Math.floor(proj.y);
-                                if (pxGrid === x && pyGrid === y) {
-                                    const projCoords = getIsoCoords(proj.x, proj.y, z);
-                                    drawProjectile2D(projCoords.x, projCoords.y - H, opacity);
-                                }
-                            }
-                        });
                     }
                 }
             }
@@ -8120,7 +8309,7 @@ export class Engine {
         };
 
         const drawStatue = (cx: number, cy: number, opacity: number) => {
-            if (this.statueImage && this.statueImage.complete && this.statueImage.naturalWidth !== 0) {
+            if (this.statueIsoImage && this.statueIsoImage.complete && this.statueIsoImage.naturalWidth !== 0) {
                 // 1. Draw flat ground shadow
                 ctx.save();
                 ctx.beginPath();
@@ -8134,14 +8323,14 @@ export class Engine {
                 // 2. Draw Statue aligned by its bottom center
                 ctx.save();
                 ctx.globalAlpha = opacity;
-                const aspect = this.statueImage.width / this.statueImage.height;
+                const aspect = this.statueIsoImage.width / this.statueIsoImage.height;
                 const targetWidth = tileWidth * 0.8;
                 const targetHeight = targetWidth / aspect;
                 
                 ctx.drawImage(
-                    this.statueImage,
+                    this.statueIsoImage,
                     cx - targetWidth / 2,
-                    cy - targetHeight,
+                    cy - targetHeight / 1.275,
                     targetWidth,
                     targetHeight
                 );
