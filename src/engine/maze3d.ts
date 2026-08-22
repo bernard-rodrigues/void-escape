@@ -112,6 +112,7 @@ export class Maze3D {
         this.placeKeys();
         this.applyBraid();
         this.placeStatues();
+        this.placeSquareStatues();
         this.placeManas();
 
         // Enrich the TypedArray with convenience O(1) coordinate mapping methods
@@ -352,7 +353,8 @@ export class Maze3D {
         const isOpened = (nx: number, ny: number, nz: number) => {
             if (nx < 0 || nx >= size || ny < 0 || ny >= size || nz < 0 || nz >= size) return false;
             if (nx === x && ny === y && nz === z) return true;
-            return this.matrix[this._idx(nx, ny, nz)] !== this.TYPES.WALL;
+            const val = this.matrix[this._idx(nx, ny, nz)];
+            return val !== this.TYPES.WALL && val !== this.TYPES.STATUE;
         };
 
         // Check XY plane
@@ -646,6 +648,79 @@ export class Maze3D {
             }
         }
         
+        return totalPlaced;
+    }
+
+    placeSquareStatues(): number {
+        const size = this.size;
+        let totalPlaced = 0;
+
+        // Iterate odd z floors (playable floors)
+        for (let z = 1; z < size; z += 2) {
+            for (let x = 1; x < size - 1; x++) {
+                for (let y = 1; y < size - 1; y++) {
+                    const centerIdx = this._idx(x, y, z);
+                    const centerVal = this.matrix[centerIdx];
+
+                    // Check if center is a PATH or WALL (we don't overwrite START, EXIT, TELEPORT, KEY, etc.)
+                    if (centerVal !== this.TYPES.PATH && centerVal !== this.TYPES.WALL) {
+                        continue;
+                    }
+
+                    // Check if all 8 neighbors are passable (not WALL and not STATUE)
+                    const neighbors = [
+                        { x: x - 1, y: y - 1 },
+                        { x: x,     y: y - 1 },
+                        { x: x + 1, y: y - 1 },
+                        { x: x - 1, y: y     },
+                        { x: x + 1, y: y     },
+                        { x: x - 1, y: y + 1 },
+                        { x: x,     y: y + 1 },
+                        { x: x + 1, y: y + 1 }
+                    ];
+
+                    let allPassable = true;
+                    for (const n of neighbors) {
+                        const val = this.matrix[this._idx(n.x, n.y, z)];
+                        if (val === this.TYPES.WALL || val === this.TYPES.STATUE) {
+                            allPassable = false;
+                            break;
+                        }
+                    }
+
+                    if (allPassable) {
+                        const changes = [];
+                        const oldCenter = this.matrix[centerIdx];
+                        this.matrix[centerIdx] = this.TYPES.STATUE;
+                        changes.push({ x, y, z, oldVal: oldCenter });
+
+                        const belowZ = z - 1;
+                        if (belowZ >= 0) {
+                            const oldBelow = this.matrix[this._idx(x, y, belowZ)];
+                            this.matrix[this._idx(x, y, belowZ)] = this.TYPES.WALL;
+                            changes.push({ x, y, z: belowZ, oldVal: oldBelow });
+                        }
+
+                        const aboveZ = z + 1;
+                        if (aboveZ < size) {
+                            const oldAbove = this.matrix[this._idx(x, y, aboveZ)];
+                            this.matrix[this._idx(x, y, aboveZ)] = this.TYPES.WALL;
+                            changes.push({ x, y, z: aboveZ, oldVal: oldAbove });
+                        }
+
+                        // Validate solvability
+                        if (this.isSolvable()) {
+                            totalPlaced++;
+                        } else {
+                            // Revert changes
+                            for (const c of changes) {
+                                this.matrix[this._idx(c.x, c.y, c.z)] = c.oldVal;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         return totalPlaced;
     }
 
