@@ -2888,6 +2888,48 @@ export class Engine {
                     km.rotation.x += 0.5 * dt;
                 }
             }
+            if (this.teleportMeshes) {
+                this.teleportMeshes.forEach(mesh => {
+                    const { gridX, gridY, gridZ } = mesh.userData;
+                    const isInactive = this.teleportCooldownTicks > 0;
+                    const particles = mesh.userData.particles;
+                    if (particles) {
+                        particles.forEach((p: any) => {
+                            const ud = p.userData;
+                            ud.angle += ud.speed * dt;
+                            
+                            const px = Math.cos(ud.angle) * ud.radius;
+                            const pz = Math.sin(ud.angle) * ud.radius;
+                            const py = Math.sin(ud.angle * 2 + ud.phaseY) * 0.2;
+                            
+                            p.position.set(
+                                gridX - size/2 + px,
+                                (gridZ - size/2) * this.vScale + py,
+                                gridY - size/2 + pz
+                            );
+                            
+                            p.rotation.y += dt * 2.0;
+                            p.rotation.x += dt * 1.0;
+                            
+                            if (p.material) {
+                                if (isInactive) {
+                                    p.material.color.setHex(0x444444);
+                                    p.material.emissive.setHex(0x444444);
+                                    p.material.opacity = 0.05;
+                                    p.material.emissiveIntensity = 0.0;
+                                } else {
+                                    if (mesh.material && mesh.material.color) {
+                                        p.material.color.copy(mesh.material.color);
+                                        p.material.emissive.copy(mesh.material.color);
+                                    }
+                                    p.material.opacity = 0.7;
+                                    p.material.emissiveIntensity = 0.8 + 0.3 * Math.sin(performance.now() / 150);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
             if (this.isTeleportMode && this.teleportMeshes && this.gamepadTeleportSelectedIndex !== undefined) {
                 const candidates = this.getTeleportCandidates();
                 const selected = candidates[this.gamepadTeleportSelectedIndex!];
@@ -3599,8 +3641,8 @@ export class Engine {
 
                     if (isTeleportDiscovered) {
                         const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) &&
-                                                y === Math.floor(this.mazeGen.startPos.y) &&
-                                                z === this.mazeGen.startPos.z;
+                                                 y === Math.floor(this.mazeGen.startPos.y) &&
+                                                 z === this.mazeGen.startPos.z;
 
                         const isInactive = this.teleportCooldownTicks > 0;
 
@@ -5698,6 +5740,45 @@ export class Engine {
         }
         
         ctx.restore();
+
+        // Draw glowing particle orbits on top of the static vortex body
+        const isInactive = baseColor === '#555555' || baseColor === '#555' || baseColor === CONFIG.COLORS.TELEPORT_INACTIVE;
+        if (!isInactive) {
+            const time = performance.now() / 1000;
+            const numParticles = 8;
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            for (let p = 0; p < numParticles; p++) {
+                let hash = 0;
+                const seedStr = cellKey + p;
+                for (let i = 0; i < seedStr.length; i++) {
+                    hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+                    hash |= 0;
+                }
+                const absHash = Math.abs(hash);
+                
+                const speed = 1.2 + (absHash % 10) * 0.15;
+                const radius = cellSize * (0.15 + (absHash % 6) * 0.05);
+                const phase = (absHash % 100) * 0.1;
+                const angle = time * speed + phase;
+                
+                const px = Math.cos(angle) * radius;
+                const py = Math.sin(angle) * radius;
+                
+                const sizeVal = 1.0 + (absHash % 3) * 0.5 + 0.3 * Math.sin(time * 5 + absHash);
+                const colorVar = this.getHexColorVariation(baseColor, 50 + (absHash % 30));
+                
+                ctx.fillStyle = colorVar;
+                ctx.shadowColor = colorVar;
+                ctx.shadowBlur = 4;
+                
+                ctx.beginPath();
+                ctx.arc(px, py, sizeVal, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
     }
 
     /**
@@ -7586,6 +7667,44 @@ export class Engine {
                     else ctx.lineTo(lx, ly);
                 }
                 ctx.stroke();
+            }
+
+            // Draw glowing particle orbits on top of the spiral arms (already under isometric translation/scaling)
+            const isInactive = baseColor === '#555555' || baseColor === '#555' || baseColor === CONFIG.COLORS.TELEPORT_INACTIVE;
+            if (!isInactive) {
+                const time = performance.now() / 1000;
+                const numParticles = 8;
+                
+                for (let p = 0; p < numParticles; p++) {
+                    let hash = 0;
+                    const seedStr = cellKey + p;
+                    for (let i = 0; i < seedStr.length; i++) {
+                        hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+                        hash |= 0;
+                    }
+                    const absHash = Math.abs(hash);
+                    
+                    const speed = 1.2 + (absHash % 10) * 0.15;
+                    const radius = w * (0.15 + (absHash % 6) * 0.05);
+                    const phase = (absHash % 100) * 0.1;
+                    const angle = time * speed + phase;
+                    
+                    const px = Math.cos(angle) * radius;
+                    const py = Math.sin(angle) * radius;
+                    
+                    const sizeVal = 1.0 + (absHash % 3) * 0.5 + 0.3 * Math.sin(time * 5 + absHash);
+                    const colorVar = this.getHexColorVariation(baseColor, 50 + (absHash % 30));
+                    
+                    ctx.save();
+                    ctx.fillStyle = colorVar;
+                    ctx.shadowColor = colorVar;
+                    ctx.shadowBlur = 4;
+                    
+                    ctx.beginPath();
+                    ctx.arc(px, py, sizeVal, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
             }
 
             ctx.restore();
