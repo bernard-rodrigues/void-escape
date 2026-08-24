@@ -161,6 +161,7 @@ export class Engine {
     screenShakeTimer: number = 0;
     screenShakeDuration: number = 0;
     screenShakeIntensity: number = 0;
+    skipJellyPortalMapReset: boolean = false;
     
     // Efeito dinâmico de Buraco Negro (Blackhole) de fundo
     stars: {
@@ -504,6 +505,7 @@ export class Engine {
         this.screenShakeTimer = 0;
         this.screenShakeDuration = 0;
         this.screenShakeIntensity = 0;
+        this.skipJellyPortalMapReset = false;
         this.suppressWakeHuntersBanner = false;
         
         // Inicializar estrelas do background dinâmico (Blackhole)
@@ -995,6 +997,24 @@ export class Engine {
     }
 
     executeJellyPortalReset(px: number, py: number, pz: number) {
+        if (this.skipJellyPortalMapReset) {
+            this.skipJellyPortalMapReset = false;
+            for (const hunter of this.hunters) {
+                if (hunter.state === 'DYING') {
+                    hunter.state = 'DEAD_BY_JELLY';
+                    hunter.x = null;
+                    hunter.y = null;
+                    hunter.z = null;
+                    hunter.visualX = null;
+                    hunter.visualY = null;
+                    hunter.visualZ = null;
+                    hunter.pathToTarget = [];
+                    hunter.history = [];
+                }
+            }
+            return;
+        }
+
         const size = this.mazeGen.size;
         const TYPES = this.mazeGen.TYPES;
         const startX = Math.floor(this.mazeGen.startPos.x);
@@ -2771,9 +2791,10 @@ export class Engine {
                                this.currentTutorialStage.hunterBehavior && 
                                this.currentTutorialStage.hunterBehavior.respawn === false;
 
+        const jellyExitActive = this.jellyExitPos !== null;
         for (const hunter of this.hunters) {
             if (hunter.state === 'DEAD_BY_JELLY' && hunter.respawnThresholdPercentage !== null) {
-                if (!disableRespawn && currentPercent >= hunter.respawnThresholdPercentage) {
+                if (!disableRespawn && !jellyExitActive && currentPercent >= hunter.respawnThresholdPercentage) {
                     this.respawnSingleHunter(hunter);
                     this.ui.showInfoBanner(getTranslation('msgHunterReturned'));
                 }
@@ -9543,19 +9564,45 @@ export class Engine {
             this.updateGameContainerBackground();
             this.completedFloors.add(z);
 
-            // Purga de Hunters
+            // Purga de Hunters com animação de morte e tremor de tela
             this.previouslyDeadHuntersInfo = this.hunters
                 .filter(h => h.state === 'DEAD_BY_JELLY')
                 .map(h => ({ threshold: h.respawnThresholdPercentage || 0 }));
 
-            this.hunterMeshes.forEach(hm => {
-                this.scene.remove(hm.mesh);
-                if (hm.trail1) this.scene.remove(hm.trail1);
-                if (hm.trail2) this.scene.remove(hm.trail2);
-            });
-            this.hunterMeshes = [];
-            this.hunters = [];
-            this.dyingHunters = [];
+            this.triggerScreenShake(0.8, 15);
+            this.jellyPortalFreezeTimer = 1.5;
+            this.jellyPortalResetElapsed = 0;
+            this.jellyPortalResetCells.clear();
+            this.skipJellyPortalMapReset = true;
+
+            const pz = this.player.z;
+            for (const h of this.hunters) {
+                if (h.state !== 'SLEEP' && h.state !== 'DEAD_BY_JELLY' && h.state !== 'DYING') {
+                    if (h.z === pz && h.x !== null && h.y !== null) {
+                        const cellKey = `${Math.floor(h.x)},${Math.floor(h.y)},${h.z}`;
+                        const isVisibleToPlayer = this.visitedCells.has(cellKey) || this.revealedPathSet.has(cellKey);
+                        if (isVisibleToPlayer) {
+                            h.state = 'DYING';
+                        } else {
+                            h.state = 'DEAD_BY_JELLY';
+                            h.x = null;
+                            h.y = null;
+                            h.z = null;
+                            h.visualX = null;
+                            h.visualY = null;
+                            h.visualZ = null;
+                        }
+                    } else {
+                        h.state = 'DEAD_BY_JELLY';
+                        h.x = null;
+                        h.y = null;
+                        h.z = null;
+                        h.visualX = null;
+                        h.visualY = null;
+                        h.visualZ = null;
+                    }
+                }
+            }
 
             this.ui.showInfoBanner(getTranslation('msgLockedIn'));
 
@@ -9702,8 +9749,9 @@ export class Engine {
         this.isJellyChallengeActive = false;
         this.updateGameContainerBackground();
 
-        // 1. Respawn de Hunters
-        if (!this.isSafeMode) {
+        // 1. Respawn de Hunters (apenas se a saída Jelly não estiver ativa/pendente!)
+        const jellyExitActive = this.jellyExitPos !== null || this.pendingJellyExitCreation;
+        if (!this.isSafeMode && !jellyExitActive) {
             this.hunters = [];
             this.initHunters(this.degree);
 
@@ -9773,7 +9821,42 @@ export class Engine {
             this.jellyExitPos = { x: chosen.x, y: chosen.y, z };
             this.jellyExitCreationTime = Date.now();
             this.staticMapCacheDirty = true;
+
+            // Tremor de tela e congelamento com animação de morte para os caçadores
             this.triggerScreenShake(0.8, 15);
+            this.jellyPortalFreezeTimer = 1.5;
+            this.jellyPortalResetElapsed = 0;
+            this.jellyPortalResetCells.clear();
+            this.skipJellyPortalMapReset = true;
+
+            const pz = this.player.z;
+            for (const h of this.hunters) {
+                if (h.state !== 'SLEEP' && h.state !== 'DEAD_BY_JELLY' && h.state !== 'DYING') {
+                    if (h.z === pz && h.x !== null && h.y !== null) {
+                        const cellKey = `${Math.floor(h.x)},${Math.floor(h.y)},${h.z}`;
+                        const isVisibleToPlayer = this.visitedCells.has(cellKey) || this.revealedPathSet.has(cellKey);
+                        if (isVisibleToPlayer) {
+                            h.state = 'DYING';
+                        } else {
+                            h.state = 'DEAD_BY_JELLY';
+                            h.x = null;
+                            h.y = null;
+                            h.z = null;
+                            h.visualX = null;
+                            h.visualY = null;
+                            h.visualZ = null;
+                        }
+                    } else {
+                        h.state = 'DEAD_BY_JELLY';
+                        h.x = null;
+                        h.y = null;
+                        h.z = null;
+                        h.visualX = null;
+                        h.visualY = null;
+                        h.visualZ = null;
+                    }
+                }
+            }
 
             // Abre o zoom do mapa para o modo aberto (visão completa do andar)
             if (this.isZoomActive) {
