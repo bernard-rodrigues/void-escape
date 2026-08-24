@@ -686,6 +686,7 @@
         <p class="victory-stats"><span data-i18n="victoryDegree">MAZE DEGREE</span>: <span id="victory-maze-degree">0</span></p>
         <p class="victory-stats"><span data-i18n="victoryTime">COMPLETION TIME</span>: <span id="victory-completion-time">00:00</span></p>
         <p class="victory-stats"><span data-i18n="victoryMana">MANA COLLECTED</span>: <span id="victory-mana-count">0/0</span></p>
+        <p class="victory-stats"><span data-i18n="victoryChallenge">CHALLENGE</span>: <span id="victory-challenge-status" data-i18n="challengeNotFound">Not found</span></p>
         <div class="end-game-btns">
             <button id="next-tut-btn-victory" class="end-btn hidden" data-i18n="nextTutorial">NEXT TUTORIAL</button>
             <button id="restart-btn-victory" class="end-btn" data-i18n="playAgain">PLAY AGAIN</button>

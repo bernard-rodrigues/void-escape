@@ -4,6 +4,7 @@ import { CONFIG } from './config.js';
 import { getTranslation } from './translations.js';
 import { Hunter } from './hunter.js';
 import { TUTORIALS } from './tutorials.js';
+import { CHALLENGES, ChallengeStage } from './challenges.js';
 
 export interface Player {
     x: number;
@@ -114,6 +115,10 @@ export class Engine {
     isTutorialMode!: boolean;
     currentTutorialId!: string | null;
     currentTutorialStage!: any;
+    isChallengeMode!: boolean;
+    currentChallenge!: ChallengeStage | null;
+    challengeStatus!: 'Not found' | 'Succeed' | 'Defeated';
+    mainGameStats!: any | null;
     notificationQueue: string[];
     activeNotification: any;
     isPaused: boolean;
@@ -282,6 +287,10 @@ export class Engine {
         this.isTutorialMode = !!tutorialStage;
         this.currentTutorialId = tutorialStage ? tutorialStage.id : null;
         this.currentTutorialStage = tutorialStage;
+        this.isChallengeMode = false;
+        this.currentChallenge = null;
+        this.challengeStatus = 'Not found';
+        this.mainGameStats = null;
 
         if (this.isTutorialMode) {
             this.mazeGen = new Maze3D();
@@ -1218,9 +1227,20 @@ export class Engine {
     }
 
     triggerVictory() {
+        const playerVal = this.maze.get(Math.floor(this.player.x), Math.floor(this.player.y), this.player.z);
+        if (playerVal === this.mazeGen.TYPES.JELLY_EXIT && !this.isChallengeMode) {
+            const chosenChallenge = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
+            this.startChallenge(chosenChallenge);
+            return;
+        }
+
+        if (this.isChallengeMode && this.challengeStatus !== 'Defeated') {
+            this.challengeStatus = 'Succeed';
+        }
+
         this.isGameOver = true;
         this.isVictory = true;
-        if (!this.isTutorialMode) {
+        if (!this.isTutorialMode && !this.isChallengeMode) {
             clearSave(); // Victory clears the save so "Continue" is no longer offered
         }
         
@@ -1230,17 +1250,148 @@ export class Engine {
             hasNext = (currentIndex !== -1 && currentIndex + 1 < TUTORIALS.length);
         }
 
-        const percent = this.getMapVisitedPercentage();
+        let percent = this.getMapVisitedPercentage();
+        let deathsCount = this.deathsCount;
+        let degree = this.degree;
+        let elapsedTime = this.elapsedTime;
+        let manaCollected = this.manaCollected;
+        let totalMana = this.totalMana;
+
+        if (this.isChallengeMode && this.mainGameStats) {
+            percent = this.mainGameStats.percent;
+            deathsCount = this.mainGameStats.deathsCount;
+            degree = this.mainGameStats.degree;
+            elapsedTime = this.mainGameStats.elapsedTime;
+            manaCollected = this.mainGameStats.manaCollected;
+            totalMana = this.mainGameStats.totalMana;
+        }
+
         this.ui.showVictory(
             percent, 
-            this.deathsCount, 
-            this.degree, 
-            this.elapsedTime, 
-            this.manaCollected, 
-            this.totalMana, 
+            deathsCount, 
+            degree, 
+            elapsedTime, 
+            manaCollected, 
+            totalMana, 
             this.isTutorialMode, 
-            hasNext
+            hasNext,
+            this.challengeStatus
         );
+    }
+
+    startChallenge(challenge: ChallengeStage) {
+        if (!this.mainGameStats) {
+            this.mainGameStats = {
+                percent: this.getMapVisitedPercentage(),
+                deathsCount: this.deathsCount,
+                degree: this.degree,
+                elapsedTime: this.elapsedTime,
+                manaCollected: this.manaCollected,
+                totalMana: this.totalMana
+            };
+        }
+
+        this.isChallengeMode = true;
+        this.currentChallenge = challenge;
+        this.challengeStatus = 'Not found'; 
+        
+        this.mazeGen = new Maze3D();
+        this.maze = this.mazeGen.generateFromLayout(challenge);
+        
+        if (this.scene) {
+            this.hunterMeshes.forEach(hm => {
+                this.scene.remove(hm.mesh);
+                if (hm.trail1) this.scene.remove(hm.trail1);
+                if (hm.trail2) this.scene.remove(hm.trail2);
+            });
+            this.keyMeshes.forEach(m => this.scene.remove(m));
+            this.manaMeshes.forEach(m => this.scene.remove(m));
+            if (this.exitMesh) this.scene.remove(this.exitMesh);
+        }
+        
+        this.player = {
+            x: this.mazeGen.startPos.x,
+            y: this.mazeGen.startPos.y,
+            z: this.mazeGen.startPos.z,
+            dir: 0
+        };
+        this.activeMapFloor = this.mazeGen.startPos.z;
+        this.visualActiveFloor = this.mazeGen.startPos.z;
+        this.lastPlayerCell = {
+            x: Math.floor(this.mazeGen.startPos.x),
+            y: Math.floor(this.mazeGen.startPos.y),
+            z: this.mazeGen.startPos.z
+        };
+        
+        this.visitedCells.clear();
+        this.fullyRevealedCells.clear();
+        this.discoveredTeleports.clear();
+        this.revealedPathSet.clear();
+        this.activePathReveal = [];
+        this.revealedPathProgress = 0;
+        if (this.pathRevealInterval) {
+            clearInterval(this.pathRevealInterval);
+            this.pathRevealInterval = null;
+        }
+
+        const px = Math.floor(this.player.x);
+        const py = Math.floor(this.player.y);
+        const pz = this.player.z;
+        this.visitedCells.add(`${px},${py},${pz}`);
+
+        let keysCount = 0;
+        let manaCount = 0;
+        const size = this.mazeGen.size;
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val === this.mazeGen.TYPES.KEY) {
+                        keysCount++;
+                    } else if (val === this.mazeGen.TYPES.MANA) {
+                        manaCount++;
+                    }
+                }
+            }
+        }
+        this.totalKeys = keysCount;
+        this.keysCollected = 0;
+        this.totalMana = manaCount;
+        this.manaCollected = 0;
+        
+        this.totalPathfinders = challenge.pathfinders !== undefined ? challenge.pathfinders : 0;
+        this.pathfindersRemaining = this.totalPathfinders;
+        this.jellyPortalCount = challenge.jellyPortals !== undefined ? challenge.jellyPortals : 0;
+        this.manaCharges = challenge.mana !== undefined ? challenge.mana : 0;
+        
+        this.hunters = [];
+        this.hunterMeshes = [];
+        this.dyingHunters = [];
+        if (this.mazeGen.tutorialHunterSpawns && this.mazeGen.tutorialHunterSpawns.length > 0 && !this.isSafeMode) {
+            let hunterId = 1;
+            for (const hPos of this.mazeGen.tutorialHunterSpawns) {
+                const hunter = new Hunter(this.mazeGen, { x: hPos.x, y: hPos.y, z: hPos.z }, hunterId++);
+                this.hunters.push(hunter);
+            }
+        }
+        this.lastHunterMove = performance.now();
+        this.suppressWakeHuntersBanner = true;
+        
+        clearSave();
+
+        this.staticMapCacheDirty = true;
+        this.isGameOver = false;
+        this.isVictory = false;
+        
+        this.ui.initGameUI(this.isSafeMode);
+        this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
+        this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
+        
+        if (this.ui.uiMobileMap) {
+            (this.ui.uiMobileMap as HTMLButtonElement).disabled = false;
+        }
+
+        this.ui.showInfoBanner(getTranslation('victoryChallenge'));
     }
 
     triggerDeath() {
@@ -4078,6 +4229,14 @@ export class Engine {
                     // Clear the death/key drop notification so it doesn't linger after respawn!
                     this.activeNotification = null;
                     this.notificationQueue = [];
+
+                    if (this.isChallengeMode) {
+                        this.deathAnimation = null;
+                        this.isGameOver = false;
+                        this.challengeStatus = 'Defeated';
+                        this.triggerVictory();
+                        return;
+                    }
                     
                     // --- TRANSITION RUNNING BEHIND BLACKOUT ---
                     

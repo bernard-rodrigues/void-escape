@@ -138,7 +138,11 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgJellyPortalActivated: "Portal of the Jelly God!",
         msgJellyPortalNoPortalCount: "I need mana...",
         msgJellyPortalNotSafe: "Not safe, but teleport-able...",
-        msgHunterReturned: "These things... they resurrect..."
+        msgHunterReturned: "These things... they resurrect...",
+        victoryChallenge: "CHALLENGE",
+        challengeNotFound: "Not found",
+        challengeSucceed: "Succeed",
+        challengeDefeated: "Defeated"
     },
     ptBr: {
         // Main Menu / Start Menu
@@ -278,7 +282,11 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgJellyPortalActivated: "Portal do Deus Geléia!",
         msgJellyPortalNoPortalCount: "Preciso de mana...",
         msgJellyPortalNotSafe: "Não seguro, mas teleportável...",
-        msgHunterReturned: "Essas coisas ressuscitam..."
+        msgHunterReturned: "Essas coisas ressuscitam...",
+        victoryChallenge: "DESAFIO",
+        challengeNotFound: "Não encontrado",
+        challengeSucceed: "Sucesso",
+        challengeDefeated: "Derrotado"
     },
     ja: {
         // Main Menu / Start Menu
@@ -418,7 +426,11 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgJellyPortalActivated: "ゼリー神のポータル！",
         msgJellyPortalNoPortalCount: "マナが必要よ...",
         msgJellyPortalNotSafe: "安全ではないけれど、テレポートはできるわ...",
-        msgHunterReturned: "あいつら、蘇るの…？"
+        msgHunterReturned: "あいつら、蘇るの…？",
+        victoryChallenge: "チャレンジ",
+        challengeNotFound: "未検出",
+        challengeSucceed: "成功",
+        challengeDefeated: "敗北"
     },
 
 es: {
@@ -559,7 +571,11 @@ es: {
         msgJellyPortalActivated: "¡Portal del Dios Gelatina!",
         msgJellyPortalNoPortalCount: "Necesito maná...",
         msgJellyPortalNotSafe: "No es seguro, pero se puede teletransportar...",
-        msgHunterReturned: "Esas cosas resucitan..."
+        msgHunterReturned: "Esas cosas resucitan...",
+        victoryChallenge: "DESAFÍO",
+        challengeNotFound: "No encontrado",
+        challengeSucceed: "Éxito",
+        challengeDefeated: "Derrotado"
     }
 };
 
