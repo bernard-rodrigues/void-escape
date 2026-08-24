@@ -6791,7 +6791,9 @@ export class Engine {
             z: this.player.z
         };
         const end = { x: tx, y: ty, z: targetZ };
-        const path = this.findShortestPath(start, end, isExitClicked);
+        const isJellyExitClicked = this.maze.get(tx, ty, tz) === this.mazeGen.TYPES.JELLY_EXIT;
+        const restrictToVisited = isExitClicked || isJellyExitClicked;
+        const path = this.findShortestPath(start, end, restrictToVisited);
 
         if (!path || path.length === 0) return;
 
@@ -7500,6 +7502,11 @@ export class Engine {
                     if (this.keysCollected === this.totalKeys && this.exitPathfinderUnlocked) {
                         elements.push({ x, y, z: activeZ, type: 'exit' });
                     }
+                    continue;
+                }
+
+                if (val === TYPES.JELLY_EXIT) {
+                    elements.push({ x, y, z: activeZ, type: 'jelly_exit' });
                     continue;
                 }
 
