@@ -156,6 +156,7 @@ export class Engine {
     allTeleports: { x: number; y: number; z: number }[];
     vortexAngles!: Map<string, number>;
     jellyExitPos: { x: number; y: number; z: number } | null = null;
+    jellyExitCreationTime: number | null = null;
     pendingJellyExitCreation: boolean = false;
     
     // Efeito dinâmico de Buraco Negro (Blackhole) de fundo
@@ -495,6 +496,7 @@ export class Engine {
         this.visitedCells = new Set();
         this.lastSavePos = null;
         this.jellyExitPos = null;
+        this.jellyExitCreationTime = null;
         this.pendingJellyExitCreation = false;
         this.suppressWakeHuntersBanner = false;
         
@@ -4809,6 +4811,36 @@ export class Engine {
             ctx.restore();
         }
 
+        // Animação de aparição da Jelly Exit (ondas circulares)
+        if (this.jellyExitPos !== null && this.jellyExitPos.z === z && this.jellyExitCreationTime) {
+            const elapsed = Date.now() - this.jellyExitCreationTime;
+            const duration = 2000; // 2 segundos
+            if (elapsed < duration) {
+                const centerScreenX = this.jellyExitPos.x * cellSize + cellSize / 2;
+                const centerScreenY = this.jellyExitPos.y * cellSize + cellSize / 2;
+
+                ctx.save();
+                // 3 ondas sucessivas
+                for (let i = 0; i < 3; i++) {
+                    const waveElapsed = elapsed - i * 350; // Atraso de 350ms entre cada onda
+                    if (waveElapsed > 0 && waveElapsed < 1200) {
+                        const progress = waveElapsed / 1200; // Cada onda dura 1.2 segundos
+                        const radius = progress * cellSize * 4.5;
+                        const opacity = 0.8 * (1.0 - progress);
+                        
+                        ctx.beginPath();
+                        ctx.arc(centerScreenX, centerScreenY, radius, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(255, 0, 127, ${opacity})`;
+                        ctx.lineWidth = Math.max(2, cellSize * 0.15 * (1.0 - progress));
+                        ctx.shadowColor = CONFIG.COLORS.JELLY_EXIT;
+                        ctx.shadowBlur = cellSize * 0.3 * (1.0 - progress);
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
+        }
+
         if (isZooming) {
             ctx.restore();
         }
@@ -8766,6 +8798,37 @@ export class Engine {
             ctx.restore();
         }
 
+        // Animação de aparição da Jelly Exit no Mapa Isométrico (ondas elípticas)
+        if (this.jellyExitPos !== null && this.jellyExitCreationTime) {
+            const elapsed = Date.now() - this.jellyExitCreationTime;
+            const duration = 2000;
+            if (elapsed < duration) {
+                const jCoords = getIsoCoords(this.jellyExitPos.x, this.jellyExitPos.y, this.jellyExitPos.z);
+                const cy = jCoords.y - 1.5;
+
+                ctx.save();
+                for (let i = 0; i < 3; i++) {
+                    const waveElapsed = elapsed - i * 350;
+                    if (waveElapsed > 0 && waveElapsed < 1200) {
+                        const progress = waveElapsed / 1200;
+                        
+                        const rx = progress * tileWidthHalf * 6;
+                        const ry = rx * 0.5;
+                        const opacity = 0.8 * (1.0 - progress);
+                        
+                        ctx.beginPath();
+                        ctx.ellipse(jCoords.x, cy, rx, ry, 0, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(255, 0, 127, ${opacity})`;
+                        ctx.lineWidth = Math.max(2, tileWidthHalf * 0.2 * (1.0 - progress));
+                        ctx.shadowColor = CONFIG.COLORS.JELLY_EXIT;
+                        ctx.shadowBlur = tileWidthHalf * 0.4 * (1.0 - progress);
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
+        }
+
         // Draw Floor Indicators Line on the right side
         const rightPadding = this.isTouchDevice ? 65 : 45;
         const startYLine = height / 3;
@@ -9670,7 +9733,20 @@ export class Engine {
 
             this.maze.set(chosen.x, chosen.y, z, TYPES.JELLY_EXIT);
             this.jellyExitPos = { x: chosen.x, y: chosen.y, z };
+            this.jellyExitCreationTime = Date.now();
             this.staticMapCacheDirty = true;
+
+            // Abre o zoom do mapa para o modo aberto (visão completa do andar)
+            if (this.isZoomActive) {
+                this.isZoomActive = false;
+                const zoomOutIcon = document.getElementById('zoom-out-icon');
+                const zoomInIcon = document.getElementById('zoom-in-icon');
+                if (zoomOutIcon && zoomInIcon) {
+                    zoomOutIcon.classList.add('hidden');
+                    zoomInIcon.classList.remove('hidden');
+                }
+            }
+
             this.ui.showInfoBanner(getTranslation('msgJellyExitCreated'));
         }
     }
