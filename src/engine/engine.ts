@@ -5015,6 +5015,14 @@ export class Engine {
             for (let y = 0; y < size; y++) {
                 const val = this.maze.get(x, y, z);
                 
+                const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
+                const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+
+                if (shouldDim) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.25; // Escurece elementos do mapa se a saida rosa estiver ativa
+                }
+                
                 // Jelly Portal Animation Inversion Effect
                 if (this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`)) {
                     const elapsed = 1.5 - this.jellyPortalFreezeTimer;
@@ -5432,6 +5440,10 @@ export class Engine {
                             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                         }
                     });
+                }
+
+                if (shouldDim) {
+                    ctx.restore();
                 }
             }
         }
@@ -7831,6 +7843,10 @@ export class Engine {
                     const val = this.maze.get(x, y, z);
                     const coords = getIsoCoords(x, y, z);
 
+                    const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
+                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+                    const cellOpacity = shouldDim ? opacity * 0.25 : opacity;
+
                     // Jelly Portal Inversion (Ground)
                     const isUnderJellyPortal = this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`) && z === this.player.z;
                     if (isUnderJellyPortal) {
@@ -7865,21 +7881,21 @@ export class Engine {
                             
                             const shouldFadeOut = !isCenter;
                             if (shouldFadeOut) {
-                                ctx.globalAlpha = (1.0 - animProgress) * opacity;
+                                ctx.globalAlpha = (1.0 - animProgress) * cellOpacity;
                             } else {
-                                ctx.globalAlpha = opacity;
+                                ctx.globalAlpha = cellOpacity;
                             }
 
                             if (isVortex) {
-                                drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, vortexColor, false, `${x},${y},${z}`, opacity);
+                                drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, vortexColor, false, `${x},${y},${z}`, cellOpacity);
                             } else {
-                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, color, opacity);
+                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, 1.5, color, cellOpacity);
                             }
 
                             if (val === TYPES.KEY) {
-                                drawKey(coords.x, coords.y - 1.5, opacity);
+                                drawKey(coords.x, coords.y - 1.5, cellOpacity);
                             } else if (val === TYPES.MANA) {
-                                drawMana(coords.x, coords.y - 1.5, opacity);
+                                drawMana(coords.x, coords.y - 1.5, cellOpacity);
                             }
                             ctx.restore();
                         }
@@ -7911,7 +7927,7 @@ export class Engine {
                             const isElevator = isVisited && (hUp || hDown);
 
                             if (isElevator) {
-                                drawElevatorBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, hUp, hDown, isVisited, isRevealedPath, opacity);
+                                drawElevatorBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, hUp, hDown, isVisited, isRevealedPath, cellOpacity);
                             } else {
                                 let color = '#222222';
                                 let isVortex = false;
@@ -7958,17 +7974,17 @@ export class Engine {
                                 }
 
                                 if (isVortex) {
-                                    drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, vortexColor, isPlayerHere, key, opacity);
+                                    drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, vortexColor, isPlayerHere, key, cellOpacity);
                                 } else {
-                                    drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity);
+                                    drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, cellOpacity);
                                 }
                             }
 
                             if (isKey) {
-                                drawKey(coords.x, coords.y - H, opacity);
+                                drawKey(coords.x, coords.y - H, cellOpacity);
                             }
                             if (isMana) {
-                                drawMana(coords.x, coords.y - H, opacity);
+                                drawMana(coords.x, coords.y - H, cellOpacity);
                             }
                             if (isTeleportDiscovered) {
                                 const isInactive = this.inactiveTeleportPos && 
@@ -7979,7 +7995,7 @@ export class Engine {
                                 if (isInactive) {
                                     teleportColor = CONFIG.COLORS.TELEPORT_INACTIVE;
                                 }
-                                drawTeleport(coords.x, coords.y - H, teleportColor, opacity, this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z);
+                                drawTeleport(coords.x, coords.y - H, teleportColor, cellOpacity, this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z);
                             }
                         }
                     }
@@ -7992,7 +8008,11 @@ export class Engine {
                     const val = this.maze.get(x, y, z);
                     const coords = getIsoCoords(x, y, z);
 
-                    // Jelly Portal Inversion (Walls/Statues)
+                    const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
+                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+                    const cellOpacity = shouldDim ? opacity * 0.25 : opacity;
+
+                    // Jelly Portal Inversion (Ground)
                     const isUnderJellyPortal = this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`) && z === this.player.z;
                     if (isUnderJellyPortal) {
                         if (val === TYPES.WALL || val === TYPES.STATUE) {
@@ -8005,12 +8025,12 @@ export class Engine {
                             }
                             const invertPercent = Math.round(100 * (1.0 - animProgress));
                             ctx.filter = `invert(${invertPercent}%)`;
-                            ctx.globalAlpha = opacity;
+                            ctx.globalAlpha = cellOpacity;
 
                             const H = 1.5;
                             if (val === TYPES.STATUE) {
-                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, '#444444', opacity);
-                                drawStatue(coords.x, coords.y, opacity);
+                                drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, '#444444', cellOpacity);
+                                drawStatue(coords.x, coords.y, cellOpacity);
                             } else {
                                 const subW = tileWidthHalf * 0.45;
                                 const subH = tileHeightHalf * 0.45;
@@ -8024,7 +8044,7 @@ export class Engine {
                                 ];
                                 for (const offset of offsets) {
                                     const subCoords = getIsoCoords(x + offset.dx, y + offset.dy, z);
-                                    drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, opacity);
+                                    drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, cellOpacity);
                                 }
                             }
                             ctx.restore();
@@ -8037,13 +8057,13 @@ export class Engine {
                                           (val === TYPES.STATUE && this.isStatueVisible(x, y, z));
                         if (isVisible) {
                             if (val === TYPES.STATUE) {
-                                drawStatue(coords.x, coords.y, opacity);
+                                drawStatue(coords.x, coords.y, cellOpacity);
 
                                 const state = this.jellyStatueStates.get(`${x},${y},${z}`);
                                 if (state && state.state === 'CHARGING') {
                                     const auraHeight = 0.8;
-                                    drawCylinderAura(coords.x, coords.y, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity, 'BACK');
-                                    drawCylinderAura(coords.x, coords.y, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity, 'FRONT');
+                                    drawCylinderAura(coords.x, coords.y, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, cellOpacity, 'BACK');
+                                    drawCylinderAura(coords.x, coords.y, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, cellOpacity, 'FRONT');
                                 }
                             } else {
                                 const subW = tileWidthHalf * 0.45;
@@ -8060,7 +8080,7 @@ export class Engine {
 
                                 for (const offset of offsets) {
                                     const subCoords = getIsoCoords(x + offset.dx, y + offset.dy, z);
-                                    drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, opacity);
+                                    drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, cellOpacity);
                                 }
                             }
                         }
@@ -8099,15 +8119,15 @@ export class Engine {
 
                             const auraHeight = this.getAuraHeightAt(x, y, z);
                             if (auraHeight > 0) {
-                                drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'BACK');
+                                drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, cellOpacity * tOpacity, 'BACK');
                             }
 
                             if (isPlayerHere) {
-                                drawPlayer(coords.x, coords.y - H, opacity * tOpacity, tScaleX, tScaleY);
+                                drawPlayer(coords.x, coords.y - H, cellOpacity * tOpacity, tScaleX, tScaleY);
                             }
 
                             if (auraHeight > 0) {
-                                drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, opacity * tOpacity, 'FRONT');
+                                drawCylinderAura(coords.x, coords.y - H, tileWidthHalf * 0.6, tileHeightHalf * 0.6, tileHeight * 1.0, auraHeight, cellOpacity * tOpacity, 'FRONT');
                             }
 
                             this.jellyProjectiles.forEach(proj => {
@@ -8116,7 +8136,7 @@ export class Engine {
                                     const pyGrid = Math.floor(proj.y);
                                     if (pxGrid === x && pyGrid === y) {
                                         const projCoords = getIsoCoords(proj.x, proj.y, z);
-                                        drawProjectile2D(projCoords.x, projCoords.y - H, opacity);
+                                        drawProjectile2D(projCoords.x, projCoords.y - H, cellOpacity);
                                     }
                                 }
                             });
@@ -8135,7 +8155,7 @@ export class Engine {
                         const hGridY = Math.max(0, Math.min(size - 1, Math.floor(hy)));
                         if (x === hGridX && y === hGridY && z === closestPlayableFloor) {
                             const hCoords = getIsoCoords(hx, hy, hz);
-                            drawHunter(h, hCoords.x, hCoords.y - 1.5, opacity);
+                            drawHunter(h, hCoords.x, hCoords.y - 1.5, cellOpacity);
                         }
                     }
                 }
@@ -8146,6 +8166,10 @@ export class Engine {
             const TYPES = this.mazeGen.TYPES;
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
+                    const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
+                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+                    const currentOpacity = shouldDim ? opacity * 0.25 : opacity;
+
                     const val = this.maze.get(x, y, z);
                     if (val === TYPES.WALL) continue;
 
@@ -8168,7 +8192,7 @@ export class Engine {
 
                         const isSelected = this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z;
                         let colColor = color;
-                        let colOpacity = opacity;
+                        let colOpacity = currentOpacity;
 
                         if (isSelected) {
                             const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120);
