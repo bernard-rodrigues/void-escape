@@ -4615,6 +4615,13 @@ export class Engine {
                             ctx.fillStyle = CONFIG.COLORS.WALL;
                             ctx.fillRect(wx * cellSize, wy * cellSize, cellSize, cellSize);
                         }
+
+                        const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === wx && this.jellyExitPos.y === wy && this.jellyExitPos.z === z;
+                        const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+                        if (shouldDim) {
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                            ctx.fillRect(wx * cellSize, wy * cellSize, cellSize, cellSize);
+                        }
                         ctx.restore();
                     }
                 }
@@ -5017,11 +5024,6 @@ export class Engine {
                 
                 const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
                 const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
-
-                if (shouldDim) {
-                    ctx.save();
-                    ctx.globalAlpha = 0.25; // Escurece elementos do mapa se a saida rosa estiver ativa
-                }
                 
                 // Jelly Portal Animation Inversion Effect
                 if (this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`)) {
@@ -5443,7 +5445,8 @@ export class Engine {
                 }
 
                 if (shouldDim) {
-                    ctx.restore();
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                 }
             }
         }
@@ -7936,7 +7939,7 @@ export class Engine {
                                 const key = `${x},${y},${z}`;
 
                                 if (isRevealedPath) {
-                                    color = '#ffffff';
+                                    color = shouldDim ? '#333333' : '#ffffff';
                                 } else if (isExit) {
                                     const isUnlocked = this.keysCollected === this.totalKeys;
                                     vortexColor = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
@@ -7959,24 +7962,25 @@ export class Engine {
                                         vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
                                         isVortex = true;
                                     } else {
-                                        color = '#444444';
+                                        color = shouldDim ? '#0a0a0a' : '#444444';
                                     }
                                 } else if (isKnown) {
                                     const isCursorOnCell = this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z;
                                     if (isCursorOnCell) {
                                         const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120);
-                                        color = `rgb(${Math.floor(31 + 224 * pulse)}, ${Math.floor(58 + 197 * pulse)}, ${Math.floor(82 + 173 * pulse)})`;
+                                        const factor = shouldDim ? 0.2 : 1.0;
+                                        color = `rgb(${Math.floor((31 + 224 * pulse) * factor)}, ${Math.floor((58 + 197 * pulse) * factor)}, ${Math.floor((82 + 173 * pulse) * factor)})`;
                                     } else {
-                                        color = '#1f3a52';
+                                        color = shouldDim ? '#06101a' : '#1f3a52';
                                     }
                                 } else if (isKey || isMana) {
-                                    color = '#111111';
+                                    color = shouldDim ? '#050505' : '#111111';
                                 }
 
                                 if (isVortex) {
                                     drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, vortexColor, isPlayerHere, key, cellOpacity);
                                 } else {
-                                    drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, cellOpacity);
+                                    drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity);
                                 }
                             }
 
@@ -8069,7 +8073,7 @@ export class Engine {
                                 const subW = tileWidthHalf * 0.45;
                                 const subH = tileHeightHalf * 0.45;
                                 const boxH = tileHeight * 0.25;
-                                const color = 'rgba(90, 20, 160, 0.8)';
+                                const color = shouldDim ? 'rgba(25, 5, 45, 0.95)' : 'rgba(90, 20, 160, 0.8)';
 
                                 const offsets = [
                                     { dx: -0.23, dy: -0.23 },
@@ -8080,7 +8084,7 @@ export class Engine {
 
                                 for (const offset of offsets) {
                                     const subCoords = getIsoCoords(x + offset.dx, y + offset.dy, z);
-                                    drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, cellOpacity);
+                                    drawIsoBox(subCoords.x, subCoords.y, subW, subH, boxH, color, opacity);
                                 }
                             }
                         }
