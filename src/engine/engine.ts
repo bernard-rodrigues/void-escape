@@ -158,6 +158,9 @@ export class Engine {
     jellyExitPos: { x: number; y: number; z: number } | null = null;
     jellyExitCreationTime: number | null = null;
     pendingJellyExitCreation: boolean = false;
+    screenShakeTimer: number = 0;
+    screenShakeDuration: number = 0;
+    screenShakeIntensity: number = 0;
     
     // Efeito dinâmico de Buraco Negro (Blackhole) de fundo
     stars: {
@@ -498,6 +501,9 @@ export class Engine {
         this.jellyExitPos = null;
         this.jellyExitCreationTime = null;
         this.pendingJellyExitCreation = false;
+        this.screenShakeTimer = 0;
+        this.screenShakeDuration = 0;
+        this.screenShakeIntensity = 0;
         this.suppressWakeHuntersBanner = false;
         
         // Inicializar estrelas do background dinâmico (Blackhole)
@@ -2615,6 +2621,25 @@ export class Engine {
 
     update(dt: number) {
         if (this.isGameOver || this.isDestroyed || !dt) return;
+
+        // Screen Shake update
+        if (this.screenShakeTimer > 0) {
+            this.screenShakeTimer -= dt;
+            if (this.screenShakeTimer <= 0) {
+                this.screenShakeTimer = 0;
+                if (this.canvas) {
+                    this.canvas.style.transform = '';
+                }
+            } else {
+                const progress = this.screenShakeTimer / this.screenShakeDuration;
+                const currentIntensity = this.screenShakeIntensity * progress;
+                const shakeX = (Math.random() - 0.5) * currentIntensity;
+                const shakeY = (Math.random() - 0.5) * currentIntensity;
+                if (this.canvas) {
+                    this.canvas.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
+                }
+            }
+        }
 
         if (this.teleportAnim && this.teleportAnim.active) {
             this.teleportAnim.elapsed += dt;
@@ -6657,6 +6682,12 @@ export class Engine {
         }
     }
 
+    triggerScreenShake(duration = 0.5, intensity = 15) {
+        this.screenShakeTimer = duration;
+        this.screenShakeDuration = duration;
+        this.screenShakeIntensity = intensity;
+    }
+
     togglePause() {
         if (this.isGameOver || this.isDestroyed || this.isIntroPlaying) return;
 
@@ -9742,6 +9773,7 @@ export class Engine {
             this.jellyExitPos = { x: chosen.x, y: chosen.y, z };
             this.jellyExitCreationTime = Date.now();
             this.staticMapCacheDirty = true;
+            this.triggerScreenShake(0.8, 15);
 
             // Abre o zoom do mapa para o modo aberto (visão completa do andar)
             if (this.isZoomActive) {
