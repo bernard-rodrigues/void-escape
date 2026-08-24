@@ -5023,7 +5023,8 @@ export class Engine {
                 const val = this.maze.get(x, y, z);
                 
                 const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
-                const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+                const isNormalExitCell = val === this.mazeGen.TYPES.EXIT;
+                const shouldDim = this.jellyExitPos !== null && !isJellyExitCell && !isNormalExitCell;
                 
                 // Jelly Portal Animation Inversion Effect
                 if (this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`)) {
@@ -7847,7 +7848,8 @@ export class Engine {
                     const coords = getIsoCoords(x, y, z);
 
                     const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
-                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+                    const isNormalExitCell = val === TYPES.EXIT;
+                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell && !isNormalExitCell;
                     const cellOpacity = shouldDim ? opacity * 0.25 : opacity;
 
                     // Jelly Portal Inversion (Ground)
@@ -8013,7 +8015,8 @@ export class Engine {
                     const coords = getIsoCoords(x, y, z);
 
                     const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
-                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+                    const isNormalExitCell = val === TYPES.EXIT;
+                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell && !isNormalExitCell;
                     const cellOpacity = shouldDim ? opacity * 0.25 : opacity;
 
                     // Jelly Portal Inversion (Ground)
@@ -8170,11 +8173,12 @@ export class Engine {
             const TYPES = this.mazeGen.TYPES;
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
+                    const val = this.maze.get(x, y, z);
                     const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
-                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell;
+                    const isNormalExitCell = val === TYPES.EXIT;
+                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell && !isNormalExitCell;
                     const currentOpacity = shouldDim ? opacity * 0.25 : opacity;
 
-                    const val = this.maze.get(x, y, z);
                     if (val === TYPES.WALL) continue;
 
                     const isRevealedPath = this.revealedPathSet.has(`${x},${y},${z}`);
