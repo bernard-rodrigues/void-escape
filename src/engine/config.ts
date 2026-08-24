@@ -108,6 +108,7 @@ export const CONFIG: Config = {
         REVEALED_PATH: '#ffffff',           // cell lit up by the Pathfinder ability
         JELLY_PORTAL: '#a020f0',
         JELLY_MUTATION: '#ff5500',
+        JELLY_EXIT: '#ff007f',
         // 3D Specific (Hex codes for Three.js)
         THREE_HUNTER: 0xaa00ff,
         THREE_START: 0xffff00,
@@ -121,6 +122,7 @@ export const CONFIG: Config = {
         THREE_TELEPORT: 0xff8c00,
         THREE_KEY: 0xffd700,
         THREE_JELLY_PORTAL: 0xa020f0,
-        THREE_JELLY_PROJECTILE: 0xff3333
+        THREE_JELLY_PROJECTILE: 0xff3333,
+        THREE_JELLY_EXIT: 0xff007f
     }
 };

@@ -155,6 +155,8 @@ export class Engine {
     suppressWakeHuntersBanner: boolean;
     allTeleports: { x: number; y: number; z: number }[];
     vortexAngles!: Map<string, number>;
+    jellyExitPos: { x: number; y: number; z: number } | null = null;
+    pendingJellyExitCreation: boolean = false;
     
     // Efeito dinâmico de Buraco Negro (Blackhole) de fundo
     stars: {
@@ -492,6 +494,8 @@ export class Engine {
         this.discoveredTeleports = new Set();
         this.visitedCells = new Set();
         this.lastSavePos = null;
+        this.jellyExitPos = null;
+        this.pendingJellyExitCreation = false;
         this.suppressWakeHuntersBanner = false;
         
         // Inicializar estrelas do background dinâmico (Blackhole)
@@ -2083,6 +2087,12 @@ export class Engine {
         const hDown = currentZ - 1 >= 0 && this.maze.get(currentX, currentY, currentZ - 1) !== this.mazeGen.TYPES.WALL;
         this.ui.updateFloor(currentZ, hUp, hDown);
 
+        // Check floor completion for the Jelly Statue Challenge
+        const floorPercent = this.getFloorVisitedPercentage(currentZ);
+        if (floorPercent === 100 && !this.completedFloors.has(currentZ)) {
+            this.triggerFloorCompletion(currentZ);
+        }
+
         // Update map visited percentage display
         const percent = this.getMapVisitedPercentage();
         this.ui.updateVisitedPercent(percent);
@@ -2090,16 +2100,16 @@ export class Engine {
         if (percent === 100 && !this.mapCompletion100Triggered) {
             this.ui.showInfoBanner(getTranslation('msgWorldSaved'));
             this.mapCompletion100Triggered = true;
+
+            if (this.isJellyChallengeActive) {
+                this.pendingJellyExitCreation = true;
+            } else {
+                this.createJellyChallengeExit(currentZ);
+            }
         }
 
         // Check for pathfinder rewards!
         this.checkPathfinderRewards(percent);
-
-        // Check floor completion for the Jelly Statue Challenge
-        const floorPercent = this.getFloorVisitedPercentage(currentZ);
-        if (floorPercent === 100 && !this.completedFloors.has(currentZ)) {
-            this.triggerFloorCompletion(currentZ);
-        }
     }
 
     checkPathfinderRewards(percent: number) {
@@ -3150,7 +3160,7 @@ export class Engine {
                     this.ui.showInfoBanner(getTranslation('msgExitFound'));
                 }
                 
-                if (finalVal === this.mazeGen.TYPES.EXIT) {
+                if (finalVal === this.mazeGen.TYPES.EXIT || finalVal === this.mazeGen.TYPES.JELLY_EXIT) {
                     if (!this.isJellyChallengeActive) {
                         this.triggerVictory();
                     }
@@ -3436,7 +3446,8 @@ export class Engine {
 
                 this.updateFloorUI();
                 this.draw2DMap(0);
-                if (this.maze.get(currentX, currentY, nextZ) === this.mazeGen.TYPES.EXIT) this.triggerVictory();
+                const destVal = this.maze.get(currentX, currentY, nextZ);
+                if (destVal === this.mazeGen.TYPES.EXIT || destVal === this.mazeGen.TYPES.JELLY_EXIT) this.triggerVictory();
             }
         }
     }
@@ -5170,7 +5181,7 @@ export class Engine {
 
                 const isTeleport = this.allTeleports.some(t => t.x === x && t.y === y && t.z === z);
                 const isTeleportDiscovered = isTeleport && this.discoveredTeleports.has(`${x},${y},${z}`);
-                const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || isTeleportDiscovered;
+                const isVisited = val === 2 || val === 3 || val === 4 || val === 5 || val === this.mazeGen.TYPES.JELLY_EXIT || isTeleportDiscovered;
                 const isKey = val === this.mazeGen.TYPES.KEY;
                 const isMana = val === this.mazeGen.TYPES.MANA;
                 const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
@@ -5272,6 +5283,10 @@ export class Engine {
                                         ctx.fillText(text, cx, cy + h / 4);
                                         ctx.restore();
                                     }
+                                } else if (val === this.mazeGen.TYPES.JELLY_EXIT) {
+                                    const key = `${x},${y},${z}`;
+                                    this.drawVortex2D(ctx, x, y, cellSize, CONFIG.COLORS.JELLY_EXIT, false, key);
+                                    hasActiveAnimations = true;
                                 } else {
                                     if (val === 2) {
                                         ctx.fillStyle = CONFIG.COLORS.PATH_VISITED;
@@ -7833,6 +7848,9 @@ export class Engine {
                             } else if (val === TYPES.EXIT) {
                                 vortexColor = CONFIG.COLORS.EXIT;
                                 isVortex = true;
+                            } else if (val === TYPES.JELLY_EXIT) {
+                                vortexColor = CONFIG.COLORS.JELLY_EXIT;
+                                isVortex = true;
                             }
 
                             ctx.save();
@@ -7878,9 +7896,10 @@ export class Engine {
                     const isKey = val === TYPES.KEY;
                     const isMana = val === TYPES.MANA;
                     const isExit = val === TYPES.EXIT;
+                    const isJellyExit = val === TYPES.JELLY_EXIT;
 
                     if (val !== TYPES.WALL && val !== TYPES.STATUE) {
-                        const isVisible = isVisited || isKnown || isRevealedPath || isKey || isMana || isExit;
+                        const isVisible = isVisited || isKnown || isRevealedPath || isKey || isMana || isExit || isJellyExit;
                         if (isVisible) {
                             const H = 1.5;
                             const hUp = z < size - 1 && 
@@ -7905,6 +7924,9 @@ export class Engine {
                                 } else if (isExit) {
                                     const isUnlocked = this.keysCollected === this.totalKeys;
                                     vortexColor = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
+                                    isVortex = true;
+                                } else if (isJellyExit) {
+                                    vortexColor = CONFIG.COLORS.JELLY_EXIT;
                                     isVortex = true;
                                 } else if (isTeleportDiscovered) {
                                     const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
@@ -9566,6 +9588,59 @@ export class Engine {
         }
 
         this.ui.showInfoBanner(getTranslation('msgFloorComplete'));
+
+        if (this.pendingJellyExitCreation) {
+            this.pendingJellyExitCreation = false;
+            this.createJellyChallengeExit(this.player.z);
+        }
+    }
+
+    createJellyChallengeExit(z: number) {
+        const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+        const candidates: { x: number; y: number; dist: number }[] = [];
+        const centerX = size / 2;
+        const centerY = size / 2;
+
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                const val = this.maze.get(x, y, z);
+                if (val === TYPES.VISITED) {
+                    const dist = Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2);
+                    candidates.push({ x, y, dist });
+                }
+            }
+        }
+
+        if (candidates.length === 0) {
+            // Fallback caso não haja visitados
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val !== TYPES.WALL && val !== TYPES.EXIT) {
+                        const dist = Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2);
+                        candidates.push({ x, y, dist });
+                    }
+                }
+            }
+        }
+
+        if (candidates.length > 0) {
+            // Ordenar por distância do centro
+            candidates.sort((a, b) => a.dist - b.dist);
+            
+            // Pegar todos os candidatos que estão na menor distância (tolerância de +2 de distância quadrada)
+            const minDist = candidates[0].dist;
+            const closestCandidates = candidates.filter(c => c.dist <= minDist + 2);
+
+            // Escolher um candidato aleatoriamente
+            const chosen = closestCandidates[Math.floor(this.mazeGen.random() * closestCandidates.length)];
+
+            this.maze.set(chosen.x, chosen.y, z, TYPES.JELLY_EXIT);
+            this.jellyExitPos = { x: chosen.x, y: chosen.y, z };
+            this.staticMapCacheDirty = true;
+            this.ui.showInfoBanner(getTranslation('msgJellyExitCreated'));
+        }
     }
 
     updateGameContainerBackground() {

@@ -80,6 +80,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgPlayerRespawn: "Ok.. ok.. guess I'm alive..",
         msgLockedIn: "I'm locked in!",
         msgFloorComplete: "Floor complete!",
+        msgJellyExitCreated: "An alternative exit has opened nearby!",
 
         // Hunter Status Panel Marquee
         statusLabel: "HUNTER STATUS:",
@@ -219,6 +220,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgPlayerRespawn: "Ok.. ok.. sobrevivi..",
         msgLockedIn: "Estou trancada!",
         msgFloorComplete: "Andar completo!",
+        msgJellyExitCreated: "Uma saída alternativa se abriu por perto!",
 
         // Hunter Status Panel Marquee
         statusLabel: "STATUS DO CAÇADOR:",
@@ -358,6 +360,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgPlayerRespawn: "よしよし…どうやらまだ生きてるな…",
         msgLockedIn: "閉じ込められちゃった！",
         msgFloorComplete: "フロア完了！",
+        msgJellyExitCreated: "近くに別の出口が開いた！",
 
         // Hunter Status Panel Marquee
         statusLabel: "ハンターの状態:",
@@ -498,6 +501,7 @@ es: {
         msgPlayerRespawn: "Vale.. vale.. parece que sigo viva..",
         msgLockedIn: "¡Estoy encerrada!",
         msgFloorComplete: "¡Piso completado!",
+        msgJellyExitCreated: "¡Se ha abierto una salida alternativa cerca!",
 
         // Hunter Status Panel Marquee
         statusLabel: "ESTADO DEL CAZADOR:",
