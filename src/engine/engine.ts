@@ -7938,10 +7938,7 @@ export class Engine {
                     const val = this.maze.get(x, y, z);
                     const coords = getIsoCoords(x, y, z);
 
-                    const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
-                    const isNormalExitCell = val === TYPES.EXIT;
-                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell && !isNormalExitCell;
-                    const cellOpacity = shouldDim ? opacity * 0.25 : opacity;
+                    const cellOpacity = opacity;
 
                     // Jelly Portal Inversion (Ground)
                     const isUnderJellyPortal = this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`) && z === this.player.z;
@@ -8032,7 +8029,7 @@ export class Engine {
                                 const key = `${x},${y},${z}`;
 
                                 if (isRevealedPath) {
-                                    color = shouldDim ? '#333333' : '#ffffff';
+                                    color = '#ffffff';
                                 } else if (isExit) {
                                     const isUnlocked = this.keysCollected === this.totalKeys;
                                     vortexColor = isUnlocked ? CONFIG.COLORS.EXIT : '#ff3300';
@@ -8055,19 +8052,18 @@ export class Engine {
                                         vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);
                                         isVortex = true;
                                     } else {
-                                        color = shouldDim ? '#0a0a0a' : '#444444';
+                                        color = '#444444';
                                     }
                                 } else if (isKnown) {
                                     const isCursorOnCell = this.mapCursor.x === x && this.mapCursor.y === y && this.mapCursor.z === z;
                                     if (isCursorOnCell) {
                                         const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120);
-                                        const factor = shouldDim ? 0.2 : 1.0;
-                                        color = `rgb(${Math.floor((31 + 224 * pulse) * factor)}, ${Math.floor((58 + 197 * pulse) * factor)}, ${Math.floor((82 + 173 * pulse) * factor)})`;
+                                        color = `rgb(${Math.floor(31 + 224 * pulse)}, ${Math.floor(58 + 197 * pulse)}, ${Math.floor(82 + 173 * pulse)})`;
                                     } else {
-                                        color = shouldDim ? '#06101a' : '#1f3a52';
+                                        color = '#1f3a52';
                                     }
                                 } else if (isKey || isMana) {
-                                    color = shouldDim ? '#050505' : '#111111';
+                                    color = '#111111';
                                 }
 
                                 if (isVortex) {
@@ -8105,10 +8101,7 @@ export class Engine {
                     const val = this.maze.get(x, y, z);
                     const coords = getIsoCoords(x, y, z);
 
-                    const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
-                    const isNormalExitCell = val === TYPES.EXIT;
-                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell && !isNormalExitCell;
-                    const cellOpacity = shouldDim ? opacity * 0.25 : opacity;
+                    const cellOpacity = opacity;
 
                     // Jelly Portal Inversion (Ground)
                     const isUnderJellyPortal = this.jellyPortalFreezeTimer > 0 && this.jellyPortalResetCells.has(`${x},${y}`) && z === this.player.z;
@@ -8167,7 +8160,7 @@ export class Engine {
                                 const subW = tileWidthHalf * 0.45;
                                 const subH = tileHeightHalf * 0.45;
                                 const boxH = tileHeight * 0.25;
-                                const color = shouldDim ? 'rgba(25, 5, 45, 0.95)' : 'rgba(90, 20, 160, 0.8)';
+                                const color = 'rgba(90, 20, 160, 0.8)';
 
                                 const offsets = [
                                     { dx: -0.23, dy: -0.23 },
@@ -8265,10 +8258,7 @@ export class Engine {
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
                     const val = this.maze.get(x, y, z);
-                    const isJellyExitCell = this.jellyExitPos && this.jellyExitPos.x === x && this.jellyExitPos.y === y && this.jellyExitPos.z === z;
-                    const isNormalExitCell = val === TYPES.EXIT;
-                    const shouldDim = this.jellyExitPos !== null && !isJellyExitCell && !isNormalExitCell;
-                    const currentOpacity = shouldDim ? opacity * 0.25 : opacity;
+                    const currentOpacity = opacity;
 
                     if (val === TYPES.WALL) continue;
 
