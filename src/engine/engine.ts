@@ -2245,7 +2245,8 @@ export class Engine {
                     const isVisited = val === TYPES.VISITED ||
                                       val === TYPES.START ||
                                       val === TYPES.ELEVATOR_VISITED ||
-                                      (val === TYPES.TELEPORT && this.discoveredTeleports.has(`${x},${y},${z}`));
+                                      (val === TYPES.TELEPORT && this.discoveredTeleports.has(`${x},${y},${z}`)) ||
+                                      val === TYPES.JELLY_PORTAL;
 
                     if (isVisited) {
                         visitedCount++;
