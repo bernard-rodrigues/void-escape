@@ -2129,10 +2129,12 @@ export class Engine {
             this.ui.showInfoBanner(getTranslation('msgWorldSaved'));
             this.mapCompletion100Triggered = true;
 
-            if (this.isJellyChallengeActive) {
-                this.pendingJellyExitCreation = true;
-            } else {
-                this.createJellyChallengeExit(currentZ);
+            if (!this.isTutorialMode) {
+                if (this.isJellyChallengeActive) {
+                    this.pendingJellyExitCreation = true;
+                } else {
+                    this.createJellyChallengeExit(currentZ);
+                }
             }
         }
 
@@ -9767,6 +9769,7 @@ export class Engine {
     }
 
     createJellyChallengeExit(z: number) {
+        if (this.isTutorialMode) return;
         const size = this.mazeGen.size;
         const TYPES = this.mazeGen.TYPES;
         const candidates: { x: number; y: number; dist: number }[] = [];
