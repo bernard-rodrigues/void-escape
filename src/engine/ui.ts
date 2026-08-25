@@ -127,7 +127,8 @@ export class UIManager {
         manaCollected = 0, 
         totalMana = 0,
         isTutorialMode = false,
-        hasNextTutorial = false
+        hasNextTutorial = false,
+        challengeStatus: 'Not found' | 'Succeed' | 'Defeated' = 'Not found'
     ) {
         this.hideGameUI();
         if (this.uiVictoryScreen) {
@@ -182,6 +183,18 @@ export class UIManager {
             const pad = (n: number) => String(n).padStart(2, '0');
             const formatted = hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
             timeEl.innerText = formatted;
+        }
+
+        const challengeEl = document.getElementById('victory-challenge-status');
+        if (challengeEl) {
+            let translationKey = 'challengeNotFound';
+            if (challengeStatus === 'Succeed') {
+                translationKey = 'challengeSucceed';
+            } else if (challengeStatus === 'Defeated') {
+                translationKey = 'challengeDefeated';
+            }
+            challengeEl.setAttribute('data-i18n', translationKey);
+            challengeEl.innerText = getTranslation(translationKey);
         }
     }
 
@@ -305,6 +318,26 @@ export class UIManager {
     updatePathfindersHUD(remaining: number, total: number) {
         if (this.uiPathfindersRemaining) this.uiPathfindersRemaining.innerText = String(remaining);
         if (this.uiPathfindersTotal) this.uiPathfindersTotal.innerText = String(total);
+    }
+
+    updateChallengeHUD(value: string, title: string, isChallenge: boolean) {
+        const keysGroup = document.getElementById('keys-hud-group');
+        const pathfinderGroup = document.getElementById('pathfinder-hud-group');
+        const challengeGroup = document.getElementById('challenge-hud-group');
+        const challengeTitle = document.getElementById('challenge-hud-title');
+        const challengeVal = document.getElementById('challenge-hud-value');
+
+        if (isChallenge) {
+            if (keysGroup) keysGroup.classList.add('hidden');
+            if (pathfinderGroup) pathfinderGroup.classList.add('hidden');
+            if (challengeGroup) challengeGroup.classList.remove('hidden');
+            if (challengeTitle) challengeTitle.innerText = title;
+            if (challengeVal) challengeVal.innerText = value;
+        } else {
+            if (keysGroup) keysGroup.classList.remove('hidden');
+            if (pathfinderGroup) pathfinderGroup.classList.remove('hidden');
+            if (challengeGroup) challengeGroup.classList.add('hidden');
+        }
     }
 
     /**

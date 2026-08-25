@@ -686,6 +686,7 @@
         <p class="victory-stats"><span data-i18n="victoryDegree">MAZE DEGREE</span>: <span id="victory-maze-degree">0</span></p>
         <p class="victory-stats"><span data-i18n="victoryTime">COMPLETION TIME</span>: <span id="victory-completion-time">00:00</span></p>
         <p class="victory-stats"><span data-i18n="victoryMana">MANA COLLECTED</span>: <span id="victory-mana-count">0/0</span></p>
+        <p class="victory-stats"><span data-i18n="victoryChallenge">CHALLENGE</span>: <span id="victory-challenge-status" data-i18n="challengeNotFound">Not found</span></p>
         <div class="end-game-btns">
             <button id="next-tut-btn-victory" class="end-btn hidden" data-i18n="nextTutorial">NEXT TUTORIAL</button>
             <button id="restart-btn-victory" class="end-btn" data-i18n="playAgain">PLAY AGAIN</button>
@@ -715,7 +716,7 @@
 
     <!-- Left HUD Panel (Keys & Pathfinders) -->
     <div id="left-hud-panel" class="intro-hidden">
-        <div class="hud-item-group">
+        <div class="hud-item-group" id="keys-hud-group">
             <div class="keys-title" data-i18n="hudKeys">KEYS</div>
             <div class="keys-counter">
                 <span id="keys-collected-count">0</span> / <span id="keys-total-count">0</span>
@@ -728,6 +729,12 @@
             <div class="pathfinders-title" data-i18n="hudPathfinders">PATHFINDERS</div>
             <div class="pathfinders-counter">
                 <span id="pathfinders-remaining-count">0</span> / <span id="pathfinders-total-count">0</span>
+            </div>
+        </div>
+        <div class="hud-item-group hidden" id="challenge-hud-group">
+            <div id="challenge-hud-title" class="challenge-title">CHALLENGE</div>
+            <div class="challenge-counter">
+                <span id="challenge-hud-value">0</span>
             </div>
         </div>
     </div>
