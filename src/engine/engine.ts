@@ -2973,7 +2973,7 @@ export class Engine {
     }
 
     update(dt: number) {
-        if (this.isGameOver || this.isDestroyed || !dt) return;
+        if ((this.isGameOver && !this.isStoryActive) || this.isDestroyed || !dt) return;
 
         // Screen Shake update
         if (this.screenShakeTimer > 0) {
