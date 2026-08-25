@@ -624,7 +624,7 @@ export class Engine {
         this.visitedCells.clear();
         const size = this.mazeGen.size;
         const TYPES = this.mazeGen.TYPES;
-        const revealAll = this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed;
+        const revealAll = this.isMapRevealed;
 
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
@@ -1323,7 +1323,6 @@ export class Engine {
             z: this.mazeGen.startPos.z
         };
         
-        this.visitedCells.clear();
         this.fullyRevealedCells.clear();
         this.discoveredTeleports.clear();
         this.revealedPathSet.clear();
@@ -1334,10 +1333,7 @@ export class Engine {
             this.pathRevealInterval = null;
         }
 
-        const px = Math.floor(this.player.x);
-        const py = Math.floor(this.player.y);
-        const pz = this.player.z;
-        this.visitedCells.add(`${px},${py},${pz}`);
+        this.populateVisitedCells();
 
         let keysCount = 0;
         let manaCount = 0;
@@ -1487,10 +1483,7 @@ export class Engine {
         this.player.dir = snapshot.player.dir;
 
         // Restore hunters
-        const useFixedHunters = this.isTutorialMode &&
-                                this.currentTutorialStage &&
-                                this.currentTutorialStage.hunterBehavior &&
-                                this.currentTutorialStage.hunterBehavior.fixed;
+        const useFixedHunters = this.isHunterFixed;
 
         for (let i = 0; i < this.hunters.length && i < snapshot.hunters.length; i++) {
             if (useFixedHunters && this.mazeGen.tutorialHunterSpawns && this.mazeGen.tutorialHunterSpawns[i]) {
@@ -2234,8 +2227,8 @@ export class Engine {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
                     const val = this.maze.get(x, y, z);
-                    // WALL, EXIT, and STATUE do not count towards the total corridors
-                    if (val === TYPES.WALL || val === TYPES.EXIT || val === TYPES.STATUE) {
+                    // WALL, EXIT, JELLY_EXIT, and STATUE do not count towards the total corridors
+                    if (val === TYPES.WALL || val === TYPES.EXIT || val === TYPES.JELLY_EXIT || val === TYPES.STATUE) {
                         continue;
                     }
                     totalEligible++;
@@ -2332,6 +2325,46 @@ export class Engine {
                 this.inactiveTeleportPos.z === pos.z) return false;
             return true;
         });
+    }
+
+    get isHunterStatic(): boolean {
+        if (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.hunterBehavior) {
+            return !!this.currentTutorialStage.hunterBehavior.static;
+        }
+        if (this.isChallengeMode && this.currentChallenge && this.currentChallenge.hunterBehavior) {
+            return !!this.currentChallenge.hunterBehavior.static;
+        }
+        return false;
+    }
+
+    get isHunterRespawnDisabled(): boolean {
+        if (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.hunterBehavior) {
+            return this.currentTutorialStage.hunterBehavior.respawn === false;
+        }
+        if (this.isChallengeMode && this.currentChallenge && this.currentChallenge.hunterBehavior) {
+            return this.currentChallenge.hunterBehavior.respawn === false;
+        }
+        return false;
+    }
+
+    get isHunterFixed(): boolean {
+        if (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.hunterBehavior) {
+            return !!this.currentTutorialStage.hunterBehavior.fixed;
+        }
+        if (this.isChallengeMode && this.currentChallenge && this.currentChallenge.hunterBehavior) {
+            return !!this.currentChallenge.hunterBehavior.fixed;
+        }
+        return false;
+    }
+
+    get isMapRevealed(): boolean {
+        if (this.isTutorialMode && this.currentTutorialStage) {
+            return !!this.currentTutorialStage.revealed;
+        }
+        if (this.isChallengeMode && this.currentChallenge) {
+            return !!this.currentChallenge.revealed;
+        }
+        return false;
     }
 
     getSelectableTeleportIndices() {
@@ -2940,10 +2973,7 @@ export class Engine {
 
         // Check if any dead-by-jelly hunters can respawn now
         const currentPercent = this.getMapVisitedPercentage();
-        const disableRespawn = this.isTutorialMode && 
-                               this.currentTutorialStage && 
-                               this.currentTutorialStage.hunterBehavior && 
-                               this.currentTutorialStage.hunterBehavior.respawn === false;
+        const disableRespawn = this.isHunterRespawnDisabled;
 
         const jellyExitActive = this.jellyExitPos !== null;
         for (const hunter of this.hunters) {
@@ -3512,10 +3542,7 @@ export class Engine {
                 if (hunter.state === 'SLEEP' || hunter.state === 'DEAD_BY_JELLY' || hunter.state === 'DYING') continue;
 
                 // Support static hunter behavior in tutorials
-                const isStatic = this.isTutorialMode && 
-                                 this.currentTutorialStage && 
-                                 this.currentTutorialStage.hunterBehavior && 
-                                 this.currentTutorialStage.hunterBehavior.static;
+                const isStatic = this.isHunterStatic;
 
                 if (isStatic) {
                     this.checkHunterCollision();
@@ -4308,10 +4335,8 @@ export class Engine {
                     this.jellyProjectiles = [];
                     this.jellyStatueStates.clear();
                     this.hunters = [];
-                    if (this.isTutorialMode) {
-                        const useFixed = this.currentTutorialStage &&
-                                         this.currentTutorialStage.hunterBehavior &&
-                                         this.currentTutorialStage.hunterBehavior.fixed;
+                    if (this.isTutorialMode || this.isChallengeMode) {
+                        const useFixed = this.isHunterFixed;
                         
                         if (this.mazeGen.tutorialHunterSpawns && !this.isSafeMode) {
                             let hunterId = 1;
@@ -5749,9 +5774,7 @@ export class Engine {
         const val = this.maze.get(x, y, z);
         if (val !== 0) return false;
         
-        const isTutorialRevealed = this.isTutorialMode && 
-                                   this.currentTutorialStage && 
-                                   this.currentTutorialStage.revealed;
+        const isTutorialRevealed = this.isMapRevealed;
                                    
         return this.isNearVisited(x, y, z) || 
                this.isAdjacentToStatue(x, y, z) || 
@@ -5759,7 +5782,7 @@ export class Engine {
      }
 
     isStatueVisible(x: number, y: number, z: number): boolean {
-        if (this.isTutorialMode && this.currentTutorialStage && this.currentTutorialStage.revealed) {
+        if (this.isMapRevealed) {
             return true;
         }
 
@@ -9619,7 +9642,7 @@ export class Engine {
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 const val = this.maze.get(x, y, z);
-                if (val === TYPES.WALL || val === TYPES.EXIT || val === TYPES.STATUE) {
+                if (val === TYPES.WALL || val === TYPES.EXIT || val === TYPES.JELLY_EXIT || val === TYPES.STATUE) {
                     continue;
                 }
                 if (val === TYPES.TELEPORT && !this.discoveredTeleports.has(`${x},${y},${z}`)) {
