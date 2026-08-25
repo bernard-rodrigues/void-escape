@@ -227,6 +227,7 @@ export class Engine {
     storyTypeTimer!: number;
     storyMsgIndex!: number;
     storyCloseProgress!: number;
+    storyStartTime!: number;
 
     selectedTeleportIndex!: number | null;
     teleportConfirmModalActive!: boolean;
@@ -512,6 +513,7 @@ export class Engine {
         this.isIntroPlaying = false;
         this.isStoryActive = false;
         this.storyType = 'intro';
+        this.storyStartTime = 0;
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
@@ -2973,7 +2975,7 @@ export class Engine {
     }
 
     update(dt: number) {
-        if (this.isGameOver || this.isDestroyed || !dt) return;
+        if ((this.isGameOver && !this.isStoryActive) || this.isDestroyed || !dt) return;
 
         // Screen Shake update
         if (this.screenShakeTimer > 0) {
@@ -6606,6 +6608,7 @@ export class Engine {
         this.storyCloseProgress = 1;
         this.storyCharIndex = 0;
         this.storyTypeTimer = 0;
+        this.storyStartTime = Date.now();
 
         const storyEl = document.getElementById('story-screen');
         if (storyEl) {
@@ -6626,6 +6629,8 @@ export class Engine {
 
             // 1. Keyboard event listener
             this.handleStoryKeyDown = (e: KeyboardEvent) => {
+                if (e.repeat) return;
+                if (Date.now() - this.storyStartTime < 500) return;
                 const key = e.key.toLowerCase();
                 if (key === 'escape') {
                     this.skipStory();
@@ -6638,6 +6643,7 @@ export class Engine {
 
             // 2. Click event listener on story screen (excluding SKIP button)
             this.handleStoryClick = (e: MouseEvent) => {
+                if (Date.now() - this.storyStartTime < 500) return;
                 const target = e.target as HTMLElement | null;
                 if (target && target.closest('#story-skip-btn')) return;
                 if (!this.isPreloadingActive) {
@@ -6645,6 +6651,7 @@ export class Engine {
                 }
             };
             this.handleStoryTouch = (e: TouchEvent) => {
+                if (Date.now() - this.storyStartTime < 500) return;
                 const target = e.target as HTMLElement | null;
                 if (target && target.closest('#story-skip-btn')) return;
                 if (!this.isPreloadingActive) {
@@ -6663,6 +6670,7 @@ export class Engine {
         if (skipBtn) {
             skipBtn.onclick = (e) => {
                 e.stopPropagation();
+                if (Date.now() - this.storyStartTime < 500) return;
                 this.skipStory();
             };
         }
