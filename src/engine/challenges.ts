@@ -84,7 +84,7 @@ export const CHALLENGES: ChallengeStage[] = [
         ],
         pathfinders: 0,
         mana: 0,
-        jellyPortals: 3,
+        jellyPortals: 1,
         revealed: true,
         hunterBehavior: {
             static: false,

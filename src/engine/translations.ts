@@ -80,7 +80,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgPlayerRespawn: "Ok.. ok.. guess I'm alive..",
         msgLockedIn: "I'm locked in!",
         msgFloorComplete: "Floor complete!",
-        msgJellyExitCreated: "An alternative exit has opened nearby!",
+        msgJellyExitCreated: "THE TRUTH HAS BEEN REVEALED!!!",
 
         // Hunter Status Panel Marquee
         statusLabel: "HUNTER STATUS:",
@@ -224,7 +224,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgPlayerRespawn: "Ok.. ok.. sobrevivi..",
         msgLockedIn: "Estou trancada!",
         msgFloorComplete: "Andar completo!",
-        msgJellyExitCreated: "Uma saída alternativa se abriu por perto!",
+        msgJellyExitCreated: "A VERDADE FOI REVELADA!!!",
 
         // Hunter Status Panel Marquee
         statusLabel: "STATUS DO CAÇADOR:",
@@ -368,7 +368,7 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         msgPlayerRespawn: "よしよし…どうやらまだ生きてるな…",
         msgLockedIn: "閉じ込められちゃった！",
         msgFloorComplete: "フロア完了！",
-        msgJellyExitCreated: "近くに別の出口が開いた！",
+        msgJellyExitCreated: "真実が明らかになった!!!",
 
         // Hunter Status Panel Marquee
         statusLabel: "ハンターの状態:",
@@ -513,7 +513,7 @@ es: {
         msgPlayerRespawn: "Vale.. vale.. parece que sigo viva..",
         msgLockedIn: "¡Estoy encerrada!",
         msgFloorComplete: "¡Piso completado!",
-        msgJellyExitCreated: "¡Se ha abierto una salida alternativa cerca!",
+        msgJellyExitCreated: "¡¡¡LA VERDAD HA SIDO REVELADA!!!",
 
         // Hunter Status Panel Marquee
         statusLabel: "ESTADO DEL CAZADOR:",
