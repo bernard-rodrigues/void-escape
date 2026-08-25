@@ -31,7 +31,7 @@ export const CHALLENGES: ChallengeStage[] = [
             es: "Supervivencia de la Legión"
         },
         type: "time",
-        time: 30, // 30 segundos
+        time: 20, // 30 segundos
         layers: [
             // z = 0
             [
@@ -56,8 +56,8 @@ export const CHALLENGES: ChallengeStage[] = [
                 "#.#.#.#.#.#.#",
                 "#..H.....H..#",
                 "#.#.#.#.#.#.#",
-                "#H.........H#",
-                "#.#.#.S.#.#.#",
+                "#H....S....H#",
+                "#.#.#.#.#.#.#",
                 "#H.........H#",
                 "#.#.#.#.#.#.#",
                 "#..H.....H..#",
@@ -101,7 +101,7 @@ export const CHALLENGES: ChallengeStage[] = [
             es: "Bombardeo de Gelatina"
         },
         type: "shots",
-        shots: 20, // 20 disparos
+        shots: 7,
         layers: [
             // z = 0
             [
@@ -123,15 +123,15 @@ export const CHALLENGES: ChallengeStage[] = [
             [
                 "#############",
                 "#...........#",
-                "#.A.A.A.A.A.#",
+                "#.A.#.A.#.A.#",
+                "#...........#",
+                "#.A.#.A.#.A.#",
+                "#.....S.....#",
+                "#.A.#.#.#.A.#",
                 "#...........#",
                 "#.A.#.A.#.A.#",
                 "#...........#",
-                "#.A.#.S.#.A.#",
-                "#...........#",
                 "#.A.#.A.#.A.#",
-                "#...........#",
-                "#.A.A.A.A.A.#",
                 "#...........#",
                 "#############"
             ],
