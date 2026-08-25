@@ -154,6 +154,7 @@ export class Engine {
     isDestroyed: boolean;
     isIntroPlaying: boolean;
     isStoryActive: boolean;
+    storyType: 'intro' | 'ending-normal' | 'ending-alternative';
     pulsatingMaterials: any[];
     hunterMeshes: any[];
     statueMeshes: Map<string, { base: any; body: any }> = new Map();
@@ -510,6 +511,7 @@ export class Engine {
         this.isDestroyed = false;
         this.isIntroPlaying = false;
         this.isStoryActive = false;
+        this.storyType = 'intro';
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
@@ -742,7 +744,13 @@ export class Engine {
             'assets/images/presentation/2-mystical-church-of-chaos.jpg',
             'assets/images/presentation/3-the-jelly-god.jpg',
             'assets/images/presentation/4-player-alone.jpg',
-            'assets/images/presentation/5-player-thrown.jpg'
+            'assets/images/presentation/5-player-thrown.jpg',
+            'assets/images/presentation/ending-1.jpg',
+            'assets/images/presentation/ending-2.jpg',
+            'assets/images/presentation/ending-3.jpg',
+            'assets/images/presentation/ending-alternative-1.jpg',
+            'assets/images/presentation/ending-alternative-2.jpg',
+            'assets/images/presentation/ending-alternative-3.jpg'
         ];
 
         this.storyImagesLoadedCount = 0;
@@ -1280,24 +1288,7 @@ export class Engine {
         }
     }
 
-    triggerVictory() {
-        const playerVal = this.maze.get(Math.floor(this.player.x), Math.floor(this.player.y), this.player.z);
-        if (playerVal === this.mazeGen.TYPES.JELLY_EXIT && !this.isChallengeMode) {
-            const chosenChallenge = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
-            this.startChallenge(chosenChallenge);
-            return;
-        }
-
-        if (this.isChallengeMode && this.challengeStatus !== 'Defeated') {
-            this.challengeStatus = 'Succeed';
-        }
-
-        this.isGameOver = true;
-        this.isVictory = true;
-        if (!this.isTutorialMode && !this.isChallengeMode) {
-            clearSave(); // Victory clears the save so "Continue" is no longer offered
-        }
-        
+    showVictoryScreen() {
         let hasNext = false;
         if (this.isTutorialMode && this.currentTutorialId) {
             const currentIndex = TUTORIALS.findIndex(t => t.id === this.currentTutorialId);
@@ -1331,6 +1322,33 @@ export class Engine {
             hasNext,
             this.challengeStatus
         );
+    }
+
+    triggerVictory() {
+        const playerVal = this.maze.get(Math.floor(this.player.x), Math.floor(this.player.y), this.player.z);
+        if (playerVal === this.mazeGen.TYPES.JELLY_EXIT && !this.isChallengeMode) {
+            const chosenChallenge = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
+            this.startChallenge(chosenChallenge);
+            return;
+        }
+
+        if (this.isChallengeMode && this.challengeStatus !== 'Defeated') {
+            this.challengeStatus = 'Succeed';
+        }
+
+        this.isGameOver = true;
+        this.isVictory = true;
+        if (!this.isTutorialMode && !this.isChallengeMode) {
+            clearSave(); // Victory clears the save so "Continue" is no longer offered
+        }
+
+        if (this.isTutorialMode) {
+            this.showVictoryScreen();
+        } else {
+            // Roda a apresentação de final de jogo antes dos status
+            const endType = (this.isChallengeMode && this.challengeStatus === 'Succeed') ? 'ending-alternative' : 'ending-normal';
+            this.startStorytelling(endType);
+        }
     }
 
     startChallenge(challenge: ChallengeStage) {
@@ -6579,8 +6597,9 @@ export class Engine {
         }, 600);
     }
 
-    startStorytelling() {
+    startStorytelling(type: 'intro' | 'ending-normal' | 'ending-alternative' = 'intro') {
         this.isStoryActive = true;
+        this.storyType = type;
         this.storyMsgIndex = 0;
         this.storyState = "OPENING";
         this.storyWidthProgress = 0;
@@ -6688,6 +6707,11 @@ export class Engine {
             this.handleStoryTouch = null;
         }
 
+        if (this.storyType === 'ending-normal' || this.storyType === 'ending-alternative') {
+            this.showVictoryScreen();
+            return;
+        }
+
         // Enable mobile map button
         if (this.ui.uiMobileMap) {
             this.ui.uiMobileMap.disabled = false;
@@ -6743,42 +6767,78 @@ export class Engine {
         // Reset default background style
         imgBox.style.background = '#0b0b0b';
 
-        if (this.storyMsgIndex === 5) {
-            // Slide 6: Black background with radial gradient
-            imgEl.style.display = 'none';
-            imgBox.style.background = 'radial-gradient(circle, #222222 0%, #000000 80%)';
+        let imgPath = "";
+        let preloadedIdx = -1;
+
+        if (this.storyType === 'intro') {
+            if (this.storyMsgIndex === 5) {
+                imgEl.style.display = 'none';
+                imgBox.style.background = 'radial-gradient(circle, #222222 0%, #000000 80%)';
+                imgBox.removeAttribute('data-placeholder');
+                return;
+            }
+            const introPaths = [
+                'assets/images/presentation/1-mystical-church-of-chaos.jpg',
+                'assets/images/presentation/2-mystical-church-of-chaos.jpg',
+                'assets/images/presentation/3-the-jelly-god.jpg',
+                'assets/images/presentation/4-player-alone.jpg',
+                'assets/images/presentation/5-player-thrown.jpg'
+            ];
+            imgPath = introPaths[this.storyMsgIndex] || "";
+            preloadedIdx = this.storyMsgIndex;
+        } else if (this.storyType === 'ending-normal') {
+            const normalPaths = [
+                'assets/images/presentation/ending-1.jpg',
+                'assets/images/presentation/ending-2.jpg',
+                'assets/images/presentation/ending-3.jpg'
+            ];
+            imgPath = normalPaths[this.storyMsgIndex] || "";
+            preloadedIdx = 5 + this.storyMsgIndex;
+        } else if (this.storyType === 'ending-alternative') {
+            const altPaths = [
+                'assets/images/presentation/ending-alternative-1.jpg',
+                'assets/images/presentation/ending-alternative-2.jpg',
+                'assets/images/presentation/ending-alternative-3.jpg'
+            ];
+            imgPath = altPaths[this.storyMsgIndex] || "";
+            preloadedIdx = 8 + this.storyMsgIndex;
+        }
+
+        const preloadedImg = this.preloadedStoryImages[preloadedIdx];
+        if (preloadedImg) {
+            imgEl.src = preloadedImg.src;
+            imgEl.style.display = 'block';
             imgBox.removeAttribute('data-placeholder');
-        } else {
-            const preloadedImg = this.preloadedStoryImages[this.storyMsgIndex];
-            if (preloadedImg) {
-                imgEl.src = preloadedImg.src;
+        } else if (imgPath) {
+            imgEl.src = imgPath;
+            imgEl.onerror = () => {
+                imgEl.style.display = 'none';
+                imgBox.setAttribute('data-placeholder', `[Image ${this.storyMsgIndex + 1}]`);
+            };
+            imgEl.onload = () => {
                 imgEl.style.display = 'block';
                 imgBox.removeAttribute('data-placeholder');
-            } else {
-                let imgPath = "";
-                if (this.storyMsgIndex === 0) {
-                    imgPath = 'assets/images/presentation/1-mystical-church-of-chaos.jpg';
-                } else if (this.storyMsgIndex === 1) {
-                    imgPath = 'assets/images/presentation/2-mystical-church-of-chaos.jpg';
-                } else if (this.storyMsgIndex === 2) {
-                    imgPath = 'assets/images/presentation/3-the-jelly-god.jpg';
-                } else if (this.storyMsgIndex === 3) {
-                    imgPath = 'assets/images/presentation/4-player-alone.jpg';
-                } else if (this.storyMsgIndex === 4) {
-                    imgPath = 'assets/images/presentation/5-player-thrown.jpg';
-                }
-
-                imgEl.src = imgPath;
-                imgEl.onerror = () => {
-                    imgEl.style.display = 'none';
-                    imgBox.setAttribute('data-placeholder', `[Image ${this.storyMsgIndex + 1}]`);
-                };
-                imgEl.onload = () => {
-                    imgEl.style.display = 'block';
-                    imgBox.removeAttribute('data-placeholder');
-                };
-            }
+            };
+        } else {
+            imgEl.style.display = 'none';
         }
+    }
+
+    getStoryMessages(): string[] {
+        if (this.storyType === 'ending-normal') {
+            return ["endingNormalMsg1", "endingNormalMsg2", "endingNormalMsg3"];
+        }
+        if (this.storyType === 'ending-alternative') {
+            return ["endingAltMsg1", "endingAltMsg2", "endingAltMsg3"];
+        }
+        return [
+            "storyMsg1",
+            "storyMsg2",
+            "storyMsg3",
+            "storyMsg4",
+            "storyMsg5",
+            "storyMsg6"
+        ];
     }
 
     updateStory(dt: number) {
@@ -6790,14 +6850,7 @@ export class Engine {
 
         if (!dialogueBox || !textEl) return;
 
-        const msgs = [
-            "storyMsg1",
-            "storyMsg2",
-            "storyMsg3",
-            "storyMsg4",
-            "storyMsg5",
-            "storyMsg6"
-        ];
+        const msgs = this.getStoryMessages();
 
         if (this.storyMsgIndex >= msgs.length) {
             this.endStorytelling();
@@ -6854,14 +6907,7 @@ export class Engine {
     }
 
     triggerAdvanceStory() {
-        const msgs = [
-            "storyMsg1",
-            "storyMsg2",
-            "storyMsg3",
-            "storyMsg4",
-            "storyMsg5",
-            "storyMsg6"
-        ];
+        const msgs = this.getStoryMessages();
         if (this.storyMsgIndex >= msgs.length) return;
         const fullText = getTranslation(msgs[this.storyMsgIndex]);
 
