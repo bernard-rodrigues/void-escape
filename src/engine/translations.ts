@@ -32,6 +32,12 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         storyMsg4: "But their word is a lie! The chaos is a lie!",
         storyMsg5: "So I was condemned to exile...",
         storyMsg6: "Condemned to the void...",
+        endingNormalMsg1: "I managed to escape that horrible and cruel place. But I didn't feel it was the end.",
+        endingNormalMsg2: "At that point, the word of the Jelly God had already impregnated my being.",
+        endingNormalMsg3: "I WAS REBORN AS THE NEW JELLY GODDESS!!!",
+        endingAltMsg1: "Finally the reign of horror of the Church of the Jelly God has come to an end!",
+        endingAltMsg2: "Finally I lost my trauma of eating grape jelly at John's tavern!",
+        endingAltMsg3: "At last, I saved the world!",
 
         // HUD / Game Stats (Grid 2x2)
         hudKeys: "KEYS",
@@ -176,6 +182,12 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         storyMsg4: "Mas sua palavra é uma mentira! O caos é uma mentira!",
         storyMsg5: "Então fui condenada ao exílio...",
         storyMsg6: "Condenada ao vazio...",
+        endingNormalMsg1: "Consegui escapar daquele lugar horrível e cruel. Mas eu não sentia que era o fim.",
+        endingNormalMsg2: "Naquele ponto, a palavra do Deus Geleia já havia se impregnado em meu ser.",
+        endingNormalMsg3: "EU RENASCI COMO A NOVA DEUSA GELEIA!!!",
+        endingAltMsg1: "Finalmente o reinado de horror da igreja do Deus Geleia chegou ao fim!",
+        endingAltMsg2: "Finalmente perdi meu trauma de comer geleia de uva na taverna do John!",
+        endingAltMsg3: "Enfim, salvei o mundo!",
 
         // HUD / Game Stats (Grid 2x2)
         hudKeys: "CHAVES",
@@ -320,6 +332,12 @@ export const TRANSLATIONS: Record<string, TranslationDict> = {
         storyMsg4: "でも彼らの言葉は嘘!混沌なんて嘘っぱちなんだから!",
         storyMsg5: "だから追放の刑に処されたの…",
         storyMsg6: "虚空へと追放されて…",
+        endingNormalMsg1: "あの恐ろしく残酷な場所から何とか脱出できた。しかし、これで終わりだとは思えなかった。",
+        endingNormalMsg2: "その時点で、ゼリー神の言葉はすでに私の存在に染み込んでいた。",
+        endingNormalMsg3: "私は新たなゼリーの女神として生まれ変わったのだ！！！",
+        endingAltMsg1: "ついにゼリー神の教会の恐怖の支配が終わりを迎えた！",
+        endingAltMsg2: "ついにジョンの酒場でグレープゼリーを食べるトラウマを克服した！",
+        endingAltMsg3: "ついに、世界を救ったのだ！",
 
         // HUD / Game Stats (Grid 2x2)
         hudKeys: "鍵",
@@ -465,6 +483,12 @@ es: {
         storyMsg4: "¡Pero su palabra es una mentira! ¡El caos es mentira!",
         storyMsg5: "Así que fui condenada al exilio...",
         storyMsg6: "Condenada al vacío...",
+        endingNormalMsg1: "Logré escapar de ese lugar horrible y cruel. Pero no sentía que fuera el final.",
+        endingNormalMsg2: "En ese momento, la palabra del Dios Gelatina ya se había impregnado en mi ser.",
+        endingNormalMsg3: "¡¡¡HE RENACIDO COMO LA NUEVA DIOSA GELATINA!!!",
+        endingAltMsg1: "¡Finalmente el reinado de terror de la iglesia del Dios Gelatina ha llegado a su fin!",
+        endingAltMsg2: "¡Finalmente superé mi trauma de comer gelatina de uva en la taberna de John!",
+        endingAltMsg3: "¡Por fin, he salvado al mundo!",
 
         // HUD / Game Stats (Grid 2x2)
         hudKeys: "LLAVES",
