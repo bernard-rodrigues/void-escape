@@ -944,7 +944,7 @@ export class Engine {
         const hDown = pz > 0 && this.maze.get(px, py, pz - 1) !== this.mazeGen.TYPES.WALL;
         const isElevator = hUp || hDown;
         
-        const isStartPos = px === Math.floor(this.mazeGen.startPos.x) && 
+        const isStartPos = !this.isChallengeMode && px === Math.floor(this.mazeGen.startPos.x) && 
                            py === Math.floor(this.mazeGen.startPos.y) && 
                            pz === this.mazeGen.startPos.z;
 
@@ -1013,6 +1013,28 @@ export class Engine {
     }
 
     executeJellyPortalReset(px: number, py: number, pz: number) {
+        if (this.isChallengeMode) {
+            for (const hunter of this.hunters) {
+                if (hunter.state === 'DYING') {
+                    hunter.state = 'DEAD_BY_JELLY';
+                    hunter.x = null;
+                    hunter.y = null;
+                    hunter.z = null;
+                    hunter.visualX = null;
+                    hunter.visualY = null;
+                    hunter.visualZ = null;
+                    hunter.pathToTarget = [];
+                    hunter.history = [];
+                }
+            }
+            if (this.dyingHunters.length > 0) {
+                this.respawnDyingHunters();
+                this.dyingHunters = [];
+            }
+            this.staticMapCacheDirty = true;
+            return;
+        }
+
         if (this.skipJellyPortalMapReset) {
             this.skipJellyPortalMapReset = false;
             for (const hunter of this.hunters) {
@@ -1150,7 +1172,19 @@ export class Engine {
         }
 
         if (candidates.length > 0) {
-            const pos = candidates[Math.floor(Math.random() * candidates.length)];
+            let finalCandidates = candidates;
+            if (this.isChallengeMode) {
+                const candidatesWithDist = candidates.map(c => ({
+                    ...c,
+                    dist: Math.pow(c.x - px, 2) + Math.pow(c.y - py, 2) + Math.pow(c.z - pz, 2) * 5
+                }));
+                candidatesWithDist.sort((a, b) => b.dist - a.dist);
+                const maxDist = candidatesWithDist[0].dist;
+                let far = candidatesWithDist.filter(c => c.dist >= maxDist * 0.7);
+                if (far.length < 5) far = candidatesWithDist.slice(0, Math.min(candidatesWithDist.length, 5));
+                finalCandidates = far;
+            }
+            const pos = finalCandidates[Math.floor(Math.random() * finalCandidates.length)];
             hunter.x = pos.x;
             hunter.y = pos.y;
             hunter.z = pos.z;
@@ -1208,15 +1242,28 @@ export class Engine {
             }
         }
 
-        for (let i = candidates.length - 1; i > 0; i--) {
+        let finalCandidates = candidates;
+        if (this.isChallengeMode && candidates.length > 0) {
+            const candidatesWithDist = candidates.map(c => ({
+                ...c,
+                dist: Math.pow(c.x - px, 2) + Math.pow(c.y - py, 2) + Math.pow(c.z - pz, 2) * 5
+            }));
+            candidatesWithDist.sort((a, b) => b.dist - a.dist);
+            const maxDist = candidatesWithDist[0].dist;
+            let far = candidatesWithDist.filter(c => c.dist >= maxDist * 0.7);
+            if (far.length < 5) far = candidatesWithDist.slice(0, Math.min(candidatesWithDist.length, 5));
+            finalCandidates = far;
+        }
+
+        for (let i = finalCandidates.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+            [finalCandidates[i], finalCandidates[j]] = [finalCandidates[j], finalCandidates[i]];
         }
 
         let spawnIdx = 0;
         for (const hunter of this.dyingHunters) {
-            if (spawnIdx < candidates.length) {
-                const pos = candidates[spawnIdx++];
+            if (spawnIdx < finalCandidates.length) {
+                const pos = finalCandidates[spawnIdx++];
                 hunter.x = pos.x;
                 hunter.y = pos.y;
                 hunter.z = pos.z;
@@ -1426,6 +1473,8 @@ export class Engine {
         this.ui.initGameUI(this.isSafeMode);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
+        this.ui.updateJellyPortalHUD(this.jellyPortalCount);
+        this.ui.updateManaHUD(this.manaCollected, this.totalMana);
         
         this.challengeActive = true;
         this.jellyExitPos = null;
@@ -1688,7 +1737,7 @@ export class Engine {
                                 this.inactiveTeleportPos.x === startGridX && 
                                 this.inactiveTeleportPos.y === startGridY && 
                                 this.inactiveTeleportPos.z === startGridZ;
-        if (px === startGridX && py === startGridY && pz === startGridZ && !isStartInactive) {
+        if (!this.isChallengeMode && px === startGridX && py === startGridY && pz === startGridZ && !isStartInactive) {
             return;
         }
 
@@ -2349,7 +2398,6 @@ export class Engine {
         this.ui.updateVisitedPercent(percent);
 
         if (percent === 100 && !this.mapCompletion100Triggered) {
-            this.ui.showInfoBanner(getTranslation('msgWorldSaved'));
             this.mapCompletion100Triggered = true;
 
             if (!this.isTutorialMode) {
@@ -2358,6 +2406,8 @@ export class Engine {
                 } else {
                     this.createJellyChallengeExit(currentZ);
                 }
+            } else {
+                this.ui.showInfoBanner(getTranslation('msgWorldSaved'));
             }
         }
 
@@ -3000,7 +3050,7 @@ export class Engine {
             const py = Math.floor(this.player.y);
             const pz = this.player.z;
             const val = this.maze.get(px, py, pz);
-            const isStartPos = px === Math.floor(this.mazeGen.startPos.x) && py === Math.floor(this.mazeGen.startPos.y) && pz === this.mazeGen.startPos.z;
+            const isStartPos = !this.isChallengeMode && px === Math.floor(this.mazeGen.startPos.x) && py === Math.floor(this.mazeGen.startPos.y) && pz === this.mazeGen.startPos.z;
             const isTeleportBlock = (val === this.mazeGen.TYPES.TELEPORT || val === this.mazeGen.TYPES.START || isStartPos) && val !== this.mazeGen.TYPES.JELLY_PORTAL;
 
             const targetAuraHeight = isTeleportBlock ? 1.0 : 0.0;
@@ -5826,7 +5876,7 @@ export class Engine {
 
     getAuraHeightAt(x: number, y: number, z: number): number {
         const val = this.maze.get(x, y, z);
-        const isStartPos = x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
+        const isStartPos = !this.isChallengeMode && x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
         const isTeleportBlock = (val === this.mazeGen.TYPES.TELEPORT || val === this.mazeGen.TYPES.START || isStartPos) && val !== this.mazeGen.TYPES.JELLY_PORTAL;
 
         if (!isTeleportBlock) return 0;
@@ -10052,7 +10102,9 @@ export class Engine {
             }
         }
 
-        this.ui.showInfoBanner(getTranslation('msgFloorComplete'));
+        if (!this.pendingJellyExitCreation) {
+            this.ui.showInfoBanner(getTranslation('msgFloorComplete'));
+        }
 
         if (this.pendingJellyExitCreation) {
             this.pendingJellyExitCreation = false;
@@ -10071,7 +10123,11 @@ export class Engine {
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 const val = this.maze.get(x, y, z);
-                if (val === TYPES.VISITED) {
+                const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== TYPES.WALL;
+                const hDown = z > 0 && this.maze.get(x, y, z - 1) !== TYPES.WALL;
+                const isElevator = hUp || hDown;
+
+                if (val === TYPES.VISITED && !isElevator) {
                     const dist = Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2);
                     candidates.push({ x, y, dist });
                 }
@@ -10083,7 +10139,11 @@ export class Engine {
             for (let x = 0; x < size; x++) {
                 for (let y = 0; y < size; y++) {
                     const val = this.maze.get(x, y, z);
-                    if (val === TYPES.VISITED || val === TYPES.PATH) {
+                    const hUp = z < size - 1 && this.maze.get(x, y, z + 1) !== TYPES.WALL;
+                    const hDown = z > 0 && this.maze.get(x, y, z - 1) !== TYPES.WALL;
+                    const isElevator = hUp || hDown;
+
+                    if ((val === TYPES.VISITED || val === TYPES.PATH) && !isElevator) {
                         const dist = Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2);
                         candidates.push({ x, y, dist });
                     }
