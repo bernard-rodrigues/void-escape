@@ -320,6 +320,26 @@ export class UIManager {
         if (this.uiPathfindersTotal) this.uiPathfindersTotal.innerText = String(total);
     }
 
+    updateChallengeHUD(value: string, title: string, isChallenge: boolean) {
+        const keysGroup = document.getElementById('keys-hud-group');
+        const pathfinderGroup = document.getElementById('pathfinder-hud-group');
+        const challengeGroup = document.getElementById('challenge-hud-group');
+        const challengeTitle = document.getElementById('challenge-hud-title');
+        const challengeVal = document.getElementById('challenge-hud-value');
+
+        if (isChallenge) {
+            if (keysGroup) keysGroup.classList.add('hidden');
+            if (pathfinderGroup) pathfinderGroup.classList.add('hidden');
+            if (challengeGroup) challengeGroup.classList.remove('hidden');
+            if (challengeTitle) challengeTitle.innerText = title;
+            if (challengeVal) challengeVal.innerText = value;
+        } else {
+            if (keysGroup) keysGroup.classList.remove('hidden');
+            if (pathfinderGroup) pathfinderGroup.classList.remove('hidden');
+            if (challengeGroup) challengeGroup.classList.add('hidden');
+        }
+    }
+
     /**
      * Show saving indicator pulse.
      */

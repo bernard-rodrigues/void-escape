@@ -716,7 +716,7 @@
 
     <!-- Left HUD Panel (Keys & Pathfinders) -->
     <div id="left-hud-panel" class="intro-hidden">
-        <div class="hud-item-group">
+        <div class="hud-item-group" id="keys-hud-group">
             <div class="keys-title" data-i18n="hudKeys">KEYS</div>
             <div class="keys-counter">
                 <span id="keys-collected-count">0</span> / <span id="keys-total-count">0</span>
@@ -729,6 +729,12 @@
             <div class="pathfinders-title" data-i18n="hudPathfinders">PATHFINDERS</div>
             <div class="pathfinders-counter">
                 <span id="pathfinders-remaining-count">0</span> / <span id="pathfinders-total-count">0</span>
+            </div>
+        </div>
+        <div class="hud-item-group hidden" id="challenge-hud-group">
+            <div id="challenge-hud-title" class="challenge-title">CHALLENGE</div>
+            <div class="challenge-counter">
+                <span id="challenge-hud-value">0</span>
             </div>
         </div>
     </div>

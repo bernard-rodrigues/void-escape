@@ -119,6 +119,9 @@ export class Engine {
     currentChallenge!: ChallengeStage | null;
     challengeStatus!: 'Not found' | 'Succeed' | 'Defeated';
     mainGameStats!: any | null;
+    challengeTimer!: number;
+    challengeShotsRemaining!: number;
+    challengeActive!: boolean;
     notificationQueue: string[];
     activeNotification: any;
     isPaused: boolean;
@@ -291,6 +294,9 @@ export class Engine {
         this.currentChallenge = null;
         this.challengeStatus = 'Not found';
         this.mainGameStats = null;
+        this.challengeTimer = 0;
+        this.challengeShotsRemaining = 0;
+        this.challengeActive = false;
 
         if (this.isTutorialMode) {
             this.mazeGen = new Maze3D();
@@ -485,6 +491,7 @@ export class Engine {
         this.jellyStatueStates = new Map();
 
         this.ui.initGameUI(this.isSafeMode);
+        this.ui.updateChallengeHUD('', '', false);
         this.ui.onInfoBanner = (msg) => this.queueNotification(msg);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
         this.ui.updateManaHUD(this.manaCollected, this.totalMana);
@@ -1297,6 +1304,24 @@ export class Engine {
         
         this.mazeGen = new Maze3D();
         this.maze = this.mazeGen.generateFromLayout(challenge);
+
+        const size = this.mazeGen.size;
+        const TYPES = this.mazeGen.TYPES;
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val === TYPES.EXIT || val === TYPES.JELLY_EXIT) {
+                        this.maze.set(x, y, z, TYPES.PATH);
+                    }
+                }
+            }
+        }
+
+        const startX = Math.floor(this.mazeGen.startPos.x);
+        const startY = Math.floor(this.mazeGen.startPos.y);
+        const startZ = this.mazeGen.startPos.z;
+        this.maze.set(startX, startY, startZ, TYPES.VISITED);
         
         if (this.scene) {
             this.hunterMeshes.forEach(hm => {
@@ -1337,7 +1362,7 @@ export class Engine {
 
         let keysCount = 0;
         let manaCount = 0;
-        const size = this.mazeGen.size;
+        // usar size existente
         for (let x = 0; x < size; x++) {
             for (let y = 0; y < size; y++) {
                 for (let z = 0; z < size; z++) {
@@ -1373,6 +1398,25 @@ export class Engine {
         this.lastHunterMove = performance.now();
         this.suppressWakeHuntersBanner = true;
         
+        // Reconstrói a lista allTeleports para o labirinto do desafio
+        this.allTeleports = [];
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                for (let z = 0; z < size; z++) {
+                    const val = this.maze.get(x, y, z);
+                    if (val === TYPES.TELEPORT || val === TYPES.START) {
+                        this.allTeleports.push({ x, y, z });
+                    }
+                }
+            }
+        }
+        this.allTeleports.sort((a, b) => {
+            if (a.z !== b.z) return a.z - b.z;
+            if (a.y !== b.y) return a.y - b.y;
+            return a.x - b.x;
+        });
+        this.selectedTeleportIndex = 0;
+
         clearSave();
 
         this.staticMapCacheDirty = true;
@@ -1382,6 +1426,40 @@ export class Engine {
         this.ui.initGameUI(this.isSafeMode);
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
+        
+        this.challengeActive = true;
+        this.jellyExitPos = null;
+        if (challenge.type === 'time') {
+            this.challengeTimer = challenge.time || 30;
+            this.challengeShotsRemaining = 0;
+            this.ui.updateChallengeHUD(Math.ceil(this.challengeTimer) + "s", "SURVIVE", true);
+        } else if (challenge.type === 'shots') {
+            const shotsPerStatue = challenge.shots || 20;
+            this.challengeTimer = 0;
+            
+            this.jellyStatueStates.clear();
+            const TYPES = this.mazeGen.TYPES;
+            let statueCount = 0;
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) {
+                    for (let z = 0; z < size; z++) {
+                        const val = this.maze.get(x, y, z);
+                        if (val === TYPES.STATUE) {
+                            statueCount++;
+                            const initialDelay = 0.5 + Math.random() * 2.5;
+                            this.jellyStatueStates.set(`${x},${y},${z}`, {
+                                shotsFired: 0,
+                                state: 'IDLE',
+                                chargeTimer: initialDelay,
+                                initialDelay: initialDelay
+                            });
+                        }
+                    }
+                }
+            }
+            this.challengeShotsRemaining = statueCount * shotsPerStatue;
+            this.ui.updateChallengeHUD(String(this.challengeShotsRemaining), "SHOTS", true);
+        }
         
         if (this.ui.uiMobileMap) {
             (this.ui.uiMobileMap as HTMLButtonElement).disabled = false;
@@ -4325,6 +4403,11 @@ export class Engine {
                     this.activeMapFloor = targetZ;
                     this.visualActiveFloor = targetZ;
                     this.lastPlayerCell = { x: Math.floor(targetX), y: Math.floor(targetY), z: targetZ };
+
+                    if (!this.isTutorialMode && !this.isChallengeMode && this.getMapVisitedPercentage() === 100 && this.jellyExitPos === null) {
+                        this.pendingJellyExitCreation = false;
+                        this.createJellyChallengeExit(targetZ);
+                    }
                     
                     // 3. Re-initialize / Reset Hunters
                     this.isJellyChallengeActive = false;
@@ -9839,7 +9922,27 @@ export class Engine {
             }
         }
 
-        if (!this.isJellyChallengeActive) return;
+        if (this.isChallengeMode && this.challengeActive && this.currentChallenge) {
+            this.staticMapCacheDirty = true;
+            if (this.currentChallenge.type === 'time') {
+                this.challengeTimer -= dt;
+                if (this.challengeTimer <= 0) {
+                    this.challengeTimer = 0;
+                    this.challengeActive = false;
+                    this.createJellyChallengeExit(this.player.z);
+                }
+                this.ui.updateChallengeHUD(Math.ceil(this.challengeTimer) + "s", "SURVIVE", true);
+            } else if (this.currentChallenge.type === 'shots') {
+                if (this.challengeShotsRemaining <= 0 && this.jellyProjectiles.length === 0) {
+                    this.challengeActive = false;
+                    this.createJellyChallengeExit(this.player.z);
+                }
+                this.ui.updateChallengeHUD(String(this.challengeShotsRemaining), "SHOTS", true);
+            }
+        }
+
+        const isChallengeShotsActive = this.isChallengeMode && this.challengeActive && this.currentChallenge && this.currentChallenge.type === 'shots' && this.challengeShotsRemaining > 0;
+        if (!this.isJellyChallengeActive && !isChallengeShotsActive) return;
         this.staticMapCacheDirty = true;
 
         // 2. Atualizar estátuas
@@ -9851,7 +9954,8 @@ export class Engine {
             const coords = key.split(',').map(Number);
             const sx = coords[0], sy = coords[1], sz = coords[2];
 
-            if (state.shotsFired >= CONFIG.JELLY_STATUE_MAX_SHOTS) {
+            const maxShotsForStatue = this.isChallengeMode ? (this.currentChallenge?.shots || 0) : CONFIG.JELLY_STATUE_MAX_SHOTS;
+            if (state.shotsFired >= maxShotsForStatue) {
                 finishedStatues++;
                 continue;
             }
@@ -9904,7 +10008,12 @@ export class Engine {
                     });
 
                     state.shotsFired++;
-                    if (state.shotsFired >= CONFIG.JELLY_STATUE_MAX_SHOTS) {
+                    if (this.isChallengeMode && this.challengeActive && this.currentChallenge && this.currentChallenge.type === 'shots') {
+                        this.challengeShotsRemaining--;
+                        if (this.challengeShotsRemaining < 0) this.challengeShotsRemaining = 0;
+                    }
+
+                    if (state.shotsFired >= maxShotsForStatue) {
                         state.state = 'COOLDOWN';
                         state.chargeTimer = 0;
                     } else {
@@ -9915,7 +10024,7 @@ export class Engine {
             }
         }
 
-        if (finishedStatues === activeStatues && this.jellyProjectiles.length === 0) {
+        if (this.isJellyChallengeActive && finishedStatues === activeStatues && this.jellyProjectiles.length === 0) {
             this.endJellyChallenge();
         }
     }
@@ -9974,7 +10083,7 @@ export class Engine {
             for (let x = 0; x < size; x++) {
                 for (let y = 0; y < size; y++) {
                     const val = this.maze.get(x, y, z);
-                    if (val !== TYPES.WALL && val !== TYPES.EXIT) {
+                    if (val === TYPES.VISITED || val === TYPES.PATH) {
                         const dist = Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2);
                         candidates.push({ x, y, dist });
                     }

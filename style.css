@@ -728,6 +728,24 @@ body {
     margin-bottom: calc(var(--h-unit) * 1);
 }
 
+#left-hud-panel .challenge-title {
+    font-size: calc(var(--h-unit) * 1.4);
+    font-size: calc(var(--d-h-unit) * 1.4);
+    color: var(--clr-text-muted);
+    letter-spacing: 2px;
+    font-weight: bold;
+    margin-bottom: calc(var(--h-unit) * 1);
+}
+
+#left-hud-panel .challenge-counter {
+    font-size: calc(var(--h-unit) * 3);
+    font-size: calc(var(--d-h-unit) * 3);
+    color: #ff3366;
+    font-weight: 900;
+    margin-bottom: calc(var(--h-unit) * 1.5);
+    font-family: monospace;
+}
+
 #left-hud-panel .keys-counter {
     font-size: calc(var(--h-unit) * 3);
     font-size: calc(var(--d-h-unit) * 3);
