@@ -35,6 +35,10 @@ export interface Config {
   getPathfinderCount: (degree: number) => number;
   getKeyCount: (degree: number) => number;
   COLORS: Record<string, any>;
+  PROXIMITY_VOLUME: number;
+  DRONE_VOLUME: number;
+  DRONE_MIN_MOD_FREQ: number;
+  DRONE_MAX_MOD_FREQ: number;
 }
 
 export const CONFIG: Config = {
@@ -67,6 +71,10 @@ export const CONFIG: Config = {
     JELLY_PROJECTILE_SPEED: 5.0,
     JELLY_CHALLENGE_MIN_FREE_CELLS: 3,
     MAZE_VERTICAL_BIAS: 0.15, // Probability factor (0.0 to 1.0) of generating a vertical path (elevator) if horizontal neighbors are still available. Lower values force wider horizontal floor exploration before going up/down.
+    PROXIMITY_VOLUME: 0.15,
+    DRONE_VOLUME: 0.10,
+    DRONE_MIN_MOD_FREQ: 30,
+    DRONE_MAX_MOD_FREQ: 120,
     getHunterCount(degree: number) {
         if (degree >= 16) return 4;
         if (degree >= 12) return 3;
