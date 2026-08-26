@@ -25,6 +25,7 @@ import { Maze3D } from './maze3d.js';
 import { aStarDistance, aStarPath, proximeterDistance } from './pathfinder.js';
 import { UIManager } from './ui.js';
 import { InputHandler } from './input.js';
+import { ProximityAudioSensor } from './audio_sensor.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
 function moveTowards(current: number, target: number, maxDelta: number): number {
@@ -152,9 +153,10 @@ export class Engine {
     }> = new Map();
     previouslyDeadHuntersInfo: { threshold: number }[] = [];
     isDestroyed: boolean;
+    proximityAudioSensor: ProximityAudioSensor;
     isIntroPlaying: boolean;
     isStoryActive: boolean;
-    storyType: 'intro' | 'ending-normal' | 'ending-alternative';
+    storyType!: 'intro' | 'ending-normal' | 'ending-alternative';
     pulsatingMaterials: any[];
     hunterMeshes: any[];
     statueMeshes: Map<string, { base: any; body: any }> = new Map();
@@ -511,6 +513,7 @@ export class Engine {
         this.activeNotification = null;
         this.isPaused = false;
         this.isDestroyed = false;
+        this.proximityAudioSensor = new ProximityAudioSensor();
         this.isIntroPlaying = false;
         this.isStoryActive = false;
         this.storyStartTime = 0;
@@ -674,6 +677,7 @@ export class Engine {
 
     destroy() {
         this.isDestroyed = true;
+        this.proximityAudioSensor.stop();
         this.isJellyChallengeActive = false;
         this.updateGameContainerBackground();
         this.hideGameUI();
@@ -3760,6 +3764,15 @@ export class Engine {
             }
 
             this.ui.updateProximeter(minDistance, activeHunters.length, this.isGameOver);
+
+            // Gerencia áudio do sensor de proximidade
+            if (activeHunters.length > 0 && !this.isGameOver && !this.isPaused && !this.isIntroPlaying && !this.isStoryActive && minDistance <= 10) {
+                const activeCellsCount = 11 - minDistance;
+                this.proximityAudioSensor.setLevel(activeCellsCount);
+                this.proximityAudioSensor.start();
+            } else {
+                this.proximityAudioSensor.stop();
+            }
         }
     }
 
@@ -7150,6 +7163,7 @@ export class Engine {
 
         this.isPaused = !this.isPaused;
         if (this.isPaused) {
+            this.proximityAudioSensor.stop();
             this.ui.showPause();
             if (this.ui.uiMobilePauseBtn) {
                 this.ui.uiMobilePauseBtn.classList.add('hidden');
