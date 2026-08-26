@@ -26,6 +26,7 @@ import { aStarDistance, aStarPath, proximeterDistance } from './pathfinder.js';
 import { UIManager } from './ui.js';
 import { InputHandler } from './input.js';
 import { ProximityAudioSensor } from './audio_sensor.js';
+import { VoidBackgroundSynth } from './void_synth.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
 function moveTowards(current: number, target: number, maxDelta: number): number {
@@ -154,6 +155,7 @@ export class Engine {
     previouslyDeadHuntersInfo: { threshold: number }[] = [];
     isDestroyed: boolean;
     proximityAudioSensor: ProximityAudioSensor;
+    voidBackgroundSynth: VoidBackgroundSynth;
     isIntroPlaying: boolean;
     isStoryActive: boolean;
     storyType!: 'intro' | 'ending-normal' | 'ending-alternative';
@@ -514,6 +516,7 @@ export class Engine {
         this.isPaused = false;
         this.isDestroyed = false;
         this.proximityAudioSensor = new ProximityAudioSensor();
+        this.voidBackgroundSynth = new VoidBackgroundSynth();
         this.isIntroPlaying = false;
         this.isStoryActive = false;
         this.storyStartTime = 0;
@@ -678,6 +681,7 @@ export class Engine {
     destroy() {
         this.isDestroyed = true;
         this.proximityAudioSensor.stop();
+        this.voidBackgroundSynth.stop();
         this.isJellyChallengeActive = false;
         this.updateGameContainerBackground();
         this.hideGameUI();
@@ -2098,9 +2102,11 @@ export class Engine {
         if (savedState) {
             this.restoreFromSave(savedState);
             this.playContinueAnimation();
+            this.voidBackgroundSynth.start();
         } else if (this.isTutorialMode) {
             this.isStoryActive = false;
             this.isIntroPlaying = false;
+            this.voidBackgroundSynth.start();
             
             const mapArea = document.getElementById('map-area-container');
             const leftHud = document.getElementById('left-hud-panel');
@@ -2982,6 +2988,9 @@ export class Engine {
 
     update(dt: number) {
         if ((this.isGameOver && !this.isStoryActive) || this.isDestroyed || !dt) return;
+
+        // Atualiza sintetizador de drone espacial de fundo
+        this.voidBackgroundSynth.update(dt);
 
         // Screen Shake update
         if (this.screenShakeTimer > 0) {
@@ -6839,6 +6848,8 @@ export class Engine {
         this.isZoomTransitionActive = true;
         this.zoomTransitionTimer = 2.0;
 
+        this.voidBackgroundSynth.start();
+
         if (!this.isResumedFromSave) {
             this.ui.showInfoBanner(getTranslation('msgWhereAmI'));
         }
@@ -7164,11 +7175,13 @@ export class Engine {
         this.isPaused = !this.isPaused;
         if (this.isPaused) {
             this.proximityAudioSensor.stop();
+            this.voidBackgroundSynth.stop();
             this.ui.showPause();
             if (this.ui.uiMobilePauseBtn) {
                 this.ui.uiMobilePauseBtn.classList.add('hidden');
             }
         } else {
+            this.voidBackgroundSynth.start();
             this.ui.hidePause();
             if (this.ui.uiMobilePauseBtn && !this.ui.uiMobileControls!.classList.contains('hidden')) {
                 this.ui.uiMobilePauseBtn.classList.remove('hidden');
@@ -10473,6 +10486,10 @@ export class Engine {
         const isTracking = this.isHunterTracking;
         const isJellyPortalActive = this.jellyPortalFreezeTimer > 0;
         const isVictoryState = this.isVictory;
+
+        // Atualiza velocidade de modulação do drone de background FM
+        const isFastSpin = hasHunter || isJellyPortalActive;
+        this.voidBackgroundSynth.setFastMode(isFastSpin);
 
         const targetBg = [0, 0, 0]; // Fundo sempre preto puro, conforme feedback do usuário
         let targetStar = [200, 200, 200]; // Cor padrão das estrelas (branco/cinza claro)
