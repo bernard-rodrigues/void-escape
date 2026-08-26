@@ -1,3 +1,5 @@
+import { CONFIG } from './config.js';
+
 export class VoidBackgroundSynth {
     private ctx: AudioContext | null = null;
     private playing: boolean = false;
@@ -24,8 +26,8 @@ export class VoidBackgroundSynth {
     private filterLfoGain: GainNode | null = null;
 
     // Frequência moduladora atual (controlada por knob via lerp linear no update)
-    private currentModFreq: number = 30;
-    private targetModFreq: number = 30;
+    private currentModFreq: number = CONFIG.DRONE_MIN_MOD_FREQ;
+    private targetModFreq: number = CONFIG.DRONE_MIN_MOD_FREQ;
 
     constructor() {}
 
@@ -52,7 +54,7 @@ export class VoidBackgroundSynth {
 
         // Criar nó de ganho principal (volume geral baixo do drone)
         this.mainGain = this.ctx.createGain();
-        this.mainGain.gain.setValueAtTime(0.04, now); // Volume bem discreto de fundo
+        this.mainGain.gain.setValueAtTime(CONFIG.DRONE_VOLUME, now); // Volume de fundo configurável
 
         // Criar modulador lento para varrer a frequência de corte do filtro (uivo do vento)
         this.filterLfo = this.ctx.createOscillator();
@@ -147,7 +149,7 @@ export class VoidBackgroundSynth {
     }
 
     setFastMode(fast: boolean) {
-        this.targetModFreq = fast ? 120 : 30;
+        this.targetModFreq = fast ? CONFIG.DRONE_MAX_MOD_FREQ : CONFIG.DRONE_MIN_MOD_FREQ;
     }
 
     update(dt: number) {
@@ -180,8 +182,9 @@ export class VoidBackgroundSynth {
         }
 
         // Escalar o ganho da modulação FM junto com a frequência
-        // No modo normal (30Hz), ganho = 40. No modo rápido (120Hz), ganho = 180.
-        const t = (this.currentModFreq - 30) / 90; // 0 a 1
+        // No modo normal (min), ganho = 40. No modo rápido (max), ganho = 180.
+        const range = CONFIG.DRONE_MAX_MOD_FREQ - CONFIG.DRONE_MIN_MOD_FREQ;
+        const t = range > 0 ? (this.currentModFreq - CONFIG.DRONE_MIN_MOD_FREQ) / range : 0; // 0 a 1
         const targetGain = 40 + t * 140;
 
         if (this.modGainL) {

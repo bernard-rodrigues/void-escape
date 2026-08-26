@@ -1,3 +1,5 @@
+import { CONFIG } from './config.js';
+
 export class ProximityAudioSensor {
     private ctx: AudioContext | null = null;
     private playing: boolean = false;
@@ -17,7 +19,7 @@ export class ProximityAudioSensor {
             freq: 150 + curve * 750,
             interval: 900 - t * 750,
             dur: 0.18 + t * 0.1,
-            gain: 0.15 + t * 0.2,
+            gain: CONFIG.PROXIMITY_VOLUME * (1 + t * 1.33),
         };
     }
 
