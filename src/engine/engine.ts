@@ -1343,6 +1343,10 @@ export class Engine {
             return;
         }
 
+        // Silencia sons antes de ir para as telas finais
+        this.proximityAudioSensor.stop();
+        this.voidBackgroundSynth.stop();
+
         if (this.isChallengeMode && this.challengeStatus !== 'Defeated') {
             this.challengeStatus = 'Succeed';
         }
@@ -4052,7 +4056,8 @@ export class Engine {
                     const isKnown = (val === 1 || (isTeleport && !isTeleportDiscovered)) && this.isNearVisited(x, y, z);
 
                     if (isTeleportDiscovered) {
-                        const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) &&
+                        const isStartTeleport = !this.isChallengeMode &&
+                                                 x === Math.floor(this.mazeGen.startPos.x) &&
                                                  y === Math.floor(this.mazeGen.startPos.y) &&
                                                  z === this.mazeGen.startPos.z;
 
@@ -5657,7 +5662,7 @@ export class Engine {
                 } else if (isVisited) {
                     drawCellWithFade(x, y, () => {
                         if (isTeleportDiscovered) {
-                            const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
+                            const isStartTeleport = !this.isChallengeMode && x === startGridX && y === startGridY && z === startGridZ;
                             const key = `${x},${y},${z}`;
                             const isInactive = this.teleportCooldownTicks > 0;
                             if (isStartTeleport) {
@@ -5764,7 +5769,7 @@ export class Engine {
                         const isVisitedKey = this.visitedCells.has(`${x},${y},${z}`);
                         if (isVisitedKey) {
                             if (isTeleportDiscovered) {
-                                const isStartTeleport = x === startGridX && y === startGridY && z === startGridZ;
+                                const isStartTeleport = !this.isChallengeMode && x === startGridX && y === startGridY && z === startGridZ;
                                 const key = `${x},${y},${z}`;
                                 const isInactive = this.teleportCooldownTicks > 0;
                                 if (isStartTeleport) {
@@ -8592,7 +8597,7 @@ export class Engine {
                                     vortexColor = CONFIG.COLORS.JELLY_EXIT;
                                     isVortex = true;
                                 } else if (isTeleportDiscovered) {
-                                    const isStartTeleport = x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
+                                    const isStartTeleport = !this.isChallengeMode && x === Math.floor(this.mazeGen.startPos.x) && y === Math.floor(this.mazeGen.startPos.y) && z === this.mazeGen.startPos.z;
                                     const isInactive = this.teleportCooldownTicks > 0;
                                     if (isStartTeleport) {
                                         vortexColor = isInactive ? CONFIG.COLORS.TELEPORT_INACTIVE : (isPlayerHere ? CONFIG.COLORS.TELEPORT : CONFIG.COLORS.START);

@@ -231,7 +231,7 @@ export class Hunter {
             matrix,
             size,
             types.WALL,
-            this.maze.startPos
+            this.maze.isChallengeMode ? null : this.maze.startPos
         );
         return path;
     }
@@ -268,7 +268,7 @@ export class Hunter {
                                         this.maze.inactiveTeleportPos.x === startX && 
                                         this.maze.inactiveTeleportPos.y === startY && 
                                         this.maze.inactiveTeleportPos.z === startZ;
-                if (nx === startX && ny === startY && nz === startZ && !isStartInactive) {
+                if (!this.maze.isChallengeMode && nx === startX && ny === startY && nz === startZ && !isStartInactive) {
                     continue;
                 }
 
