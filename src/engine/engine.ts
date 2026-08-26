@@ -228,6 +228,7 @@ export class Engine {
     storyMsgIndex!: number;
     storyCloseProgress!: number;
     storyStartTime!: number;
+    revealedPathDirections!: Map<string, 'up' | 'down' | 'left' | 'right'>;
 
     selectedTeleportIndex!: number | null;
     teleportConfirmModalActive!: boolean;
@@ -512,8 +513,8 @@ export class Engine {
         this.isDestroyed = false;
         this.isIntroPlaying = false;
         this.isStoryActive = false;
-        this.storyType = 'intro';
         this.storyStartTime = 0;
+        this.revealedPathDirections = new Map();
         this.pulsatingMaterials = [];
         this.hunterMeshes = [];
         this.discoveredTeleports = new Set();
@@ -1418,6 +1419,7 @@ export class Engine {
         this.fullyRevealedCells.clear();
         this.discoveredTeleports.clear();
         this.revealedPathSet.clear();
+        this.revealedPathDirections.clear();
         this.activePathReveal = [];
         this.revealedPathProgress = 0;
         if (this.pathRevealInterval) {
@@ -5625,10 +5627,11 @@ export class Engine {
                         if (isElevator) {
                             this.drawElevator2D(ctx, x, y, cellSize, hUp, hDown, px, py, true, z);
                         } else {
-                            ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
-                            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                            const dir = this.revealedPathDirections.get(`${x},${y},${z}`) || null;
+                            this.drawPathfinderWave2D(ctx, x, y, cellSize, dir);
                         }
                     });
+                    hasActiveAnimations = true;
                 } else if (isVisited) {
                     drawCellWithFade(x, y, () => {
                         if (isTeleportDiscovered) {
@@ -6226,6 +6229,67 @@ export class Engine {
             }
             ctx.restore();
         }
+    }
+
+    drawPathfinderWave2D(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number, dir: 'up' | 'down' | 'left' | 'right' | null) {
+        // Base white path tile
+        ctx.fillStyle = CONFIG.COLORS.REVEALED_PATH;
+        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+
+        if (!dir) return;
+
+        // Wave speed and calculation
+        const waveSpeed = 2.5; // Grid cells per second
+        const timeOffset = (Date.now() / 1000) * waveSpeed;
+        const phase = timeOffset % 1.0;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x * cellSize, y * cellSize, cellSize, cellSize);
+        ctx.clip();
+
+        const px = x * cellSize;
+        const py = y * cellSize;
+        const waveWidth = cellSize * 0.45;
+        const waveColor = 'rgba(180, 220, 255, 0.7)'; // Brighter bluish wave on top of white
+
+        let grad: CanvasGradient;
+
+        if (dir === 'right') {
+            const startX = px - waveWidth + phase * (cellSize + waveWidth);
+            grad = ctx.createLinearGradient(startX, py, startX + waveWidth, py);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            grad.addColorStop(0.5, waveColor);
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(startX, py, waveWidth, cellSize);
+        } else if (dir === 'left') {
+            const startX = px + cellSize - phase * (cellSize + waveWidth);
+            grad = ctx.createLinearGradient(startX, py, startX + waveWidth, py);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            grad.addColorStop(0.5, waveColor);
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(startX, py, waveWidth, cellSize);
+        } else if (dir === 'down') {
+            const startY = py - waveWidth + phase * (cellSize + waveWidth);
+            grad = ctx.createLinearGradient(px, startY, px, startY + waveWidth);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            grad.addColorStop(0.5, waveColor);
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(px, startY, cellSize, waveWidth);
+        } else if (dir === 'up') {
+            const startY = py + cellSize - phase * (cellSize + waveWidth);
+            grad = ctx.createLinearGradient(px, startY, px, startY + waveWidth);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            grad.addColorStop(0.5, waveColor);
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(px, startY, cellSize, waveWidth);
+        }
+
+        ctx.restore();
     }
 
     /**
@@ -7200,6 +7264,7 @@ export class Engine {
             this.pathRevealInterval = null;
         }
         this.revealedPathSet.clear();
+        this.revealedPathDirections.clear();
 
         let targetZ = tz;
         if (tz % 2 === 0) {
@@ -7220,6 +7285,24 @@ export class Engine {
         const path = this.findShortestPath(start, end, restrictToVisited);
 
         if (!path || path.length === 0) return;
+
+        for (let i = 0; i < path.length; i++) {
+            const current = path[i];
+            const next = path[i + 1];
+            if (next) {
+                const dx = next.x - current.x;
+                const dy = next.y - current.y;
+                let dir: 'up' | 'down' | 'left' | 'right' | null = null;
+                if (dx === 1) dir = 'right';
+                else if (dx === -1) dir = 'left';
+                else if (dy === 1) dir = 'down';
+                else if (dy === -1) dir = 'up';
+                
+                if (dir) {
+                    this.revealedPathDirections.set(`${current.x},${current.y},${current.z}`, dir);
+                }
+            }
+        }
 
         this.pathfindersRemaining--;
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
@@ -8018,7 +8101,7 @@ export class Engine {
             }
         };
 
-        const drawIsoBox = (cx: number, cy: number, w: number, h: number, H: number, color: string, opacity = 1.0) => {
+        const drawIsoBox = (cx: number, cy: number, w: number, h: number, H: number, color: string, opacity = 1.0, dir: 'up' | 'down' | 'left' | 'right' | null = null) => {
             ctx.save();
             ctx.globalAlpha = opacity;
 
@@ -8055,6 +8138,78 @@ export class Engine {
             ctx.closePath();
             ctx.fillStyle = color;
             ctx.fill();
+
+            if (dir) {
+                // Wave speed and calculation
+                const waveSpeed = 2.5; // Grid cells per second
+                const timeOffset = (Date.now() / 1000) * waveSpeed;
+                const phase = timeOffset % 1.0;
+
+                ctx.save();
+                // Clip to the top face rhombus
+                ctx.beginPath();
+                ctx.moveTo(cx - w, cy - H);
+                ctx.lineTo(cx, cy + h - H);
+                ctx.lineTo(cx + w, cy - H);
+                ctx.lineTo(cx, cy - h - H);
+                ctx.closePath();
+                ctx.clip();
+
+                const cyT = cy - H;
+                const waveWidth = w * 0.9;
+                const waveColor = 'rgba(180, 220, 255, 0.7)'; // Brighter bluish wave on top of white
+
+                let pStart = { x: 0, y: 0 };
+                let pEnd = { x: 0, y: 0 };
+
+                if (dir === 'right') { // x increases (down-right: (cx - w/2, cyT - h/2) to (cx + w/2, cyT + h/2))
+                    pStart = { x: cx - w/2, y: cyT - h/2 };
+                    pEnd = { x: cx + w/2, y: cyT + h/2 };
+                } else if (dir === 'left') { // x decreases (up-left: (cx + w/2, cyT + h/2) to (cx - w/2, cyT - h/2))
+                    pStart = { x: cx + w/2, y: cyT + h/2 };
+                    pEnd = { x: cx - w/2, y: cyT - h/2 };
+                } else if (dir === 'down') { // y increases (down-left: (cx + w/2, cyT - h/2) to (cx - w/2, cyT + h/2))
+                    pStart = { x: cx + w/2, y: cyT - h/2 };
+                    pEnd = { x: cx - w/2, y: cyT + h/2 };
+                } else if (dir === 'up') { // y decreases (up-right: (cx - w/2, cyT + h/2) to (cx + w/2, cyT - h/2))
+                    pStart = { x: cx - w/2, y: cyT + h/2 };
+                    pEnd = { x: cx + w/2, y: cyT - h/2 };
+                }
+
+                // Interpolate along the direction vector to find wave center
+                const wx = pStart.x + phase * (pEnd.x - pStart.x);
+                const wy = pStart.y + phase * (pEnd.y - pStart.y);
+
+                const dx = pEnd.x - pStart.x;
+                const dy = pEnd.y - pStart.y;
+                
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const ndx = len > 0 ? dx / len : 0;
+                const ndy = len > 0 ? dy / len : 0;
+
+                const halfW = waveWidth / 2;
+                const gradStartX = wx - ndx * halfW;
+                const gradStartY = wy - ndy * halfW;
+                const gradEndX = wx + ndx * halfW;
+                const gradEndY = wy + ndy * halfW;
+
+                const grad = ctx.createLinearGradient(gradStartX, gradStartY, gradEndX, gradEndY);
+                grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+                grad.addColorStop(0.5, waveColor);
+                grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+                ctx.fillStyle = grad;
+                
+                ctx.beginPath();
+                ctx.moveTo(cx - w, cyT);
+                ctx.lineTo(cx, cyT + h);
+                ctx.lineTo(cx + w, cyT);
+                ctx.lineTo(cx, cyT - h);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.restore();
+            }
 
             ctx.restore();
         };
@@ -8441,7 +8596,8 @@ export class Engine {
                                 if (isVortex) {
                                     drawVortexIsometric(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, vortexColor, isPlayerHere, key, cellOpacity);
                                 } else {
-                                    drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity);
+                                    const dir = isRevealedPath ? (this.revealedPathDirections.get(`${x},${y},${z}`) || null) : null;
+                                    drawIsoBox(coords.x, coords.y, tileWidthHalf, tileHeightHalf, H, color, opacity, dir);
                                 }
                             }
 
