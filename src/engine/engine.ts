@@ -27,6 +27,7 @@ import { UIManager } from './ui.js';
 import { InputHandler } from './input.js';
 import { ProximityAudioSensor } from './audio_sensor.js';
 import { VoidBackgroundSynth } from './void_synth.js';
+import { SFXSynth } from './sfx_synth.js';
 import { saveGame, clearSave, restoreHunter, restoreMatrix } from './save.js';
 
 function moveTowards(current: number, target: number, maxDelta: number): number {
@@ -156,6 +157,7 @@ export class Engine {
     isDestroyed: boolean;
     proximityAudioSensor: ProximityAudioSensor;
     voidBackgroundSynth: VoidBackgroundSynth;
+    sfx: SFXSynth;
     isIntroPlaying: boolean;
     isStoryActive: boolean;
     storyType!: 'intro' | 'ending-normal' | 'ending-alternative';
@@ -517,6 +519,7 @@ export class Engine {
         this.isDestroyed = false;
         this.proximityAudioSensor = new ProximityAudioSensor();
         this.voidBackgroundSynth = new VoidBackgroundSynth();
+        this.sfx = new SFXSynth();
         this.isIntroPlaying = false;
         this.isStoryActive = false;
         this.storyStartTime = 0;
@@ -921,6 +924,7 @@ export class Engine {
         }
 
         if (!this.suppressWakeHuntersBanner) {
+            this.sfx.playHuntersAwake();
             this.ui.showInfoBanner(getTranslation('msgVoidHuntersDetected'));
         }
         this.suppressWakeHuntersBanner = false;
@@ -994,6 +998,7 @@ export class Engine {
         this.selectedTeleportIndex = this.allTeleports.findIndex(t => t.x === px && t.y === py && t.z === pz);
         this.staticMapCacheDirty = true;
 
+        this.sfx.playJellyPortalActivated();
         this.ui.showInfoBanner(getTranslation('msgJellyPortalActivated'));
 
         // Salva imediatamente, definindo esta célula como o novo ponto de respawn
@@ -1555,6 +1560,8 @@ export class Engine {
         this.isGameOver = true;
         this.deathsCount++;
         this.hideGameUI();
+        this.sfx.playHitDamage();
+        this.sfx.playDeathGlitch();
 
         this.ui.showInfoBanner(getTranslation('msgKeyDropped'));
 
@@ -1580,10 +1587,12 @@ export class Engine {
         this.visitedCells.add(`${x},${y},${z}`);
         this.keysCollected++;
         this.staticMapCacheDirty = true;
+        this.sfx.playKeyCollected();
         this.ui.updateKeysHUD(this.keysCollected, this.totalKeys);
         this.ui.showInfoBanner(getTranslation('msgKeySecured', { collected: this.keysCollected, total: this.totalKeys }));
         
         if (this.keysCollected === this.totalKeys) {
+            this.sfx.playExitUnlocked();
             this.ui.showInfoBanner(getTranslation('msgExitUnlocked'));
             if (this.exitMesh) {
                 this.exitMesh.material.color.setHex(CONFIG.COLORS.THREE_EXIT);
@@ -1602,6 +1611,7 @@ export class Engine {
         this.visitedCells.add(`${x},${y},${z}`);
         this.manaCollected++;
         this.staticMapCacheDirty = true;
+        this.sfx.playManaCollected();
         this.ui.updateManaHUD(this.manaCollected, this.totalMana);
         this.ui.showInfoBanner(getTranslation('msgManaSecured', { collected: this.manaCollected, total: this.totalMana }));
         
@@ -1785,6 +1795,8 @@ export class Engine {
                 this.isGameOver = true;
                 this.deathsCount++;
                 this.hideGameUI(); // Desativa o mapa 3D se ativo, controles etc.
+                this.sfx.playHitDamage();
+                this.sfx.playDeathGlitch();
 
                 this.ui.showInfoBanner(getTranslation('msgKeyDropped'));
 
@@ -3606,6 +3618,7 @@ export class Engine {
                         } else {
                             // Reentered or newly found teleport -> auto-save
                             this.triggerSave();
+                            this.sfx.playTeleportSafeHum();
                             this.ui.showInfoBanner(getTranslation('msgSafePointTeleport'));
                         }
                     }
@@ -3807,6 +3820,11 @@ export class Engine {
             if (nextZ >= 0 && nextZ < this.mazeGen.size && 
                 this.maze.get(currentX, currentY, nextZ) !== this.mazeGen.TYPES.WALL &&
                 this.maze.get(currentX, currentY, nextZ) !== this.mazeGen.TYPES.STATUE) {
+                if (delta > 0) {
+                    this.sfx.playElevatorUp();
+                } else if (delta < 0) {
+                    this.sfx.playElevatorDown();
+                }
                 const shaftZ = currentZ + delta / 2;
                 if (this.maze.get(currentX, currentY, shaftZ) !== this.mazeGen.TYPES.ELEVATOR_VISITED) {
                     this.maze.set(currentX, currentY, shaftZ, this.mazeGen.TYPES.ELEVATOR_VISITED);
@@ -3858,6 +3876,7 @@ export class Engine {
     }
 
     toggleMap3D() {
+        this.sfx.playUIClick();
         this.isMap3DActive = !this.isMap3DActive;
         this.isTeleportMode = false;
         const telExitBtn = document.getElementById('mobile-teleport-exit-btn');
@@ -7152,6 +7171,7 @@ export class Engine {
 
     toggleZoom() {
         if (this.mazeGen.size <= 11) return;
+        this.sfx.playUIClick();
         this.isZoomActive = !this.isZoomActive;
         this.staticMapCacheDirty = true;
         
@@ -7172,11 +7192,13 @@ export class Engine {
         this.screenShakeTimer = duration;
         this.screenShakeDuration = duration;
         this.screenShakeIntensity = intensity;
+        this.sfx.playScreenRumble(duration);
     }
 
     togglePause() {
         if (this.isGameOver || this.isDestroyed || this.isIntroPlaying) return;
 
+        this.sfx.playUIClick();
         this.isPaused = !this.isPaused;
         if (this.isPaused) {
             this.proximityAudioSensor.stop();
@@ -7338,6 +7360,7 @@ export class Engine {
 
         this.pathfindersRemaining--;
         this.ui.updatePathfindersHUD(this.pathfindersRemaining, this.totalPathfinders);
+        this.sfx.playPathfinderRadar();
         saveGame(this);
 
         this.activePathReveal = path;
@@ -7401,6 +7424,7 @@ export class Engine {
     teleportTo(x: number, y: number, z: number) {
         if (this.isJellyChallengeActive) return;
         this.toggleTeleportMap(false);
+        this.sfx.playTeleportWarp();
 
         this.teleportAnim = {
             active: true,
@@ -10257,6 +10281,7 @@ export class Engine {
                 if (state.chargeTimer <= 0) {
                     state.state = 'CHARGING';
                     state.chargeTimer = CONFIG.JELLY_STATUE_CHARGE_TIME;
+                    this.sfx.playStatueCharging(CONFIG.JELLY_STATUE_CHARGE_TIME);
                 }
             } else if (state.state === 'CHARGING') {
                 state.chargeTimer -= dt;
@@ -10298,6 +10323,7 @@ export class Engine {
                         dirY,
                         threeMesh
                     });
+                    this.sfx.playStatueShot();
 
                     state.shotsFired++;
                     if (this.isChallengeMode && this.challengeActive && this.currentChallenge && this.currentChallenge.type === 'shots') {
@@ -10411,6 +10437,7 @@ export class Engine {
 
             // Tremor de tela e congelamento com animação de morte para os caçadores
             this.triggerScreenShake(0.8, 15);
+            this.sfx.playAlternativeExitGlorious();
             this.jellyPortalFreezeTimer = 1.5;
             this.jellyPortalResetElapsed = 0;
             this.jellyPortalResetCells.clear();
