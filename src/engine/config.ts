@@ -39,6 +39,8 @@ export interface Config {
   DRONE_VOLUME: number;
   DRONE_MIN_MOD_FREQ: number;
   DRONE_MAX_MOD_FREQ: number;
+  SFX_VOLUME: number;
+  SFX_ENABLED: boolean;
 }
 
 export const CONFIG: Config = {
@@ -75,6 +77,8 @@ export const CONFIG: Config = {
     DRONE_VOLUME: 0.10,
     DRONE_MIN_MOD_FREQ: 30,
     DRONE_MAX_MOD_FREQ: 120,
+    SFX_VOLUME: 0.25,
+    SFX_ENABLED: true,
     getHunterCount(degree: number) {
         if (degree >= 16) return 4;
         if (degree >= 12) return 3;
